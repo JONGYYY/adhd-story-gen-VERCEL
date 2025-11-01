@@ -344,30 +344,111 @@ async function generateVideoSimple(options, videoId) {
   }
 }
 
-// Always try to build efficient generator at startup with esbuild, then require it
-let efficient;
-try {
-  const esbuild = require('esbuild');
-  console.log('Building efficient generator bundle...');
-  esbuild.buildSync({
-    entryPoints: ['src/lib/video-generator/efficient-generator.ts'],
-    bundle: true,
-    platform: 'node',
-    format: 'cjs',
-    outfile: 'dist/efficient-generator.js',
-    sourcemap: false
-  });
-  efficient = require('./dist/efficient-generator.js');
-  console.log('Efficient generator built and loaded');
-} catch (err) {
-  try {
-    console.warn('Build failed or esbuild missing, trying to load existing bundle:', err?.message);
-    efficient = require('./dist/efficient-generator.js');
-    console.log('Efficient generator loaded from existing bundle');
-  } catch (e2) {
-    console.warn('Efficient generator not available; using inline composer');
-    efficient = null;
+// Remotion renderer setup (use Remotion instead of hybrid/efficient generator)
+const {bundle, renderMedia, getCompositions} = require('@remotion/renderer');
+const os = require('os');
+
+async function generateVideoWithRemotion({ title, story, backgroundCategory, voiceAlias }, videoId) {
+  const tmpDir = path.join(__dirname, 'tmp');
+  await fsp.mkdir(tmpDir, { recursive: true });
+
+  // 1) Resolve inputs (banner, background, audio)
+  // Background
+  const preferredRemote = EXTERNAL_BG[backgroundCategory] || null;
+  let bgPath;
+  if (preferredRemote && preferredRemote.startsWith('http')) {
+    bgPath = path.join(tmpDir, `bg-${videoId}.mp4`);
+    const bgRes = await fetch(preferredRemote);
+    const bgBuf = Buffer.from(await bgRes.arrayBuffer());
+    await fsp.writeFile(bgPath, bgBuf);
+  } else {
+    const local = path.join(__dirname, 'public', 'backgrounds', backgroundCategory || 'subway', '1.mp4');
+    if (fs.existsSync(local)) bgPath = local; else {
+      bgPath = path.join(tmpDir, `bg-${videoId}.mp4`);
+      const fallback = EXTERNAL_BG.random;
+      const bgRes = await fetch(fallback);
+      const bgBuf = Buffer.from(await bgRes.arrayBuffer());
+      await fsp.writeFile(bgPath, bgBuf);
+    }
   }
+
+  // Banner
+  let bannerPath = path.join(__dirname, 'public', 'banners', 'redditbannerbottom.png');
+  if (!fs.existsSync(bannerPath)) {
+    bannerPath = path.join(__dirname, 'public', 'banners', 'redditbannertop.png');
+  }
+
+  // Audio via ElevenLabs (optional)
+  const openingText = title || '';
+  const storyText = (story || '').split('[BREAK]')[0].trim() || story || '';
+  const openingBuf = await synthesizeVoiceEleven(openingText, voiceAlias).catch(() => null);
+  const storyBuf = await synthesizeVoiceEleven(storyText, voiceAlias).catch(() => null);
+  const openingAudio = path.join(tmpDir, `open-${videoId}.mp3`);
+  const storyAudio = path.join(tmpDir, `story-${videoId}.mp3`);
+  if (openingBuf) await fsp.writeFile(openingAudio, openingBuf);
+  if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
+
+  // Pick narration source (prefer story)
+  const narrationPath = storyBuf ? storyAudio : (openingBuf ? openingAudio : null);
+
+  // Compute rough alignment (per-word evenly distributed over audio duration)
+  let alignment = { words: [], sampleRate: 16000 };
+  if (narrationPath) {
+    const totalDur = await getAudioDurationFromFile(narrationPath).catch(() => 3.0);
+    const words = storyText.split(/\s+/).filter(w => w.length > 0);
+    const avg = words.length > 0 ? (totalDur / words.length) : 0.2;
+    alignment.words = words.map((w, i) => ({
+      word: w.replace(/[.,!?;:]+$/, ''),
+      startMs: Math.round((i * avg) * 1000),
+      endMs: Math.round(((i + 1) * avg) * 1000),
+      confidence: 0.8
+    }));
+  }
+
+  // 2) Bundle the Remotion project
+  const entry = path.join(__dirname, 'apps', 'renderer', 'src', 'index.ts');
+  console.log('Bundling Remotion project from', entry);
+  const bundled = await bundle(entry);
+
+  // Determine duration in frames based on audio length (fallback 60s)
+  const fps = 30;
+  const width = 1080;
+  const height = 1920;
+  let durationInSeconds = 60;
+  if (alignment.words.length > 0) {
+    const last = alignment.words[alignment.words.length - 1];
+    durationInSeconds = Math.max((last.endMs + 1500) / 1000, 5);
+  }
+  const durationInFrames = Math.ceil(durationInSeconds * fps);
+
+  // 3) Render with Remotion
+  const outPath = path.join(await ensureVideosDir(), `${videoId}.mp4`);
+  console.log('Rendering Remotion video to', outPath);
+  await renderMedia({
+    composition: {
+      id: 'StoryVideo',
+      width,
+      height,
+      fps,
+      durationInFrames,
+      defaultProps: {}
+    },
+    serveUrl: bundled,
+    codec: 'h264',
+    outputLocation: outPath,
+    inputProps: {
+      bannerPng: fs.existsSync(bannerPath) ? bannerPath : '',
+      bgVideo: bgPath,
+      narrationWav: narrationPath || '',
+      alignment,
+      safeZone: { left: 120, right: 120, top: 320, bottom: 320 },
+      fps,
+      width,
+      height
+    }
+  });
+
+  return `/videos/${videoId}.mp4`;
 }
 
 // Video generation endpoint
@@ -380,30 +461,16 @@ app.post('/generate-video', async (req, res) => {
 		// Set initial processing status so /video-status does not 404
 		videoStatus.set(videoId, { status: 'processing', progress: 0, message: 'Video generation started.' });
 
-		// Start video generation in the background
+		// Start video generation in the background (Remotion-only)
 		(async () => {
 			try {
-				if (efficient && efficient.generateVideo) {
-					console.log('Using efficient generator pipeline');
-					const tmpOutputPath = await efficient.generateVideo({
-						story: { title: customStory?.title || '', story: customStory?.story || '', subreddit: customStory?.subreddit || 'r/stories', author: customStory?.author || 'Anonymous' },
-						voice,
-						background,
-						isCliffhanger
-					}, videoId);
-					// Move/copy final file into public/videos so it can be served
-					const videosDir = await ensureVideosDir();
-					const finalPath = path.join(videosDir, `${videoId}.mp4`);
-					try {
-						await fsp.copyFile(tmpOutputPath, finalPath);
-					} catch (copyErr) {
-						console.warn('Copy tmp output failed, attempting rename:', copyErr?.message);
-						try { await fsp.rename(tmpOutputPath, finalPath); } catch (renameErr) { console.error('Rename also failed:', renameErr?.message); }
-					}
-					videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl: `/videos/${videoId}.mp4` });
-					return;
-				}
-				await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId);
+				const videoUrl = await generateVideoWithRemotion({
+					title: customStory?.title || '',
+					story: customStory?.story || '',
+					backgroundCategory: background?.category || 'random',
+					voiceAlias: voice?.id || 'adam'
+				}, videoId);
+				videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl });
 			} catch (e) {
 				console.error('Background generation failed:', e);
 				videoStatus.set(videoId, { status: 'failed', error: 'Video build failed' });
