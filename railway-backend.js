@@ -484,6 +484,15 @@ app.post('/generate-video', async (req, res) => {
 	}
 });
 
+// Aliases for compatibility with /api/* paths
+app.post('/api/generate-video', async (req, res) => {
+  return app._router.handle(req, res, () => {}, 'post', '/generate-video');
+});
+
+app.get('/api/video-status/:videoId', async (req, res) => {
+  return app._router.handle(req, res, () => {}, 'get', `/video-status/${req.params.videoId}`);
+});
+
 // Video status endpoint
 app.get('/video-status/:videoId', async (req, res) => {
   try {
