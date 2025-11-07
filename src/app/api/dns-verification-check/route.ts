@@ -4,7 +4,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const domain = 'adhd-story-gen.vercel.app';
+    // Current deployment: Railway with custom domain
+    const domain = 'taleo.media';
+    const wwwDomain = 'www.taleo.media';
+    // Example TXT record used by TikTok site verification (kept for reference)
     const expectedTxtRecord = 'tiktok-developers-site-verification=5Kt6Vq9a21F6XcwGsCk9MrAw2mymMuFj';
     
     // Test DNS resolution
@@ -23,50 +26,54 @@ export async function GET() {
     
     return NextResponse.json({
       success: true,
-      message: 'DNS Verification Setup Guide',
+      message: 'DNS / Domain Setup Guide for Railway',
       domain,
+      wwwDomain,
       expectedTxtRecord,
       dnsResults,
       instructions: {
-        method1: {
-          title: 'Add TXT Record in Vercel',
+        connectDomain: {
+          title: 'Add Custom Domain in Railway',
           steps: [
-            '1. Go to https://vercel.com/dashboard',
-            '2. Select your adhd-story-gen project',
-            '3. Go to Settings → Domains',
-            '4. Add TXT record:',
-            '   - Type: TXT',
-            '   - Name: @ (or leave blank)',
-            `   - Value: ${expectedTxtRecord}`,
-            '5. Save and wait 5-10 minutes for DNS propagation'
+            '1. Open your Railway project → Service → Domains',
+            `2. Add ${domain} and ${wwwDomain}`,
+            '3. Railway will show the exact DNS records to add'
           ]
         },
-        method2: {
-          title: 'Alternative - Use Meta Tag (if DNS fails)',
+        dnsForWWW: {
+          title: `DNS for ${wwwDomain} (CNAME)`,
           steps: [
-            '1. Add meta tag to your site head',
-            '2. We can implement this in your Next.js app',
-            '3. TikTok will check the meta tag instead of DNS'
+            `1. Create CNAME record: host=www value=<your-service>.up.railway.app`,
+            '2. TTL: Automatic/1m',
+            '3. Remove any previous CNAMEs pointing to Vercel'
           ]
         },
-        method3: {
-          title: 'Contact Vercel Support',
+        dnsForApex: {
+          title: `DNS for ${domain} (apex)`,
           steps: [
-            '1. If DNS management is not available',
-            '2. Contact Vercel support to add the TXT record',
-            '3. Or switch to a custom domain'
+            'Option A (preferred): If your DNS supports ALIAS/ANAME/flattened CNAME, point apex to <your-service>.up.railway.app',
+            'Option B: Use the A/AAAA records Railway shows for apex in the Domains UI',
+            'Remove any previous A/ALIAS pointing to other providers'
+          ]
+        },
+        tiktokDnsTxt: {
+          title: 'TikTok DNS TXT (optional)',
+          steps: [
+            'If TikTok requires DNS TXT verification, add a TXT record:',
+            `- Name: @ (apex)   - Value: ${expectedTxtRecord}`,
+            'Wait for propagation and retry verification'
           ]
         }
       },
       verificationUrls: [
-        'https://adhd-story-gen.vercel.app/tiktokhMSPsJuobxNxJR1v7TF8VLrQmTrREC4v.txt',
-        'https://adhd-story-gen.vercel.app/tiktok-developers-site-verification.txt',
-        'https://adhd-story-gen.vercel.app/5Kt6Vq9a21F6XcwGsCk9MrAw2mymMuFj.txt'
+        'https://taleo.media/tiktokhMSPsJuobxNxJR1v7TF8VLrQmTrREC4v.txt',
+        'https://taleo.media/tiktok-developers-site-verification.txt',
+        'https://taleo.media/5Kt6Vq9a21F6XcwGsCk9MrAw2mymMuFj.txt'
       ],
       nextSteps: [
-        'Try DNS verification first',
-        'If DNS fails, we can implement meta tag verification',
-        'If all else fails, we can buy a custom domain and set up DNS there'
+        'After setting DNS, wait for propagation (can take up to 30–60 minutes)',
+        'Re-verify your domain in Railway (Domains tab) until TLS shows as provisioned',
+        'Then run a health check: https://taleo.media/api/health should return 200'
       ]
     });
   } catch (error) {
