@@ -9,7 +9,7 @@ Allow: /
 # TikTok Verification
 # tiktok-developers-site-verification=5Kt6Vq9a21F6XcwGsCk9MrAw2mymMuFj
 
-Sitemap: https://adhd-story-gen.vercel.app/sitemap.xml`;
+Sitemap: https://taleo.media/sitemap.xml`;
 
   return new NextResponse(robotsContent, {
     status: 200,

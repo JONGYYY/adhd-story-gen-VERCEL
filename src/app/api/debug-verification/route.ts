@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const verificationCode = '5Kt6Vq9a21F6XcwGsCk9MrAw2mymMuFj';
-  const baseUrl = 'https://adhd-story-gen.vercel.app';
+  const baseUrl = 'https://taleo.media';
   
   // Test all verification URLs
   const verificationUrls = [

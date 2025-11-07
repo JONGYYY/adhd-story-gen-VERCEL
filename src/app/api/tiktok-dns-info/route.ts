@@ -11,16 +11,16 @@ export async function GET() {
       name: '@',
       value: 'tiktok-developers-site-verification=5Kt6Vq9a21F6XcwGsCk9MrAw2mymMuFj',
       instructions: [
-        '1. Go to Vercel project settings',
-        '2. Go to Domains tab',
-        '3. Add a TXT record with the above value',
-        '4. Wait for DNS propagation (5-10 minutes)',
-        '5. Try TikTok verification again'
+        '1. Open your DNS provider (Namecheap/Cloudflare/etc.)',
+        '2. Add a TXT record on the apex (name @) with the above value',
+        '3. If using Railway Domains, ensure taleo.media and www.taleo.media are verified',
+        '4. Wait for DNS propagation (10–60 minutes)',
+        '5. Retry TikTok verification once the TXT resolves'
       ]
     },
     fileVerification: {
-      url: 'https://adhd-story-gen.vercel.app/tiktok-developers-site-verification.txt',
-      alternativeUrl: 'https://adhd-story-gen.vercel.app/api/tiktok-developers-site-verification',
+      url: 'https://taleo.media/tiktok-developers-site-verification.txt',
+      alternativeUrl: 'https://taleo.media/api/tiktok-developers-site-verification',
       content: '5Kt6Vq9a21F6XcwGsCk9MrAw2mymMuFj'
     }
   });
