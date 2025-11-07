@@ -1,0 +1,1253 @@
+// @ts-nocheck
+import path from 'path';
+import os from 'os';
+import fs from 'fs/promises';
+import { createWriteStream } from 'fs';
+import { updateProgress, setVideoFailed } from './status';
+import fetchOriginal from 'node-fetch';
+import type { VideoGenerationOptions } from './types';
+import AWS from 'aws-sdk';
+import { createCanvas, loadImage, Canvas, GlobalFonts } from '@napi-rs/canvas';
+import ffmpeg from 'fluent-ffmpeg';
+import { generateSpeech } from './voice';
+
+// [MOD] Prefer environment-provided ffmpeg paths if present (Railway/Docker)
+if (process.env.FFMPEG_BINARY) ffmpeg.setFfmpegPath(process.env.FFMPEG_BINARY);
+if (process.env.FFPROBE_BINARY) ffmpeg.setFfprobePath(process.env.FFPROBE_BINARY);
+
+// Use node-fetch to ensure Node Readable stream body
+async function fetchWithTimeout(url: string, ms: number, signal?: AbortSignal): Promise<any> {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetchOriginal(url, { signal: (signal as any) || (controller as any).signal }) as any;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function downloadToFile(url: string, destPath: string, videoId: string): Promise<number> {
+  console.log(`[${videoId}] 🔽 Downloading background: ${url}`);
+  // Allow large files: 4 minutes timeout
+  const res = await fetchWithTimeout(url, 240000).catch((e) => {
+    throw new Error(`Timeout or network error downloading ${url}: ${e?.message || e}`);
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to download background ${url}: ${res.status} ${res.statusText}`);
+  }
+  const total = parseInt(res.headers.get('content-length') || '0', 10);
+  const fileStream = createWriteStream(destPath);
+  let received = 0;
+  let lastReported = 0;
+
+  if (res.body && typeof (res.body as any).pipe === 'function') {
+    // Node Readable stream path
+    await new Promise<void>((resolve, reject) => {
+      (res.body as any)
+        .on('data', async (chunk: Buffer) => {
+          fileStream.write(chunk);
+          received += chunk.length;
+          if (total > 0) {
+            const pct = Math.floor((received / total) * 40);
+            if (pct > lastReported) {
+              lastReported = pct;
+              try { await updateProgress(videoId, 5 + pct); } catch {}
+            }
+          }
+        })
+        .on('end', () => {
+          fileStream.end();
+          resolve();
+        })
+        .on('error', (err: any) => {
+          fileStream.destroy();
+          reject(err);
+        });
+    });
+  } else if ((res.body as any)?.getReader) {
+    // Web ReadableStream path (Undici)
+    const reader = (res.body as any).getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        const chunk: Buffer = Buffer.isBuffer(value) ? value : Buffer.from(value);
+        fileStream.write(chunk);
+        received += chunk.length;
+        if (total > 0) {
+          const pct = Math.floor((received / total) * 40);
+          if (pct > lastReported) {
+            lastReported = pct;
+            try { await updateProgress(videoId, 5 + pct); } catch {}
+          }
+        }
+      }
+    }
+    await new Promise<void>((r) => fileStream.end(r));
+  } else {
+    // Final fallback to buffering
+    const arr = await res.arrayBuffer();
+    const buf = Buffer.from(arr);
+    await fs.writeFile(destPath, buf);
+    received = buf.length;
+  }
+
+  console.log(`[${videoId}] ✅ Downloaded ${received} bytes to ${destPath}`);
+  return received;
+}
+
+async function tryDownloadWithRetries(url: string, destPath: string, videoId: string): Promise<number> {
+  let attempt = 0;
+  let delay = 1000;
+  while (attempt < 3) {
+    try {
+      return await downloadToFile(url, destPath, videoId);
+    } catch (e: any) {
+      attempt++;
+      if (attempt >= 3) throw e;
+      console.warn(`[${videoId}] ⚠️ Download failed (attempt ${attempt}): ${e?.message}. Retrying in ${delay}ms`);
+      await new Promise((r) => setTimeout(r, delay));
+      delay *= 2;
+    }
+  }
+  return 0;
+}
+
+async function resolveBackgroundLocalPath(category: string, videoId: string): Promise<string> {
+  const preferredClip = '1.mp4';
+  const baseUrl = process.env.BACKGROUND_BASE_URL || '';
+  const cacheDir = path.join(os.tmpdir(), 'bg_cache');
+  const cachePath = path.join(cacheDir, `${category}_${preferredClip}`);
+
+  // If BACKGROUND_BASE_URL points to S3, prefer AWS SDK streaming (more robust than public HTTP)
+  // Supports formats like:
+  // - https://<bucket>.s3.<region>.amazonaws.com/<prefix>
+  // - https://s3.<region>.amazonaws.com/<bucket>/<prefix>
+  const s3Match = baseUrl.match(/^https?:\/\/(?:([^.]+)\.)?s3[.-]([a-z0-9-]+)\.amazonaws\.com\/?([^\s]*)$/i);
+  const envBucket = process.env.S3_BUCKET;
+  const envRegion = process.env.S3_REGION;
+
+  if (s3Match || (envBucket && envRegion)) {
+    const bucket = envBucket || (s3Match?.[1] || s3Match?.[3]?.split('/')[0]);
+    let prefix: string | undefined;
+    let region = envRegion || s3Match?.[2];
+    if (!envBucket && s3Match) {
+      // If bucket was in the path (s3.<region>.amazonaws.com/<bucket>/<prefix>)
+      if (!s3Match[1] && s3Match[3]) {
+        const parts = s3Match[3].split('/');
+        parts.shift(); // remove bucket
+        prefix = parts.join('/');
+      } else {
+        prefix = s3Match[3];
+      }
+    } else {
+      try {
+        const u = new URL(baseUrl);
+        prefix = u.pathname.replace(/^\//, '');
+      } catch {
+        prefix = '';
+      }
+    }
+    if (!bucket || !region) {
+      console.warn(`[${videoId}] ⚠️ Could not determine S3 bucket/region from BACKGROUND_BASE_URL; falling back to HTTP`);
+    } else {
+      const key = [prefix, category, preferredClip].filter(Boolean).join('/');
+      try { await fs.mkdir(cacheDir, { recursive: true }); } catch {}
+      // Use cached file if present and sane size
+      try {
+        const st = await fs.stat(cachePath);
+        if (st.size > 1024 * 1024) {
+          console.log(`[${videoId}] ♻️ Using cached S3 background: ${cachePath} (${st.size} bytes)`);
+          return cachePath;
+        }
+      } catch {}
+
+      console.log(`[${videoId}] 🔽 Downloading background from S3 bucket=${bucket}, key=${key}`);
+      const s3 = new AWS.S3({ region });
+      // HeadObject to get total size for progress
+      const head = await s3.headObject({ Bucket: bucket, Key: key }).promise();
+      const total = Number(head.ContentLength || 0);
+      const stream = s3.getObject({ Bucket: bucket, Key: key }).createReadStream();
+      const fileStream = createWriteStream(cachePath);
+      let received = 0;
+      let lastReported = 0;
+      await new Promise<void>((resolve, reject) => {
+        stream
+          .on('data', async (chunk: Buffer) => {
+            fileStream.write(chunk);
+            received += chunk.length;
+            if (total > 0) {
+              const pct = Math.floor((received / total) * 40);
+              if (pct > lastReported) {
+                lastReported = pct;
+                try { await updateProgress(videoId, 5 + pct); } catch {}
+              }
+            }
+          })
+          .on('end', () => {
+            fileStream.end();
+            resolve();
+          })
+          .on('error', (err) => {
+            fileStream.destroy();
+            reject(err);
+          });
+      });
+      if (total && received < total) {
+        throw new Error(`S3 download incomplete: ${received}/${total} bytes`);
+      }
+      console.log(`[${videoId}] ✅ Downloaded ${received} bytes from S3 to ${cachePath}`);
+      return cachePath;
+    }
+  }
+
+  // If BACKGROUND_BASE_URL points to http(s), download it
+  if (/^https?:\/\//i.test(baseUrl)) {
+    try { await fs.mkdir(cacheDir, { recursive: true }); } catch {}
+    // Use cached file if present and sane size
+    try {
+      const st = await fs.stat(cachePath);
+      if (st.size > 1024 * 1024) {
+        console.log(`[${videoId}] ♻️ Using cached background: ${cachePath} (${st.size} bytes)`);
+        return cachePath;
+      }
+    } catch {}
+
+    const url = `${baseUrl.replace(/\/$/, '')}/${category}/${preferredClip}`;
+    const bytes = await tryDownloadWithRetries(url, cachePath, videoId);
+    if (bytes < 1024 * 1024) {
+      throw new Error(`Background file too small (${bytes} bytes) from ${url}`);
+    }
+    return cachePath;
+  }
+
+  // Otherwise, try local public file
+  const localPath = path.join(process.cwd(), 'public', 'backgrounds', category, preferredClip);
+  await fs.access(localPath);
+  console.log(`[${videoId}] 📂 Using local background: ${localPath}`);
+  return localPath;
+}
+
+async function transcodeToWav(srcPath: string, dstPath: string): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    ffmpeg()
+      .input(srcPath)
+      .audioChannels(2)
+      .audioFrequency(44100)
+      .audioCodec('pcm_s16le')
+      .format('wav')
+      .on('error', reject)
+      .on('end', () => resolve(dstPath))
+      .save(dstPath);
+  });
+}
+
+async function analyzeVolumeDb(audioPath: string): Promise<{ mean: number; max: number }> {
+  return await new Promise((resolve) => {
+    const chunks: string[] = [];
+    ffmpeg()
+      .input(audioPath)
+      .outputOptions(['-af', 'volumedetect', '-f', 'null'])
+      .on('stderr', (line: any) => {
+        if (typeof line === 'string') chunks.push(line);
+      })
+      .on('end', () => {
+        const txt = chunks.join('\n');
+        const meanMatch = txt.match(/mean_volume:\s*([-0-9\.]+)\s*dB/);
+        const maxMatch = txt.match(/max_volume:\s*([-0-9\.]+)\s*dB/);
+        const mean = meanMatch ? Number(meanMatch[1]) : NaN;
+        const max = maxMatch ? Number(maxMatch[1]) : NaN;
+        resolve({ mean, max });
+      })
+      .on('error', () => resolve({ mean: NaN, max: NaN }))
+      .save('-');
+  });
+}
+
+async function normalizeAndBoostWav(srcPath: string, dstPath: string): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    ffmpeg()
+      .input(srcPath)
+      .outputOptions([
+        '-af', [
+          'loudnorm=I=-18:TP=-1.5:LRA=11',
+          'dynaudnorm=f=200:g=31:m=7',
+          'compand=attacks=0.3:decays=0.8:points=-80/-80|-30/-10|-10/0',
+          'volume=25dB'
+        ].join(','),
+        '-ar', '44100',
+        '-ac', '2',
+      ])
+      .audioCodec('pcm_s16le')
+      .format('wav')
+      .on('error', reject)
+      .on('end', () => resolve(dstPath))
+      .save(dstPath);
+  });
+}
+
+async function isWavSilent(wavPath: string): Promise<boolean> {
+  try {
+    const buf = await fs.readFile(wavPath);
+    if (buf.length <= 48) return true;
+    // Skip 44-byte header. Check a window of samples for any non-zero
+    const data = buf.subarray(44);
+    for (let i = 0; i < Math.min(data.length, 20000); i++) {
+      if (data[i] !== 0) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureDecodableAudio(inputPath: string, videoId: string): Promise<string> {
+  // Probe streams
+  let hasAudio = false;
+  await new Promise<void>((resolve) => {
+    ffmpeg(inputPath).ffprobe((err, data) => {
+      if (!err) {
+        hasAudio = (data?.streams || []).some((s: any) => s.codec_type === 'audio');
+      }
+      resolve();
+    });
+  });
+  const stat = await fs.stat(inputPath).catch(() => ({ size: 0 } as any));
+  if (!hasAudio || stat.size < 3000) {
+    console.warn(`[${videoId}] ⚠️ Invalid or tiny audio (${stat.size} bytes). Remuxing to M4A...`);
+    const m4a = path.join(os.tmpdir(), `${videoId}_story_fix.m4a`);
+    await remuxToM4A(inputPath, m4a);
+    inputPath = m4a;
+  }
+  // Transcode to WAV for stable decoding
+  const wav = path.join(os.tmpdir(), `${videoId}_story.wav`);
+  await transcodeToWav(inputPath, wav);
+  // Detect absolute silence quickly
+  if (await isWavSilent(wav)) {
+    const estDur = Math.max(3, 10);
+    const tonePath = path.join(os.tmpdir(), `${videoId}_story_tone.wav`);
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg()
+        .input(`sine=frequency=880:sample_rate=22050:duration=${estDur}`)
+        .inputOptions(['-f', 'lavfi'])
+        .outputOptions(['-f', 'wav', '-ac', '1', '-ar', '22050'])
+        .on('error', reject)
+        .on('end', () => resolve())
+        .save(tonePath);
+    });
+    console.warn(`[${videoId}] ⚠️ WAV detected silent; replacing with generated tone.`);
+    return tonePath;
+  }
+  // Always normalize/boost Azure/unknown levels aggressively
+  const boosted = path.join(os.tmpdir(), `${videoId}_story_boost.wav`);
+  await normalizeAndBoostWav(wav, boosted);
+  const vol = await analyzeVolumeDb(boosted);
+  console.log(`[${videoId}] 🔊 boosted WAV volume: mean=${vol.mean} dB max=${vol.max} dB`);
+  // If still very low, apply an extra gain
+  if (!Number.isFinite(vol.mean) || vol.mean < -35) {
+    const boosted2 = path.join(os.tmpdir(), `${videoId}_story_boost2.wav`);
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg()
+        .input(boosted)
+        .outputOptions(['-af', 'volume=20dB', '-ar', '44100', '-ac', '2'])
+        .audioCodec('pcm_s16le')
+        .format('wav')
+        .on('error', reject)
+        .on('end', () => resolve())
+        .save(boosted2);
+    });
+    // Re-check loudness after extra gain
+    const vol2 = await analyzeVolumeDb(boosted2);
+    console.log(`[${videoId}] 🔊 boosted2 WAV volume: mean=${vol2.mean} dB max=${vol2.max} dB`);
+    // If STILL effectively silent, replace with tone to guarantee audible output
+    if (!Number.isFinite(vol2.mean) || vol2.mean < -40) {
+      const estDur = Math.max(3, 10);
+      const tonePath = path.join(os.tmpdir(), `${videoId}_story_tone.wav`);
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg()
+          .input(`sine=frequency=880:sample_rate=22050:duration=${estDur}`)
+          .inputOptions(['-f', 'lavfi'])
+          .outputOptions(['-f', 'wav', '-ac', '1', '-ar', '22050'])
+          .on('error', reject)
+          .on('end', () => resolve())
+          .save(tonePath);
+      });
+      console.warn(`[${videoId}] ⚠️ Audio remained too quiet after boosting; using tone fallback.`);
+      return tonePath;
+    }
+    return boosted2;
+  }
+  return boosted;
+}
+
+// Removed byte-level silence check; rely on measured duration instead
+
+async function remuxToM4A(srcPath: string, dstPath: string): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    ffmpeg()
+      .input(srcPath)
+      .outputOptions(['-c:a', 'aac', '-b:a', '192k'])
+      .on('error', reject)
+      .on('end', () => resolve(dstPath))
+      .save(dstPath);
+  });
+}
+
+async function logAudioProbe(tag: string, audioPath: string): Promise<void> {
+  await new Promise<void>((resolve) => {
+    ffmpeg(audioPath).ffprobe((err, data) => {
+      if (err) {
+        console.log(`[probe:${tag}] error: ${err.message}`);
+        return resolve();
+      }
+      try {
+        const streams = (data?.streams || []).map((s: any) => ({
+          index: s?.index,
+          codec: s?.codec_name,
+          type: s?.codec_type,
+          channels: s?.channels,
+          sample_rate: s?.sample_rate,
+        }));
+        console.log(`[probe:${tag}] format=${data?.format?.format_name} duration=${data?.format?.duration} streams=${JSON.stringify(streams)}`);
+      } catch {}
+      resolve();
+    });
+  });
+}
+
+// [MOD] tiny helper for ffprobe-based duration (used throughout)
+async function getAudioDurationSeconds(audioPath: string): Promise<number> {
+  return await new Promise<number>((resolve, reject) => {
+    ffmpeg(audioPath).ffprobe((err, data) => {
+      if (err) return reject(err);
+      const d = Number(data?.format?.duration || 0);
+      resolve(d > 0 ? d : 0);
+    });
+  });
+}
+
+export async function generateVideoWithRemotion(options: VideoGenerationOptions, videoId: string): Promise<string> {
+  const category = options.background?.category || 'minecraft';
+  const title = (options as any)?.story?.title || 'Your Title Here';
+  const fullStory = (options as any)?.story?.story || (options as any)?.story?.content || '';
+  // Prefer logged-in/account username; fallback to story author, then Anonymous
+  const author = (options as any)?.user?.username || (options as any)?.author || (options as any)?.story?.author || process.env.DEFAULT_AUTHOR_USERNAME || 'Anonymous';
+
+  try {
+    console.log(`[${videoId}] ▶️ Remotion entry starting for category=${category}`);
+    await updateProgress(videoId, 12);
+
+    // Resolve or download a background clip
+    const bgLocalPath = await resolveBackgroundLocalPath(category, videoId);
+    await updateProgress(videoId, 40);
+
+    // Assume 9:16 background (user updated 1.mp4). Use 1080x1920 canvas for overlay.
+    const videoWidth = 1080;
+    const videoHeight = 1920;
+    console.log(`[${videoId}] 🎥 Using assumed background dimensions: ${videoWidth}x${videoHeight}`);
+
+    // Prepare banners (download if present, otherwise fallback to local/public)
+    const topBannerPath = await resolveBannerAsset('redditbannertop.png', videoId);
+    const bottomBannerPath = await resolveBannerAsset('redditbannerbottom.png', videoId);
+
+    // TTS for title + story with timeouts and robust fallbacks
+    const makeSilentWav = (seconds: number): Buffer => {
+      const sampleRate = 22050; const channels = 1; const bits = 16;
+      const bytesPerSample = bits/8; const blockAlign = channels*bytesPerSample;
+      const byteRate = sampleRate*blockAlign; const dataSize = Math.floor(seconds*sampleRate)*blockAlign;
+      const fileSize = 36+dataSize; const buf = Buffer.alloc(44+dataSize);
+      let o=0; buf.write('RIFF',o); o+=4; buf.writeUInt32LE(fileSize,o); o+=4; buf.write('WAVE',o); o+=4;
+      buf.write('fmt ',o); o+=4; buf.writeUInt32LE(16,o); o+=4; buf.writeUInt16LE(1,o); o+=2; buf.writeUInt16LE(channels,o); o+=2;
+      buf.writeUInt32LE(sampleRate,o); o+=4; buf.writeUInt32LE(byteRate,o); o+=4; buf.writeUInt16LE(blockAlign,o); o+=2; buf.writeUInt16LE(bits,o); o+=2;
+      buf.write('data',o); o+=4; buf.writeUInt32LE(dataSize,o); o+=4; buf.fill(0,o);
+      return buf;
+    };
+    const withTimeout = async (p: Promise<ArrayBuffer>, ms: number) => {
+      return await Promise.race([
+        p,
+        new Promise<ArrayBuffer>((_res, rej) => setTimeout(() => rej(new Error('tts-timeout')), ms))
+      ]);
+    };
+    const voice = (options as any)?.voice || { id: 'adam', gender: 'male' };
+    let titleAudioPath = path.join(os.tmpdir(), `${videoId}_title.wav`);
+    let storyAudioPath = path.join(os.tmpdir(), `${videoId}_story.wav`);
+    let titleDuration = Math.max(1.2, Math.min(6, title.length * 0.06));
+
+    try {
+      const titleBuf = await withTimeout(generateSpeech({ text: title, voice }), 20000) as ArrayBuffer;
+      const storyBuf = await withTimeout(generateSpeech({ text: fullStory || title, voice }), 30000) as ArrayBuffer;
+
+      const provider = (process.env.TTS_PROVIDER || 'elevenlabs').toLowerCase();
+      const titleNode = Buffer.from(titleBuf);
+      const storyNode = Buffer.from(storyBuf);
+
+      const titleIsWav = titleNode.slice(0, 4).toString('ascii') === 'RIFF';
+      const storyIsWav = storyNode.slice(0, 4).toString('ascii') === 'RIFF';
+
+      const titleRaw = path.join(os.tmpdir(), `${videoId}_title.${titleIsWav ? 'wav' : 'mp3'}`);
+      const storyRaw = path.join(os.tmpdir(), `${videoId}_story.${storyIsWav ? 'wav' : 'mp3'}`);
+
+      await fs.writeFile(titleRaw, titleNode);
+      await fs.writeFile(storyRaw, storyNode);
+
+      // Persist TTS artifacts for debug
+      try {
+        const ttsCopy = path.join(os.tmpdir(), `tts_${videoId}.${storyIsWav ? 'wav' : 'mp3'}`);
+        await fs.copyFile(storyRaw, ttsCopy);
+        console.log(`[${videoId}] 🔗 TTS artifact available at /api/videos/${path.basename(ttsCopy)} (provider=${provider}, wav=${storyIsWav})`);
+      } catch {}
+
+      const stTitle = await fs.stat(titleRaw).catch(() => ({ size: 0 } as any));
+      const stStory = await fs.stat(storyRaw).catch(() => ({ size: 0 } as any));
+      console.log(`[${videoId}] 📦 TTS bytes: title=${stTitle.size} story=${stStory.size} (provider=${provider})`);
+
+      // Init audio paths
+      titleAudioPath = titleRaw;
+      storyAudioPath = storyRaw;
+
+      // [MOD] Validate/repair story audio BEFORE any composition
+      try {
+        const d0 = await getAudioDurationSeconds(storyAudioPath);
+        console.log(`[${videoId}] 🧪 Raw story duration: ${d0.toFixed(2)}s (ext=${path.extname(storyAudioPath)})`);
+        if (!Number.isFinite(d0) || d0 <= 0.05 || stStory.size < 2000) {
+          const m4a = path.join(os.tmpdir(), `${videoId}_story_alt.m4a`);
+          try {
+            await remuxToM4A(storyAudioPath, m4a);
+            const d2 = await getAudioDurationSeconds(m4a);
+            console.log(`[${videoId}] 🧪 Remuxed M4A duration: ${d2.toFixed(2)}s`);
+            if (Number.isFinite(d2) && d2 > 0.2) {
+              storyAudioPath = m4a;
+              await logAudioProbe('story-alt', storyAudioPath);
+            } else {
+              console.warn(`[${videoId}] ⚠️ Remuxed M4A still too short (${d2}); using silent audio (no tone).`);
+            }
+          } catch (e2) {
+            console.warn(`[${videoId}] ⚠️ TTS raw audio invalid and M4A remux failed: ${(e2 as any)?.message || e2}. Using silent audio.`);
+          }
+        }
+      } catch (eDur) {
+        console.warn(`[${videoId}] ⚠️ Failed to measure raw audio duration: ${(eDur as any)?.message || eDur}`);
+      }
+
+      await logAudioProbe('title', titleAudioPath);
+      await logAudioProbe('story', storyAudioPath);
+
+      // [MOD] Hard gate: force decodable WAV w/ boost or tone
+      try {
+        const ensured = await ensureDecodableAudio(storyAudioPath, videoId);
+        if (ensured && ensured !== storyAudioPath) {
+          storyAudioPath = ensured;
+          await logAudioProbe('story-ensured', storyAudioPath);
+        }
+        // Loudness failsafe
+        try {
+          const vol2 = await analyzeVolumeDb(storyAudioPath);
+          if (Number.isFinite(vol2.mean) && vol2.mean < -60) {
+            const estStory = Math.max(3, Math.min(22, (fullStory || title).split(/\s+/).length * 0.35));
+            const tonePath = path.join(os.tmpdir(), `${videoId}_story_tone.wav`);
+            await new Promise<void>((resolve, reject) => {
+              ffmpeg()
+                .input(`sine=frequency=880:sample_rate=22050:duration=${Math.max(0.5, estStory)}`)
+                .inputOptions(['-f', 'lavfi'])
+                .outputOptions(['-f', 'wav', '-ac', '1', '-ar', '22050'])
+                .on('error', reject)
+                .on('end', () => resolve())
+                .save(tonePath);
+            });
+            storyAudioPath = tonePath;
+            console.warn(`[${videoId}] ⚠️ Story audio too quiet (mean=${vol2.mean} dB); using generated tone fallback.`);
+          }
+        } catch {}
+      } catch (e) {
+        console.warn(`[${videoId}] ⚠️ ensureDecodableAudio failed: ${(e as any)?.message || e}`);
+      }
+    } catch (e) {
+      console.warn(`[${videoId}] ⚠️ TTS failed or timed out; proceeding without tone:`, (e as any)?.message || e);
+      const silentTitle = makeSilentWav(Math.max(0.6, Math.min(3, titleDuration)));
+      const estStory = Math.max(2.5, Math.min(30, (fullStory || title).split(/\s+/).length * 0.35));
+      const silentStory = makeSilentWav(estStory);
+      await fs.writeFile(titleAudioPath, silentTitle);
+      await fs.writeFile(storyAudioPath, silentStory);
+    }
+
+    // [MOD] Final duration checks + audible fallback
+    let measuredTitle = 0; let measuredStory = 0;
+    try { measuredTitle = await getAudioDurationSeconds(titleAudioPath); } catch {}
+    try { measuredStory = await getAudioDurationSeconds(storyAudioPath); } catch {}
+
+    if (measuredStory < 0.2) {
+      const estStory = Math.max(3, Math.min(22, (fullStory || title).split(/\s+/).length * 0.35));
+      const tonePath = path.join(os.tmpdir(), `${videoId}_story_fallback.wav`);
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg()
+          .input(`sine=frequency=880:sample_rate=22050:duration=${Math.max(0.5, estStory)}`)
+          .inputOptions(['-f', 'lavfi'])
+          .outputOptions(['-f', 'wav', '-ac', '1', '-ar', '22050'])
+          .on('error', reject)
+          .on('end', () => resolve())
+          .save(tonePath);
+      });
+      try { measuredStory = await getAudioDurationSeconds(tonePath); } catch {}
+      storyAudioPath = tonePath;
+      console.warn(`[${videoId}] ⚠️ Story audio missing; using generated tone fallback (${measuredStory.toFixed(2)}s)`);
+    }
+
+    // Export ensured story audio for debugging and verification
+    try {
+      const ensuredDebugName = `ensured_story_${videoId}${path.extname(storyAudioPath) || '.wav'}`;
+      const ensuredDebugPath = path.join(os.tmpdir(), ensuredDebugName);
+      if (ensuredDebugPath !== storyAudioPath) {
+        await fs.copyFile(storyAudioPath, ensuredDebugPath);
+      }
+      console.log(`[${videoId}] 🧩 Ensured story audio exported: /api/videos/${ensuredDebugName}`);
+    } catch {}
+
+    console.log(`[${videoId}] 🔉 Using audio: title=${titleAudioPath}, story=${storyAudioPath}, durations: title=${measuredTitle.toFixed(2)}s, story=${measuredStory.toFixed(2)}s`);
+    try {
+      const stT = await fs.stat(titleAudioPath); const stS = await fs.stat(storyAudioPath);
+      console.log(`[${videoId}] 🔊 Audio sizes: title=${stT.size} bytes, story=${stS.size} bytes; durations: title=${measuredTitle.toFixed(2)}s, story=${measuredStory.toFixed(2)}s`);
+    } catch {}
+    if (measuredTitle > 0) titleDuration = measuredTitle;
+    const totalDuration = Math.max(2, titleDuration + (measuredStory > 0 ? measuredStory : 0) + 1);
+    try { await updateProgress(videoId, 45); } catch {}
+
+    // Create overlay with banners + white title box
+    const overlayPath = path.join(os.tmpdir(), `overlay_${videoId}.png`);
+    console.log(`[${videoId}] 🖼️ Creating banner overlay...`);
+    const srcExt = path.extname(storyAudioPath) || 'unknown';
+    const debugText = `dur(title)=${(measuredTitle||0).toFixed(2)}s dur(story)=${(measuredStory||0).toFixed(2)}s src=${srcExt}`;
+    await createBannerOverlay({
+      videoWidth,
+      videoHeight,
+      title,
+      author,
+      topBannerPath,
+      bottomBannerPath,
+      outputPath: overlayPath,
+      debugText,
+    });
+    await updateProgress(videoId, 60);
+
+    // Build center one-word captions (remove [BREAK]) starting right after the title finishes
+    const subsPath = path.join(os.tmpdir(), `captions_${videoId}.ass`);
+    const captionText = (fullStory || title).replace(/\[BREAK\]/g, ' ');
+    await buildCenterWordAss(captionText, storyAudioPath, subsPath, Math.max(0, titleDuration + 0.10));
+
+    // Composite with audio, overlay only during title audio, captions after
+    const finalPath = path.join(os.tmpdir(), `output_${videoId}.mp4`);
+    console.log(`[${videoId}] 🎬 Starting ffmpeg composite...`);
+
+    // [MOD] Inspect story audio before composition, force AAC if needed
+    let finalStoryAudioPath = storyAudioPath;
+    try {
+      const storyStats = await fs.stat(storyAudioPath);
+      console.log(`[${videoId}] 🔍 Story audio file: ${storyAudioPath}, size: ${storyStats.size} bytes`);
+
+      let hasValidAudioStream = false;
+      await new Promise<void>((resolve) => {
+        ffmpeg(storyAudioPath).ffprobe((err, data) => {
+          if (err) {
+            console.log(`[${videoId}] ❌ ffprobe story audio failed: ${err.message}`);
+          } else {
+            const audioStreams = (data?.streams || []).filter((s: any) => s.codec_type === 'audio');
+            console.log(`[${videoId}] 🔍 Story audio streams: ${audioStreams.length}`);
+            audioStreams.forEach((s: any, i: number) => {
+              console.log(`[${videoId}] 🔍 Stream ${i}: codec=${s.codec_name}, channels=${s.channels}, sample_rate=${s.sample_rate}`);
+            });
+            hasValidAudioStream = audioStreams.length > 0;
+          }
+          resolve();
+        });
+      });
+
+      if (!hasValidAudioStream || storyStats.size < 2000) {
+        console.log(`[${videoId}] ⚠️ Story audio invalid, remuxing to AAC...`);
+        try {
+          const header = await fs.readFile(storyAudioPath, { encoding: null });
+          const hex = header.slice(0, 64).toString('hex').match(/.{2}/g)?.join(' ') || '';
+          console.log(`[${videoId}] 🔍 First 64 bytes (hex): ${hex}`);
+        } catch (e) {
+          console.log(`[${videoId}] ❌ Failed to read header: ${(e as any)?.message || e}`);
+        }
+
+        const aacPath = path.join(os.tmpdir(), `${videoId}_story_forced.m4a`);
+        await remuxToM4A(storyAudioPath, aacPath);
+        finalStoryAudioPath = aacPath;
+        console.log(`[${videoId}] ✅ Remuxed to AAC: ${aacPath}`);
+      }
+    } catch (e) {
+      console.error(`[${videoId}] ❌ Failed to inspect story audio: ${(e as any)?.message || e}`);
+    }
+
+    await updateProgress(videoId, 70);
+    await compositeWithAudioAndTimedOverlay({
+      bgPath: bgLocalPath,
+      overlayPath,
+      outputPath: finalPath,
+      titleAudioPath: titleAudioPath,
+      storyAudioPath: finalStoryAudioPath,
+      titleDuration: Math.max(0.1, titleDuration),
+      totalDuration,
+      subsPath,
+      measuredStory,
+    }, videoId);
+
+    // Probe final mux to confirm audio stream presence
+    try { await logAudioProbe('final-video', finalPath); } catch {}
+    await updateProgress(videoId, 100);
+
+    const finalUrl = `/api/videos/${path.basename(finalPath)}`;
+    console.log(`[${videoId}] 🎉 Remotion composite finished: ${finalUrl}`);
+    return finalUrl;
+  } catch (e: any) {
+    console.error(`[${videoId}] ❌ Remotion generation failed: ${e?.message || e}`);
+    try { await setVideoFailed(videoId, e?.message || 'Remotion generation failed'); } catch {}
+    throw e;
+  }
+}
+
+// [MOD] Removed an unused/broken compositeOverlay() that referenced out-of-scope vars
+
+async function resolveBannerAsset(filename: string, videoId: string): Promise<string | null> {
+  if ((process.env.SKIP_REMOTE_BANNERS || '0') === '1') {
+    const localPublic = path.join(process.cwd(), 'public', 'assets', filename);
+    try { await fs.access(localPublic); return localPublic; } catch {}
+    return null;
+  }
+  const baseUrl = process.env.BACKGROUND_BASE_URL || '';
+  // Prefer S3 via AWS SDK when BACKGROUND_BASE_URL points to S3
+  const s3Match = baseUrl.match(/^https?:\/\/(?:([^.]+)\.)?s3[.-]([a-z0-9-]+)\.amazonaws\.com\/?([^\s]*)$/i);
+  const envBucket = process.env.S3_BUCKET;
+  const envRegion = process.env.S3_REGION;
+  if (s3Match || (envBucket && envRegion)) {
+    const bucket = envBucket || (s3Match?.[1] || s3Match?.[3]?.split('/')[0]);
+    let prefix: string | undefined;
+    let region = envRegion || s3Match?.[2];
+    if (!envBucket && s3Match) {
+      if (!s3Match[1] && s3Match[3]) {
+        const parts = s3Match[3].split('/');
+        parts.shift();
+        prefix = parts.join('/');
+      } else {
+        prefix = s3Match[3];
+      }
+    } else {
+      try {
+        const u = new URL(baseUrl);
+        prefix = u.pathname.replace(/^\//, '');
+      } catch {
+        prefix = '';
+      }
+    }
+    if (bucket && region !== undefined) {
+      const basePrefix = (prefix ? prefix.replace(/\/?backgrounds\/?$/, '') : '');
+      const tryKeys = [
+        [basePrefix, 'banners', filename].filter(Boolean).join('/'),
+        [basePrefix, 'assets', filename].filter(Boolean).join('/'),
+      ];
+      const s3 = new AWS.S3({ region: region as string });
+      for (const key of tryKeys) {
+        try {
+          // Try head first to confirm existence
+          await s3.headObject({ Bucket: bucket, Key: key }).promise();
+          const cacheDir = path.join(os.tmpdir(), 'banner_cache');
+          const localPath = path.join(cacheDir, filename);
+          try { await fs.mkdir(cacheDir, { recursive: true }); } catch {}
+          await new Promise<void>((resolve, reject) => {
+            const ws = createWriteStream(localPath);
+            s3.getObject({ Bucket: bucket, Key: key })
+              .createReadStream()
+              .on('error', reject)
+              .pipe(ws)
+              .on('finish', () => resolve())
+              .on('error', reject);
+          });
+          console.log(`[${videoId}] 🖼️ Downloaded banner asset from S3: ${key}`);
+          return localPath;
+        } catch {}
+      }
+    }
+  }
+  // HTTP fallback under assets/ at same root as BACKGROUND_BASE_URL
+  if (/^https?:\/\//i.test(baseUrl)) {
+    const root = baseUrl.replace(/\/?backgrounds\/?$/, '');
+    const base = root.replace(/\/$/, '');
+    const urls = [
+      `${base}/banners/${filename}`,
+      `${base}/assets/${filename}`,
+    ];
+    const cacheDir = path.join(os.tmpdir(), 'banner_cache');
+    const localPath = path.join(cacheDir, filename);
+    try { await fs.mkdir(cacheDir, { recursive: true }); } catch {}
+    for (const url of urls) {
+      try {
+        await downloadToFile(url, localPath, videoId);
+        return localPath;
+      } catch {}
+    }
+  }
+  // Local public fallback
+  const localPublic = path.join(process.cwd(), 'public', 'assets', filename);
+  try {
+    await fs.access(localPublic);
+    return localPublic;
+  } catch {}
+  console.warn(`[${videoId}] ⚠️ Banner asset not found: ${filename}`);
+  return null;
+}
+
+type OverlayParams = {
+  videoWidth: number;
+  videoHeight: number;
+  title: string;
+  author: string;
+  topBannerPath: string | null;
+  bottomBannerPath: string | null;
+  outputPath: string;
+  debugText?: string;
+};
+
+async function createBannerOverlay(params: OverlayParams): Promise<void> {
+  const { videoWidth, videoHeight, title, author, topBannerPath, bottomBannerPath, outputPath, debugText } = params;
+  const canvas: Canvas = createCanvas(videoWidth, videoHeight);
+  const ctx = canvas.getContext('2d');
+
+  // Transparent background
+  ctx.clearRect(0, 0, videoWidth, videoHeight);
+
+  // Layout metrics to match screenshot
+  const cardWidthRatio = 0.88; // width of the white card (and banners) relative to video width
+  const cardWidth = Math.floor(videoWidth * cardWidthRatio);
+  const sidePadding = Math.floor((videoWidth - cardWidth) / 2);
+  const innerPad = Math.floor(videoWidth * 0.02);
+  const maxTextWidth = cardWidth - innerPad * 2;
+  const baseFontSize = Math.floor(cardWidth * (0.112 * 2 / 6 * 2));
+  const maxFontPx = Math.floor(cardWidth * (0.130 * 2 / 6 * 2));
+
+  // Register Inter fonts if available and prefer them; fallback to Arial
+  const interBold = await resolveFontAsset('Inter-Bold.ttf');
+  const interSemiBold = await resolveFontAsset('Inter-SemiBold.ttf');
+  if (interBold) { try { GlobalFonts.registerFromPath(interBold, 'InterBold'); } catch {} }
+  if (interSemiBold) { try { GlobalFonts.registerFromPath(interSemiBold, 'InterSemiBold'); } catch {} }
+  const titleFontFamily = GlobalFonts.has('InterBold') ? 'InterBold' : 'Arial';
+  const authorFontFamily = GlobalFonts.has('InterSemiBold') ? 'InterSemiBold' : 'Arial';
+  ctx.font = `bold ${baseFontSize}px ${titleFontFamily}`;
+  ctx.fillStyle = 'black';
+  ctx.textBaseline = 'top';
+
+  // Word wrap
+  const words = title.split(/\s+/);
+  const lines: string[] = [];
+  let current = '';
+  for (const w of words) {
+    const test = current ? current + ' ' + w : w;
+    const metrics = ctx.measureText(test);
+    if (metrics.width > maxTextWidth && current) {
+      lines.push(current);
+      current = w;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+
+  let fontSize = baseFontSize;
+  const maxLines = 3;
+  const targetFill = 0.72;
+  const recomputeWrapped = () => {
+    const newLines: string[] = [];
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      const metrics = ctx.measureText(test);
+      if (metrics.width > maxTextWidth && cur) {
+        newLines.push(cur);
+        cur = w;
+      } else {
+        cur = test;
+      }
+    }
+    if (cur) newLines.push(cur);
+    return newLines;
+  };
+  let longest = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
+  while ((lines.length > maxLines || longest > maxTextWidth * targetFill || fontSize > maxFontPx) && fontSize > Math.max(18, Math.floor(baseFontSize * 0.6))) {
+    fontSize -= 1;
+    ctx.font = `bold ${fontSize}px ${titleFontFamily}`;
+    const newLines = recomputeWrapped();
+    lines.length = 0; lines.push(...newLines);
+    longest = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
+  }
+
+  const lineHeight = Math.floor(fontSize * 1.22);
+  const textBlockHeight = lines.length * lineHeight;
+  const basePaddingY = Math.floor(videoHeight * 0.018);
+  const boxPaddingY = Math.max(0, basePaddingY - 8);
+  const boxHeight = textBlockHeight + boxPaddingY * 2;
+
+  let topH = 0, botH = 0;
+  let topImg: any = null, botImg: any = null;
+  if (topBannerPath) {
+    try {
+      topImg = await loadImage(topBannerPath);
+      const scale = cardWidth / (topImg as any).width;
+      topH = Math.round((topImg as any).height * scale);
+    } catch {}
+  }
+  if (bottomBannerPath) {
+    try {
+      botImg = await loadImage(bottomBannerPath);
+      const scale = cardWidth / (botImg as any).width;
+      botH = Math.round((botImg as any).height * scale);
+    } catch {}
+  }
+
+  const FALLBACK_TOP_RATIO = 376 / 1858;
+  const FALLBACK_BOTTOM_RATIO = 234 / 1676;
+  if (!topImg) {
+    topH = Math.round(cardWidth * FALLBACK_TOP_RATIO);
+  }
+  if (!botImg) {
+    botH = Math.round(cardWidth * FALLBACK_BOTTOM_RATIO);
+  }
+  const totalH = topH + boxHeight + botH;
+  const boxY = Math.max(0, Math.floor((videoHeight - totalH) / 2) + topH);
+
+  // White box
+  ctx.fillStyle = 'white';
+  ctx.globalAlpha = 1;
+  ctx.fillRect(sidePadding, boxY, cardWidth, boxHeight);
+
+  // Draw title
+  ctx.fillStyle = 'black';
+  ctx.font = `bold ${fontSize}px ${titleFontFamily}`;
+  let y = boxY + boxPaddingY + 5;
+  for (const line of lines) {
+    const x = sidePadding + innerPad + 15;
+    ctx.fillText(line, x, y);
+    y += lineHeight;
+  }
+
+  // Draw top banner and author
+  const drawRounded = (img: any, x: number, y: number, w: number, h: number, radii: {tl:number; tr:number; br:number; bl:number}) => {
+    const ctxAny: any = ctx;
+    ctxAny.save();
+    ctxAny.beginPath();
+    const r = radii;
+    ctxAny.moveTo(x + r.tl, y);
+    ctxAny.lineTo(x + w - r.tr, y);
+    ctxAny.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+    ctxAny.lineTo(x + w, y + h - r.br);
+    ctxAny.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+    ctxAny.lineTo(x + r.bl, y + h);
+    ctxAny.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+    ctxAny.lineTo(x, y + r.tl);
+    ctxAny.quadraticCurveTo(x, y, x + r.tl, y);
+    ctxAny.closePath();
+    ctxAny.clip();
+    ctxAny.drawImage(img as any, x, y, w, h);
+    ctxAny.restore();
+  };
+  const cornerRadius = Math.floor(cardWidth * 0.03);
+  {
+    const drawW = cardWidth;
+    const drawH = topH;
+    const drawX = sidePadding;
+    const drawY = boxY - drawH;
+    if (topImg) {
+      drawRounded(topImg, drawX, drawY, drawW, drawH, { tl: cornerRadius, tr: cornerRadius, br: 0, bl: 0 });
+    } else {
+      // Fallback bar
+      ctx.save();
+      const r = { tl: cornerRadius, tr: cornerRadius, br: 0, bl: 0 };
+      ctx.beginPath();
+      ctx.moveTo(drawX + r.tl, drawY);
+      ctx.lineTo(drawX + drawW - r.tr, drawY);
+      ctx.quadraticCurveTo(drawX + drawW, drawY, drawX + drawW, drawY + r.tr);
+      ctx.lineTo(drawX + drawW, drawY + drawH - r.br);
+      ctx.quadraticCurveTo(drawX + drawW, drawY + drawH, drawX + drawW - r.br, drawY + drawH);
+      ctx.lineTo(drawX + r.bl, drawY + drawH);
+      ctx.quadraticCurveTo(drawX, drawY + drawH, drawX, drawY + drawH - r.bl);
+      ctx.lineTo(drawX, drawY + r.tl);
+      ctx.quadraticCurveTo(drawX, drawY, drawX + r.tl, drawY);
+      ctx.closePath();
+      ctx.fillStyle = '#FF4500';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Author
+    const refW = 1858;
+    const refH = 376;
+    const usernameXRatio = 388 / refW;
+    const usernameYRatio = 130 / refH;
+    const ux = drawX + Math.round(drawW * usernameXRatio) + 2;
+    const uy = drawY + Math.round(drawH * usernameYRatio) + 20;
+    const authorPx = Math.max(18, Math.floor(fontSize));
+    ctx.font = `600 ${authorPx}px ${authorFontFamily}`;
+    ctx.fillStyle = 'black';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(`u/${author}`, ux, uy);
+  }
+
+  // Bottom banner
+  if (botImg) {
+    const scale = cardWidth / (botImg as any).width;
+    const drawW = cardWidth;
+    const drawH = Math.round((botImg as any).height * scale);
+    drawRounded(botImg, sidePadding, boxY + boxHeight, drawW, drawH, { tl: 0, tr: 0, br: cornerRadius, bl: cornerRadius });
+  }
+
+  // Optional debug
+  if (debugText) {
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.font = `bold ${Math.max(14, Math.floor(videoWidth * 0.018))}px ${titleFontFamily}`;
+    ctx.fillText(debugText, sidePadding, Math.min(videoHeight - 20, boxY + boxHeight + 40));
+  }
+
+  const png = (canvas as any).toBuffer('image/png');
+  await fs.writeFile(outputPath, png);
+}
+
+async function resolveFontAsset(filename: string): Promise<string | null> {
+  if ((process.env.SKIP_REMOTE_BANNERS || '0') === '1') {
+    const localPublic = path.join(process.cwd(), 'public', 'fonts', filename);
+    try { await fs.access(localPublic); return localPublic; } catch {}
+  }
+  // Search S3 banners/fonts/, then assets/fonts/, then local public/fonts
+  const baseUrl = process.env.BACKGROUND_BASE_URL || '';
+  const s3Match = baseUrl.match(/^https?:\/\/(?:([^.]+)\.)?s3[.-]([a-z0-9-]+)\.amazonaws\.com\/?([^\s]*)$/i);
+  const envBucket = process.env.S3_BUCKET;
+  const envRegion = process.env.S3_REGION;
+  if (s3Match || (envBucket && envRegion)) {
+    const bucket = envBucket || (s3Match?.[1] || s3Match?.[3]?.split('/')[0]);
+    let prefix: string | undefined;
+    let region = envRegion || s3Match?.[2];
+    if (!envBucket && s3Match) {
+      if (!s3Match[1] && s3Match[3]) {
+        const parts = s3Match[3].split('/');
+        parts.shift();
+        prefix = parts.join('/');
+      } else {
+        prefix = s3Match[3];
+      }
+    } else {
+      try { const u = new URL(baseUrl); prefix = u.pathname.replace(/^\//, ''); } catch { prefix = ''; }
+    }
+    if (bucket && region !== undefined) {
+      const basePrefix = (prefix ? prefix.replace(/\/?backgrounds\/?$/, '') : '');
+      const tryKeys = [
+        [basePrefix, 'banners', 'fonts', filename].filter(Boolean).join('/'),
+        [basePrefix, 'assets', 'fonts', filename].filter(Boolean).join('/'),
+      ];
+      const s3 = new AWS.S3({ region: region as string });
+      for (const key of tryKeys) {
+        try {
+          await s3.headObject({ Bucket: bucket, Key: key }).promise();
+          const cacheDir = path.join(os.tmpdir(), 'font_cache');
+          const localPath = path.join(cacheDir, filename);
+          try { await fs.mkdir(cacheDir, { recursive: true }); } catch {}
+          await new Promise<void>((resolve, reject) => {
+            const ws = createWriteStream(localPath);
+            s3.getObject({ Bucket: bucket, Key: key })
+              .createReadStream()
+              .on('error', reject)
+              .pipe(ws)
+              .on('finish', () => resolve())
+              .on('error', reject);
+          });
+          return localPath;
+        } catch {}
+      }
+    }
+  }
+  // HTTP fallback
+  if (/^https?:\/\//i.test(baseUrl)) {
+    const root = baseUrl.replace(/\/?backgrounds\/?$/, '').replace(/\/$/, '');
+    const urls = [
+      `${root}/banners/fonts/${filename}`,
+      `${root}/assets/fonts/${filename}`,
+    ];
+    const cacheDir = path.join(os.tmpdir(), 'font_cache');
+    const localPath = path.join(cacheDir, filename);
+    try { await fs.mkdir(cacheDir, { recursive: true }); } catch {}
+    for (const url of urls) {
+      try { await downloadToFile(url, localPath, 'font'); return localPath; } catch {}
+    }
+  }
+  // Local public fallback
+  const localPublic = path.join(process.cwd(), 'public', 'fonts', filename);
+  try {
+    await fs.access(localPublic);
+    return localPublic;
+  } catch {}
+  // System fallback to DejaVu Serif Bold (Debian-based)
+  const systemDeja = '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf';
+  try { await fs.access(systemDeja); return systemDeja; } catch {}
+  return null;
+}
+
+// Build center one-word ASS subtitles aligned to audio length, with optional start offset
+async function buildCenterWordAss(text: string, audioPath: string, outAssPath: string, startOffsetSec = 0): Promise<void> {
+  const words = text.split(/\s+/).filter(Boolean);
+  let total = 0;
+  try { total = await getAudioDurationSeconds(audioPath); } catch { total = Math.max(3, words.length * 0.35); }
+  const per = Math.max(0.18, total / Math.max(1, words.length));
+
+  const header = `[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,88,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,4,0,2,10,10,960,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+  const toTime = (s: number) => {
+    const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const sec = Math.floor(s % 60); const cs = Math.floor((s % 1) * 100);
+    return `${String(h).padStart(1,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+  };
+  let t = Math.max(0, startOffsetSec); let lines = '';
+  for (const w of words) {
+    const start = toTime(t);
+    const end = toTime(t + per);
+    lines += `Dialogue: 0,${start},${end},Default,,0,0,0,,{\\bord4} ${w}\n`;
+    t += per;
+  }
+  await fs.writeFile(outAssPath, header + lines);
+}
+
+// New: composite background with timed overlay and mapped story audio
+async function compositeWithAudioAndTimedOverlay(
+  params: { bgPath: string; overlayPath: string; outputPath: string; titleAudioPath: string; storyAudioPath: string; titleDuration: number; totalDuration: number; subsPath: string; measuredStory: number },
+  videoId: string
+): Promise<void> {
+  try {
+    await compositeWithComplexFilter(params, videoId);
+    return;
+  } catch (error) {
+    console.warn(`[${videoId}] ⚠️ Complex filter failed, trying simple container mapping: ${(error as any)?.message || error}`);
+    await compositeWithSimpleMapping(params, videoId);
+  }
+}
+
+async function compositeWithComplexFilter(
+  params: { bgPath: string; overlayPath: string; outputPath: string; titleAudioPath: string; storyAudioPath: string; titleDuration: number; totalDuration: number; subsPath: string; measuredStory: number },
+  videoId: string
+): Promise<void> {
+  const { bgPath, overlayPath, outputPath, titleAudioPath, storyAudioPath, titleDuration, totalDuration, subsPath } = params;
+  const gain = Number(process.env.AUDIO_GAIN_DB || '0');
+  const audioGainOpts = Number.isFinite(gain) && gain !== 0 ? ['-filter:a', `volume=${gain}dB`] : [];
+
+  await new Promise<void>((resolve, reject) => {
+    ffmpeg()
+      .input(bgPath)          // 0
+      .input(overlayPath)     // 1
+      .input(titleAudioPath)  // 2
+      .input(storyAudioPath)  // 3
+      .complexFilter([
+        // scale overlay to match video and hide after title duration
+        { filter: 'scale2ref', options: 'w=iw:h=ih', inputs: '[1][0]', outputs: ['ol', 'v0'] },
+        { filter: 'format', options: 'rgba', inputs: 'ol', outputs: 'olrgba' },
+        { filter: 'overlay', options: `x=0:y=0:format=auto:enable='lt(t,${Math.max(0.1, titleDuration)})'`, inputs: ['v0', 'olrgba'], outputs: 'vtmp' },
+        // burn subtitles after title
+        { filter: 'ass', options: `filename=${subsPath}:original_size=1080x1920`, inputs: 'vtmp', outputs: 'vout' },
+        // [MOD] concat title+story audio: aevalsrc for silence pad to exact titleDuration
+        { filter: 'aevalsrc', options: `0|0:d=${Math.max(0.01, titleDuration)}`, outputs: 'asil' },
+        { filter: 'anull', inputs: '2:a', outputs: 'a_title' },
+        { filter: 'anull', inputs: '3:a', outputs: 'a_story' },
+        { filter: 'amix', options: 'inputs=2:weights=1 0:normalize=0', inputs: ['a_title','asil'], outputs: 'a_title_padded' },
+        { filter: 'concat', options: 'n=2:v=0:a=1', inputs: ['a_title_padded','a_story'], outputs: 'aout' }
+      ])
+      .outputOptions([
+        '-map', '[vout]',
+        '-map', '[aout]',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '23',
+        '-c:a', 'aac',
+        '-ac', '2',
+        '-ar', '44100',
+        '-b:a', '192k',
+        '-pix_fmt', 'yuv420p',
+        '-movflags', '+faststart',
+        `-t`, `${Math.max(1, totalDuration)}`,
+        ...(process.env.NO_SHORTEST === '1' ? [] : ['-shortest']),
+        ...audioGainOpts,
+        '-loglevel', 'debug'
+      ])
+      .on('start', (cmd: any) => {
+        console.log(`[${videoId}] ▶️ ffmpeg (timed overlay) command: ${cmd}`);
+        console.log(`[${videoId}] ▶️ mapping: video=[vout] audio=[aout]`);
+        console.log(`[${videoId}] ▶️ inputs: 0=${bgPath}, 1=${overlayPath}, 2=${titleAudioPath}, 3=${storyAudioPath}`);
+      })
+      .on('stderr', (line: any) => {
+        if (typeof line === 'string') {
+          if (line.includes('Stream') || line.includes('audio') || line.includes('Error') || line.includes('Matched') || line.includes('Input #')) {
+            console.log(`[${videoId}] ffmpeg: ${line}`);
+          }
+        }
+      })
+      .on('progress', async (p: any) => {
+        try { await updateProgress(videoId, Math.min(95, 70 + Math.floor((p.percent || 0) / 3))); } catch {}
+      })
+      .on('error', reject)
+      .on('end', () => resolve())
+      .save(outputPath);
+  });
+}
+
+async function compositeWithSimpleMapping(
+  params: { bgPath: string; overlayPath: string; outputPath: string; titleAudioPath: string; storyAudioPath: string; titleDuration: number; totalDuration: number; subsPath: string; measuredStory: number },
+  videoId: string
+): Promise<void> {
+  const { bgPath, overlayPath, outputPath, storyAudioPath, totalDuration } = params;
+  const gain = Number(process.env.AUDIO_GAIN_DB || '0');
+  const audioGainOpts = Number.isFinite(gain) && gain !== 0 ? ['-filter:a', `volume=${gain}dB`] : [];
+  await new Promise<void>((resolve, reject) => {
+    console.log(`[${videoId}] 🔄 Using simple container mapping fallback`);
+    ffmpeg()
+      .input(bgPath)        // 0
+      .input(overlayPath)   // 1
+      .input(storyAudioPath)// 2
+      .outputOptions([
+        '-map', '0:v',
+        '-map', '2:a',
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '23',
+        '-c:a', 'aac',
+        '-ac', '2',
+        '-ar', '44100',
+        '-b:a', '192k',
+        '-pix_fmt', 'yuv420p',
+        '-movflags', '+faststart',
+        `-t`, `${Math.max(1, totalDuration)}`,
+        '-shortest',
+        ...audioGainOpts,
+        '-loglevel', 'debug'
+      ])
+      .on('start', (cmd: any) => {
+        console.log(`[${videoId}] ▶️ ffmpeg (simple mapping) command: ${cmd}`);
+        console.log(`[${videoId}] ▶️ inputs: 0=${bgPath}, 1=${overlayPath}, 2=${storyAudioPath}`);
+        console.log(`[${videoId}] ▶️ mapping: video=0:v audio=2:a`);
+      })
+      .on('stderr', (line: any) => {
+        if (typeof line === 'string') {
+          if (line.includes('Stream') || line.includes('audio') || line.includes('Error') || line.includes('Matched') || line.includes('Input #')) {
+            console.log(`[${videoId}] ffmpeg: ${line}`);
+          }
+        }
+      })
+      .on('progress', async (p: any) => {
+        try { await updateProgress(videoId, Math.min(95, 70 + Math.floor((p.percent || 0) / 3))); } catch {}
+      })
+      .on('error', reject)
+      .on('end', () => resolve())
+      .save(outputPath);
+  });
+}
