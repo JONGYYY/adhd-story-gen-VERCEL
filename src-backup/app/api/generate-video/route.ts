@@ -9,7 +9,7 @@ import { createVideoStatus, setVideoReady, setVideoFailed } from '@/lib/video-ge
 export const dynamic = 'force-dynamic';
 
 // Railway API configuration
-const RAILWAY_API_URL = 'https://adhd-story-gen-production.up.railway.app';
+const RAILWAY_API_URL = 'https://taleo.media';
 
 // Force deployment trigger - updated with simplified Railway backend
 async function generateVideoOnRailway(options: VideoOptions, videoId: string, story: SubredditStory) {

@@ -1,4 +1,4 @@
-1import { VideoOptions, SubredditStory, VideoSegment, VideoMetadata, VideoGenerationOptions } from './types';
+import { VideoOptions, SubredditStory, VideoSegment, VideoMetadata, VideoGenerationOptions } from './types';
 import { generateStory } from '../story-generator/openai';
 import { selectBackgroundClips, processBackgroundClip } from './background';
 import { generateSpeech, getAudioDuration } from './voice';
