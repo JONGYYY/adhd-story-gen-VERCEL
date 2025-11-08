@@ -35,7 +35,7 @@ export default function VideoPage() {
         setVideoStatus(data);
 
         // If still generating, check again in 2 seconds
-        if (data.status === 'generating') {
+        if (data.status === 'generating' || data.status === 'processing') {
           checkStatusTimeoutRef.current = setTimeout(checkStatus, 2000);
         }
       } catch (error) {

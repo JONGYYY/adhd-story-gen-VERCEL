@@ -385,8 +385,8 @@ export default function Create() {
             setProgress(statusData.progress);
           }
           
-          // Handle different status cases
-          if (statusData.status === 'ready') {
+          // Handle different status cases (worker returns 'processing' | 'completed' | 'failed')
+          if (statusData.status === 'ready' || statusData.status === 'completed') {
             console.log('✅ Video is ready!');
             console.log('Video URL:', statusData.videoUrl);
             console.log('Clearing interval and redirecting...');
@@ -419,7 +419,7 @@ export default function Create() {
               setProgress(0);
             }
             
-          } else if (statusData.status === 'generating') {
+          } else if (statusData.status === 'generating' || statusData.status === 'processing') {
             console.log('🔄 Video still generating, progress:', statusData.progress);
             // Continue polling
             
