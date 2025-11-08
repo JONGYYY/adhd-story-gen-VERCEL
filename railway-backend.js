@@ -451,8 +451,8 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
   return `/videos/${videoId}.mp4`;
 }
 
-// Video generation endpoint
-app.post('/generate-video', async (req, res) => {
+// Video generation endpoint (handler reused by /api/* alias)
+async function generateVideoHandler(req, res) {
 	try {
 		console.log('Received video generation request.'); // Added log
 		const { customStory, voice, background, isCliffhanger } = req.body;
@@ -482,19 +482,14 @@ app.post('/generate-video', async (req, res) => {
 		console.error('Video generation error:', error); // Added log
 		res.status(500).json({ success: false, error: error.message || 'Failed to start video generation' });
 	}
-});
+}
+app.post('/generate-video', generateVideoHandler);
 
 // Aliases for compatibility with /api/* paths
-app.post('/api/generate-video', async (req, res) => {
-  return app._router.handle(req, res, () => {}, 'post', '/generate-video');
-});
+app.post('/api/generate-video', generateVideoHandler);
 
-app.get('/api/video-status/:videoId', async (req, res) => {
-  return app._router.handle(req, res, () => {}, 'get', `/video-status/${req.params.videoId}`);
-});
-
-// Video status endpoint
-app.get('/video-status/:videoId', async (req, res) => {
+// Video status endpoint (handler reused by /api/* alias)
+async function videoStatusHandler(req, res) {
   try {
     const { videoId } = req.params;
     console.log(`Video status requested for ID: ${videoId}`); // Added log
@@ -509,7 +504,9 @@ app.get('/video-status/:videoId', async (req, res) => {
     console.error('Video status error:', error); // Added log
     res.status(500).json({ success: false, error: error.message || 'Failed to get video status' });
   }
-});
+}
+app.get('/video-status/:videoId', videoStatusHandler);
+app.get('/api/video-status/:videoId', videoStatusHandler);
 
 // Serve generated videos
 app.get('/videos/:filename', (req, res) => {
