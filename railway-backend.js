@@ -365,6 +365,7 @@ const {bundle} = require('@remotion/bundler');
 const {renderMedia, getCompositions} = require('@remotion/renderer');
 const os = require('os');
 const {execFileSync} = require('child_process');
+const OpenAI = require('openai');
 
 function resolveChromiumExecutable() {
   const envPath = process.env.BROWSER_EXECUTABLE;
@@ -558,6 +559,108 @@ app.get('/videos/:filename', (req, res) => {
     res.sendFile(videoPath);
   } else {
     res.status(404).json({ error: 'Video not found' });
+  }
+});
+
+// Debug endpoint: Generate r/test story via OpenAI to inspect output
+app.all('/debug-story', async (req, res) => {
+  try {
+    const method = req.method.toUpperCase();
+    let subreddit = 'r/test';
+    let isCliffhanger = false;
+    let narratorGender = 'male';
+    if (method === 'GET') {
+      subreddit = String(req.query.subreddit || 'r/test');
+      isCliffhanger = String(req.query.isCliffhanger || 'false') === 'true';
+      narratorGender = (String(req.query.narratorGender || 'male') === 'female') ? 'female' : 'male';
+    } else if (method === 'POST') {
+      subreddit = String((req.body && req.body.subreddit) || 'r/test');
+      isCliffhanger = Boolean(req.body && req.body.isCliffhanger);
+      narratorGender = ((req.body && req.body.narratorGender) === 'female') ? 'female' : 'male';
+    } else {
+      return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ success: false, error: 'OPENAI_API_KEY is not set on worker' });
+    }
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Minimal reproduction of test prompts
+    const TEST_PROMPTS = {
+      'r/test': {
+        cliffhanger:
+`Generate a very short test story in the following format:
+
+Title: [title up to 6 words]
+Story: [short story with [BREAK] tag, maximum 15 words total]
+
+Example:
+Title: Cat Ate My Homework Today
+Story: My cat shredded my homework. [BREAK] Now I'm in trouble.
+
+Rules:
+1. Title MUST be 6 words or less
+2. Story MUST be 15 words or less INCLUDING the [BREAK] tag
+3. MUST include [BREAK] tag in the middle of the story
+4. Keep it simple and clean
+5. Do not include any other text or formatting
+6. Do not include the brackets []
+7. Do not include any line breaks in the story
+8. Do not include any punctuation at the end of the title
+9. Do not include any text before Title: or Story:
+10. Do not include any text after the story
+11. Do not include any empty lines between Title: and Story:`,
+        full:
+`Generate a very short test story in the following format:
+
+Title: [title up to 6 words]
+Story: [short story, maximum 15 words]
+
+Example:
+Title: Cat Ate My Homework Today
+Story: My cat shredded my homework right before class today.
+
+Rules:
+1. Title MUST be 6 words or less
+2. Story MUST be 15 words or less
+3. Keep it simple and clean
+4. Do not include any other text or formatting
+5. Do not include the brackets []
+6. Do not include any line breaks in the story
+7. Do not include any punctuation at the end of the title
+8. Do not include any text before Title: or Story:
+9. Do not include any text after the story
+10. Do not include any empty lines between Title: and Story:`}
+    };
+
+    const promptTemplate = (TEST_PROMPTS[subreddit] || TEST_PROMPTS['r/test'])[isCliffhanger ? 'cliffhanger' : 'full'];
+    const system = `You are a creative writer who specializes in generating engaging Reddit stories. Follow the prompt exactly as given, including all formatting requirements. Write in a style that would be natural for a ${narratorGender} narrator to tell.${isCliffhanger ? '\n\nIMPORTANT: This is a cliffhanger story. You MUST include a [BREAK] tag.' : ''}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: promptTemplate }
+      ],
+      temperature: 0.9,
+      max_tokens: 500
+    });
+    const content = completion.choices?.[0]?.message?.content || '';
+
+    // Attempt to parse Title and Story like UI route
+    const titleMatch = content.match(/Title:\s*(.+?)(?:\n|$)/);
+    const storyMatch = content.match(/Story:\s*(.+?)(?:\n|$)/);
+    const title = titleMatch ? titleMatch[1].trim() : null;
+    const story = storyMatch ? storyMatch[1].trim() : null;
+
+    return res.json({
+      success: true,
+      raw: content,
+      parsed: { title, story, subreddit, isCliffhanger, narratorGender }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: (err && err.message) || String(err) });
   }
 });
 
