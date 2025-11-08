@@ -364,6 +364,27 @@ async function generateVideoSimple(options, videoId) {
 const {bundle} = require('@remotion/bundler');
 const {renderMedia, getCompositions} = require('@remotion/renderer');
 const os = require('os');
+const {execFileSync} = require('child_process');
+
+function resolveChromiumExecutable() {
+  const envPath = process.env.BROWSER_EXECUTABLE;
+  if (envPath && fs.existsSync(envPath)) {
+    console.log('[chromium] Using BROWSER_EXECUTABLE env:', envPath);
+    return envPath;
+  }
+  const candidates = ['chromium', 'google-chrome-stable', 'google-chrome', 'chromium-browser'];
+  for (const bin of candidates) {
+    try {
+      const resolved = execFileSync('which', [bin], {stdio: ['ignore', 'pipe', 'ignore']}).toString().trim();
+      if (resolved && fs.existsSync(resolved)) {
+        console.log('[chromium] Found via which:', resolved);
+        return resolved;
+      }
+    } catch {}
+  }
+  console.warn('[chromium] No system Chromium found; falling back to Remotion auto-download');
+  return null;
+}
 
 async function generateVideoWithRemotion({ title, story, backgroundCategory, voiceAlias }, videoId) {
   const tmpDir = path.join(__dirname, 'tmp');
@@ -424,6 +445,7 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
   // 3) Render with Remotion
   const outPath = path.join(await ensureVideosDir(), `${videoId}.mp4`);
   console.log('Rendering Remotion video to', outPath);
+  const browserExec = resolveChromiumExecutable();
   await renderMedia({
     composition: {
       id: 'StoryVideo',
@@ -436,8 +458,14 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
     serveUrl: bundled,
     codec: 'h264',
     outputLocation: outPath,
-    // Use system Chromium provided by Nixpacks to avoid downloading headless shell
-    browserExecutable: process.env.BROWSER_EXECUTABLE || 'chromium',
+    // Prefer system Chromium; if not found, pass null to auto-download
+    browserExecutable: browserExec,
+    chromiumOptions: {
+      gl: 'angle',
+      disableWebSecurity: true,
+      // Common flags to run in containers
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--mute-audio']
+    },
     inputProps: {
       bannerPng: '', // legacy unused
       bannerTopPng: '', // use staticFile in composition
