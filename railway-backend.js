@@ -73,15 +73,25 @@ app.get('/', (req, res) => {
   );
 });
 
-// External background mapping (replace with your own CDN later)
-const EXTERNAL_BG = {
-  minecraft: process.env.BG_MINECRAFT_URL || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-  subway: process.env.BG_SUBWAY_URL || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-  cooking: process.env.BG_COOKING_URL || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-  workers: process.env.BG_WORKERS_URL || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-  asmr: process.env.BG_ASMR_URL || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-  random: process.env.BG_RANDOM_URL || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
-};
+// External background mapping (S3/CDN preferred via BACKGROUND_BASE_URL, fallback to per-category envs, fallback to MDN sample)
+function buildExternalBgMap() {
+  const mdn = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+  const base = (process.env.BACKGROUND_BASE_URL || '').replace(/\/$/, '');
+  const defaultFilename = process.env.BACKGROUND_FILENAME || '1.mp4';
+  const categories = ['minecraft', 'subway', 'cooking', 'workers', 'asmr'];
+  
+  const map = {};
+  for (const cat of categories) {
+    // Priority: explicit category env -> BACKGROUND_BASE_URL/category/filename -> MDN sample
+    const envUrl = process.env[`BG_${cat.toUpperCase()}_URL`];
+    const baseUrl = base ? `${base}/${cat}/${defaultFilename}` : null;
+    map[cat] = envUrl || baseUrl || mdn;
+  }
+  // Random just picks one of the categories at runtime; keep a placeholder
+  map.random = mdn;
+  return map;
+}
+const EXTERNAL_BG = buildExternalBgMap();
 
 // ElevenLabs
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
@@ -152,7 +162,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     const p = path.join(__dirname, 'public', 'backgrounds', category, '1.mp4');
     return fs.existsSync(p) ? p : null;
   }
-  const preferredRemote = EXTERNAL_BG[backgroundCategory] || null;
+  let preferredRemote = EXTERNAL_BG[backgroundCategory] || null;
+  if (backgroundCategory === 'random') {
+    const pool = ['minecraft', 'subway', 'cooking', 'workers', 'asmr'];
+    preferredRemote = EXTERNAL_BG[pool[Math.floor(Math.random() * pool.length)]];
+  }
   let bgPath;
   const tmpDir = path.join(__dirname, 'tmp');
   await fsp.mkdir(tmpDir, { recursive: true });
@@ -184,8 +198,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (openingBuf) await fsp.writeFile(openingAudio, openingBuf);
   if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
 
-  // Durations
-  const openingDur = openingBuf ? await getAudioDurationFromFile(openingAudio) : 0.8;
+  // Durations (ensure banner shows for at least 2.5s)
+  const openingDurRaw = openingBuf ? await getAudioDurationFromFile(openingAudio) : 0.8;
+  const openingDur = Math.max(openingDurRaw, 2.5);
   const storyDur = storyBuf ? await getAudioDurationFromFile(storyAudio) : 3.0;
 
   // Word timestamps for captions
