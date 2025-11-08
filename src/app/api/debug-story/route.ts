@@ -11,17 +11,6 @@ export async function POST(req: NextRequest) {
     const isCliffhanger: boolean = Boolean(body?.isCliffhanger);
     const narratorGender: 'male' | 'female' = (body?.narratorGender === 'female' ? 'female' : 'male');
 
-    // Mirror UI API behavior: r/test does not require OpenAI
-    if (subreddit === 'r/test') {
-      const story = {
-        title: 'Simple Test Story Title',
-        story: isCliffhanger ? 'Mini test story [BREAK] continue' : 'Mini test story for video',
-        subreddit,
-        author: 'Anonymous'
-      };
-      return NextResponse.json({ success: true, story });
-    }
-
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { success: false, error: 'OPENAI_API_KEY is not set on the UI service' },
@@ -45,16 +34,6 @@ export async function GET(req: NextRequest) {
     const subreddit = searchParams.get('subreddit') || 'r/test';
     const isCliffhanger = searchParams.get('isCliffhanger') === 'true';
     const narratorGender = (searchParams.get('narratorGender') === 'female' ? 'female' : 'male') as 'male' | 'female';
-
-    if (subreddit === 'r/test') {
-      const story = {
-        title: 'Simple Test Story Title',
-        story: isCliffhanger ? 'Mini test story [BREAK] continue' : 'Mini test story for video',
-        subreddit,
-        author: 'Anonymous'
-      };
-      return NextResponse.json({ success: true, story });
-    }
 
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
