@@ -39,3 +39,37 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const subreddit = searchParams.get('subreddit') || 'r/test';
+    const isCliffhanger = searchParams.get('isCliffhanger') === 'true';
+    const narratorGender = (searchParams.get('narratorGender') === 'female' ? 'female' : 'male') as 'male' | 'female';
+
+    if (subreddit === 'r/test') {
+      const story = {
+        title: 'Simple Test Story Title',
+        story: isCliffhanger ? 'Mini test story [BREAK] continue' : 'Mini test story for video',
+        subreddit,
+        author: 'Anonymous'
+      };
+      return NextResponse.json({ success: true, story });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { success: false, error: 'OPENAI_API_KEY is not set on the UI service' },
+        { status: 500 }
+      );
+    }
+
+    const story = await generateStory({ subreddit, isCliffhanger, narratorGender });
+    return NextResponse.json({ success: true, story });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to generate story' },
+      { status: 500 }
+    );
+  }
+}
+
