@@ -3,12 +3,18 @@ import { Audio, Video, useCurrentFrame, useVideoConfig } from 'remotion';
 import { BannerOverlay } from './BannerOverlay';
 import { KaraokeCaptions } from './KaraokeCaptions';
 import type { StoryCompositionProps } from '../../../../packages/shared/types';
-import { framesToMs } from '../../../../packages/shared/anim';
+import { framesToMs, msToFrames } from '../../../../packages/shared/anim';
 
 export const StoryComposition: React.FC<StoryCompositionProps> = ({
   bannerPng,
+  bannerTopPng,
+  bannerBottomPng,
+  bannerTitleText,
+  openingDurationMs = 0,
   bgVideo,
   narrationWav,
+  openingWav,
+  storyWav,
   alignment,
   safeZone = { left: 120, right: 120, top: 320, bottom: 320 },
   fps,
@@ -22,6 +28,19 @@ export const StoryComposition: React.FC<StoryCompositionProps> = ({
   const totalDurationMs = alignment.words.length > 0 
     ? Math.max(...alignment.words.map(w => w.endMs)) + 1500 // Add 1.5s padding
     : framesToMs(durationInFrames, fps);
+  const captionsStartMs = Math.max(0, openingDurationMs);
+  const captionsVisible = framesToMs(frame, fps) >= captionsStartMs;
+  const shiftedAlignment = React.useMemo(() => {
+    if (!alignment?.words?.length) return alignment;
+    return {
+      ...alignment,
+      words: alignment.words.map((w) => ({
+        ...w,
+        startMs: (w.startMs ?? 0) + captionsStartMs,
+        endMs: (w.endMs ?? 0) + captionsStartMs
+      }))
+    };
+  }, [alignment, captionsStartMs]);
   
   return (
     <div style={{ width, height, position: 'relative', backgroundColor: '#000000' }}>
@@ -42,10 +61,13 @@ export const StoryComposition: React.FC<StoryCompositionProps> = ({
         />
       )}
       
-      {/* Banner Overlay - Positioned at top */}
-      {bannerPng && (
+      {/* Banner Overlay - Show during opening narration only */}
+      {(bannerTopPng || bannerBottomPng || bannerPng) && framesToMs(frame, fps) < openingDurationMs && (
         <BannerOverlay
           src={bannerPng}
+          topSrc={bannerTopPng}
+          bottomSrc={bannerBottomPng}
+          titleText={bannerTitleText}
           style={{
             position: 'absolute',
             top: safeZone.top,
@@ -57,23 +79,37 @@ export const StoryComposition: React.FC<StoryCompositionProps> = ({
       )}
       
       {/* Karaoke Captions - Positioned at bottom with safe zone */}
-      <KaraokeCaptions
-        alignment={alignment}
-        fps={fps}
-        containerStyle={{
-          position: 'absolute',
-          bottom: safeZone.bottom,
-          left: safeZone.left,
-          right: safeZone.right,
-          zIndex: 3
-        }}
-      />
+      {captionsVisible && (
+        <KaraokeCaptions
+          alignment={shiftedAlignment}
+          fps={fps}
+          containerStyle={{
+            position: 'absolute',
+            bottom: safeZone.bottom,
+            left: safeZone.left,
+            right: safeZone.right,
+            zIndex: 3
+          }}
+        />
+      )}
       
       {/* Audio Track */}
-      {narrationWav && (
+      {/* Legacy single-track */}
+      {narrationWav && !openingWav && !storyWav && (
         <Audio
           src={narrationWav}
           volume={1}
+        />
+      )}
+      {/* Split tracks: opening first, then story starting after opening */}
+      {openingWav && (
+        <Audio src={openingWav} volume={1} />
+      )}
+      {storyWav && (
+        <Audio
+          src={storyWav}
+          volume={1}
+          startFrom={msToFrames(openingDurationMs, fps)}
         />
       )}
       

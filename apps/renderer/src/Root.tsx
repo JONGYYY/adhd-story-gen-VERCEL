@@ -15,8 +15,14 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           bannerPng: '',
+          bannerTopPng: '',
+          bannerBottomPng: '',
+          bannerTitleText: '',
+          openingDurationMs: 0,
           bgVideo: '',
           narrationWav: '',
+          openingWav: '',
+          storyWav: '',
           alignment: { words: [], sampleRate: 16000 },
           safeZone: { left: 120, right: 120, top: 320, bottom: 320 },
           fps: 30,

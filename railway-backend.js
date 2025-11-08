@@ -389,11 +389,9 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
     }
   }
 
-  // Banner
-  let bannerPath = path.join(__dirname, 'public', 'banners', 'redditbannerbottom.png');
-  if (!fs.existsSync(bannerPath)) {
-    bannerPath = path.join(__dirname, 'public', 'banners', 'redditbannertop.png');
-  }
+  // Banner assets (top + bottom)
+  const bannerTopPath = path.join(__dirname, 'public', 'banners', 'redditbannertop.png');
+  const bannerBottomPath = path.join(__dirname, 'public', 'banners', 'redditbannerbottom.png');
 
   // Audio via ElevenLabs (optional)
   const openingText = title || '';
@@ -405,13 +403,15 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
   if (openingBuf) await fsp.writeFile(openingAudio, openingBuf);
   if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
 
-  // Pick narration source (prefer story)
-  const narrationPath = storyBuf ? storyAudio : (openingBuf ? openingAudio : null);
+  // Durations (opening should be minimum 2.5s)
+  const openingDurMs = openingBuf ? Math.max(Math.round((await getAudioDurationFromFile(openingAudio)) * 1000), 2500) : 0;
+  const storyDurMs = storyBuf ? Math.round((await getAudioDurationFromFile(storyAudio)) * 1000) : 0;
+  const narrationPath = null; // We will pass split tracks to Remotion
 
-  // Compute rough alignment (per-word evenly distributed over audio duration)
+  // Compute rough alignment for STORY only (per-word evenly distributed over story audio duration)
   let alignment = { words: [], sampleRate: 16000 };
-  if (narrationPath) {
-    const totalDur = await getAudioDurationFromFile(narrationPath).catch(() => 3.0);
+  if (storyBuf) {
+    const totalDur = (storyDurMs || 3000) / 1000;
     const words = storyText.split(/\s+/).filter(w => w.length > 0);
     const avg = words.length > 0 ? (totalDur / words.length) : 0.2;
     alignment.words = words.map((w, i) => ({
@@ -427,15 +427,12 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
   console.log('Bundling Remotion project from', entry);
   const bundled = await bundle(entry);
 
-  // Determine duration in frames based on audio length (fallback 60s)
+  // Determine duration in frames based on opening + story + tail pad (fallback 60s)
   const fps = 30;
   const width = 1080;
   const height = 1920;
-  let durationInSeconds = 60;
-  if (alignment.words.length > 0) {
-    const last = alignment.words[alignment.words.length - 1];
-    durationInSeconds = Math.max((last.endMs + 1500) / 1000, 5);
-  }
+  const totalMs = (openingDurMs || 0) + (storyDurMs || 0) + 1500;
+  let durationInSeconds = Math.max(totalMs / 1000, 5);
   const durationInFrames = Math.ceil(durationInSeconds * fps);
 
   // 3) Render with Remotion
@@ -456,9 +453,15 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
     // Use system Chromium provided by Nixpacks to avoid downloading headless shell
     browserExecutable: process.env.BROWSER_EXECUTABLE || 'chromium',
     inputProps: {
-      bannerPng: fs.existsSync(bannerPath) ? bannerPath : '',
+      bannerPng: '', // legacy unused
+      bannerTopPng: fs.existsSync(bannerTopPath) ? bannerTopPath : '',
+      bannerBottomPng: fs.existsSync(bannerBottomPath) ? bannerBottomPath : '',
+      bannerTitleText: openingText,
+      openingDurationMs: openingDurMs,
       bgVideo: bgPath,
-      narrationWav: narrationPath || '',
+      narrationWav: '',
+      openingWav: openingBuf ? openingAudio : '',
+      storyWav: storyBuf ? storyAudio : '',
       alignment,
       safeZone: { left: 120, right: 120, top: 320, bottom: 320 },
       fps,

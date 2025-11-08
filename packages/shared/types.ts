@@ -46,9 +46,17 @@ export type BounceConfig = {
 };
 
 export type StoryCompositionProps = {
-  bannerPng: string;        // file URL
+  bannerPng: string;        // file URL (legacy, optional)
+  // New banner composite props
+  bannerTopPng?: string;     // file URL
+  bannerBottomPng?: string;  // file URL
+  bannerTitleText?: string;  // title text to render in white middle box
+  openingDurationMs?: number; // duration of banner narration; captions begin after this
   bgVideo: string;          // file URL
-  narrationWav: string;     // file URL
+  // Audio tracks (prefer explicit split; narrationWav kept for legacy)
+  narrationWav?: string;     // file URL (legacy single track)
+  openingWav?: string;       // file URL
+  storyWav?: string;         // file URL
   alignment: Alignment;
   safeZone?: SafeZone;
   fps: number; 
