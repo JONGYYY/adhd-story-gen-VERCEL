@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { generateVideo } from '@/lib/video-generator';
-import { VideoOptions, SubredditStory, VideoGenerationOptions } from '@/lib/video-generator/types';
+import { VideoOptions, SubredditStory } from '@/lib/video-generator/types';
 import { generateStory } from '@/lib/story-generator/openai';
-import { createVideoStatus, setVideoReady, setVideoFailed } from '@/lib/video-generator/status';
 
 // Prevent static generation but use Node.js runtime for video generation
 export const runtime = 'nodejs';
@@ -80,7 +78,7 @@ export async function POST(request: NextRequest) {
     const options: VideoOptions = await request.json();
     console.log('Received video generation request with options:', JSON.stringify(options, null, 2));
 
-    // Generate or use custom story
+    // Generate or use custom story (UI does light work, heavy work happens on worker)
     let story: SubredditStory;
     if (options.customStory) {
       console.log('Using custom story:', JSON.stringify(options.customStory, null, 2));
@@ -91,10 +89,8 @@ export async function POST(request: NextRequest) {
         author: 'Anonymous',
       };
     } else {
-      // Ensure subreddit has r/ prefix
       const subreddit = options.subreddit.startsWith('r/') ? options.subreddit : `r/${options.subreddit}`;
       console.log('Normalized subreddit:', subreddit);
-      
       const storyParams = {
         subreddit,
         isCliffhanger: options.isCliffhanger,
@@ -113,63 +109,28 @@ export async function POST(request: NextRequest) {
       throw new Error('Story is missing required fields (title or story content)');
     }
 
-    // Check if we're on Vercel - if so, use Railway API
-    if (process.env.VERCEL) {
-      console.log('Running on Vercel - using Railway API for video generation');
-      
-      try {
-        const railwayVideoId = await generateVideoOnRailway(options, videoId, story);
-        
-        return new Response(JSON.stringify({
-          success: true,
-          videoId: railwayVideoId, // Use Railway's video ID
-          videoUrl: `/video/${railwayVideoId}`,
-          useRailway: true, // Flag to indicate Railway is being used
-        }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (railwayError) {
-        console.error('Railway API failed:', railwayError);
-        const message = railwayError instanceof Error ? railwayError.message : 'Unknown error';
-        return new Response(JSON.stringify({
-          success: false,
-          error: `Video generation service unavailable: ${message}. Please try again.` 
-        }), {
-          status: 503,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      }
-    } else {
-      console.log('Running locally - using local video generation');
-      
-      // Initialize video status for local generation
-      await createVideoStatus(videoId);
-
-      // Start local video generation
-      console.log('Starting local video generation with story:', JSON.stringify(story, null, 2));
-      
-      const generationOptions: VideoGenerationOptions = {
-        ...options,
-        story,
-      };
-      
-      const outputPath = await generateVideo(generationOptions, videoId);
-
-      // Update status to ready
-      await setVideoReady(videoId, outputPath);
-
+    // Always use Railway API from the UI service
+    try {
+      const railwayVideoId = await generateVideoOnRailway(options, videoId, story);
       return new Response(JSON.stringify({
         success: true,
-        videoId,
-        videoUrl: outputPath,
-        useRailway: false,
+        videoId: railwayVideoId,
+        videoUrl: `/video/${railwayVideoId}`,
+        useRailway: true,
       }), {
         status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (railwayError) {
+      console.error('Railway API failed:', railwayError);
+      const message = railwayError instanceof Error ? railwayError.message : 'Unknown error';
+      return new Response(JSON.stringify({
+        success: false,
+        error: `Video generation service unavailable: ${message}. Please try again.`
+      }), {
+        status: 503,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -178,12 +139,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to generate video';
     console.error('Error generating video:', error);
-    
-    // Only update local status if not using Railway
-    if (!process.env.VERCEL) {
-      await setVideoFailed(videoId, errorMessage);
-    }
-    
     return new Response(JSON.stringify({
       error: errorMessage
     }), {
