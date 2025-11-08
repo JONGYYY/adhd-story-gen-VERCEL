@@ -340,7 +340,8 @@ async function generateVideoSimple(options, videoId) {
     console.log(`Video generation completed for ID: ${videoId}`);
   } catch (err) {
     console.error('Video build failed:', err);
-    videoStatus.set(videoId, { status: 'failed', error: 'Video build failed' });
+    const msg = err instanceof Error ? err.message : String(err);
+    videoStatus.set(videoId, { status: 'failed', error: msg });
   }
 }
 
