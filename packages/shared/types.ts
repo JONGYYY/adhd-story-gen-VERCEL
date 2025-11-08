@@ -47,7 +47,7 @@ export type BounceConfig = {
 
 export type StoryCompositionProps = {
   bannerPng: string;        // file URL (legacy, optional)
-  // New banner composite props
+  // Composite banner props
   bannerTopPng?: string;     // file URL
   bannerBottomPng?: string;  // file URL
   bannerTitleText?: string;  // title text to render in white middle box
