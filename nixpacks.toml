@@ -3,17 +3,22 @@ nixPkgs = ["nodejs-18_x", "ffmpeg", "fontconfig", "dejavu_fonts", "chromium"]
 
 [phases.install]
 cmds = [
-    "cp railway-package.json package.json",
+    # Worker uses lightweight deps via railway-package.json
+    "bash -lc 'if [ -z \"$UI_SERVICE\" ]; then cp railway-package.json package.json; fi'",
     "npm install --omit=dev"
 ]
 
 [phases.build]
 cmds = [
-    "echo Skipping efficient-generator bundling for Remotion pipeline"
+    # Worker-only step (no-op right now, but reserved for future prebuild)
+    "bash -lc 'if [ -z \"$UI_SERVICE\" ]; then echo Worker build; fi'",
+    # UI: Build Next.js app when UI_SERVICE is set
+    "bash -lc 'if [ -n \"$UI_SERVICE\" ]; then npx next build; fi'"
 ]
 
 [start]
-cmd = "node railway-backend.js"
+# If UI_SERVICE is set, start Next UI; otherwise start the worker (Express)
+cmd = "bash -lc 'if [ -n \"$UI_SERVICE\" ]; then npx next start -p ${PORT:-3000}; else node railway-backend.js; fi'"
 
 [variables]
-NODE_ENV = "production" 
+NODE_ENV = "production"
