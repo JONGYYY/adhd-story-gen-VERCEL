@@ -269,8 +269,9 @@ export default function Create() {
       console.log('Sending video generation request...');
       let response;
       try {
-        // Call Railway worker directly (Express route)
-        response = await fetch('/generate-video', {
+        const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_API_URL || '';
+        // Call Railway worker via API alias on the worker
+        response = await fetch(`${API_BASE}/api/generate-video`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -355,8 +356,9 @@ export default function Create() {
           
           let statusResponse;
           try {
-            // Poll Railway worker directly (Express route)
-            statusResponse = await fetch(`/video-status/${data.videoId}`, {
+            const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_API_URL || '';
+            // Poll Railway worker via API alias
+            statusResponse = await fetch(`${API_BASE}/api/video-status/${data.videoId}`, {
               method: 'GET',
               cache: 'no-cache',
               headers: {
@@ -392,8 +394,9 @@ export default function Create() {
             
             // Add a small delay to ensure UI updates
             setTimeout(() => {
-              // Redirect directly to the MP4 served by the worker
-              const target = statusData.videoUrl || `/videos/${data.videoId}.mp4`;
+              const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_API_URL || '';
+              // Redirect to the MP4 served by the worker
+              const target = statusData.videoUrl || `${API_BASE}/videos/${data.videoId}.mp4`;
               console.log('Redirecting to:', target);
               window.location.href = target;
             }, 500);
