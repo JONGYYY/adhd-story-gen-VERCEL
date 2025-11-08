@@ -32,7 +32,19 @@ export default function VideoPage() {
           throw new Error(errorText || 'Failed to fetch video status');
         }
         const data = await response.json();
-        setVideoStatus(data);
+        // Normalize status and ensure absolute video URL for playback
+        const uiStatus = (data.status === 'completed') ? 'ready' : (data.status === 'processing' ? 'generating' : data.status);
+        let videoUrl = data.videoUrl as string | undefined;
+        if (videoUrl && !videoUrl.startsWith('http')) {
+          const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media';
+          videoUrl = `${API_BASE}${videoUrl}`;
+        }
+        setVideoStatus({
+          status: uiStatus,
+          progress: typeof data.progress === 'number' ? data.progress : (uiStatus === 'ready' ? 100 : 0),
+          error: data.error,
+          videoUrl: uiStatus === 'ready' ? videoUrl : undefined
+        });
 
         // If still generating, check again in 2 seconds
         if (data.status === 'generating' || data.status === 'processing') {
