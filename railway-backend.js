@@ -344,8 +344,8 @@ async function generateVideoSimple(options, videoId) {
   videoStatus.set(videoId, { status: 'processing', progress: 75, message: 'Finalizing...' });
 
   try {
-    // Enforce Remotion-only path
-    const videoUrl = await generateVideoWithRemotion({
+    // FFmpeg fallback path (no Remotion)
+    const videoUrl = await buildVideoWithFfmpeg({
       title: options?.customStory?.title || '',
       story: options?.customStory?.story || '',
       backgroundCategory: options?.background?.category || 'random',
@@ -354,9 +354,9 @@ async function generateVideoSimple(options, videoId) {
     videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl });
     console.log(`Video generation completed for ID: ${videoId}`);
   } catch (err) {
-    console.error('Video build failed (Remotion-only):', err);
+    console.error('Video build failed (FFmpeg fallback):', err);
     const msg = err instanceof Error ? err.message : String(err);
-    videoStatus.set(videoId, { status: 'failed', error: msg || 'Remotion rendering failed' });
+    videoStatus.set(videoId, { status: 'failed', error: msg || 'Video build failed' });
   }
 }
 
@@ -497,7 +497,7 @@ async function generateVideoHandler(req, res) {
 		// Set initial processing status so /video-status does not 404
 		videoStatus.set(videoId, { status: 'processing', progress: 0, message: 'Video generation started.' });
 
-		// Start video generation in the background (Remotion-only)
+		// Start video generation in the background (try Remotion, then FFmpeg fallback)
 		(async () => {
 			try {
 				const videoUrl = await generateVideoWithRemotion({
@@ -508,8 +508,13 @@ async function generateVideoHandler(req, res) {
 				}, videoId);
 				videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl });
 			} catch (e) {
-				console.error('Remotion generation failed (no fallback):', e);
-				videoStatus.set(videoId, { status: 'failed', error: (e instanceof Error ? e.message : 'Video build failed') });
+				console.error('Remotion generation failed, attempting FFmpeg fallback:', e);
+				try {
+					await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId);
+				} catch (fallbackErr) {
+					console.error('FFmpeg fallback also failed:', fallbackErr);
+					videoStatus.set(videoId, { status: 'failed', error: (fallbackErr instanceof Error ? fallbackErr.message : 'Video build failed') });
+				}
 			}
 		})();
 
