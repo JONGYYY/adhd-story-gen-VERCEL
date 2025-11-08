@@ -23,7 +23,7 @@ RUN bash -lc '\
   else \
     echo \"[Dockerfile] Building Worker service\" && \
     cp railway-package.json package.json && \
-    npm ci --omit=dev ; \
+    npm install --omit=dev ; \
   fi \
 '
 
