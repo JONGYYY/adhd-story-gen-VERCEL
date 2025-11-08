@@ -473,8 +473,13 @@ async function generateVideoHandler(req, res) {
 				}, videoId);
 				videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl });
 			} catch (e) {
-				console.error('Background generation failed:', e);
-				videoStatus.set(videoId, { status: 'failed', error: 'Video build failed' });
+				console.error('Remotion generation failed, falling back to FFmpeg path:', e);
+				try {
+					await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId);
+				} catch (fallbackErr) {
+					console.error('Fallback generation failed:', fallbackErr);
+					videoStatus.set(videoId, { status: 'failed', error: 'Video build failed' });
+				}
 			}
 		})();
 
