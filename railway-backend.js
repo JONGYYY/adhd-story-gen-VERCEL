@@ -344,8 +344,9 @@ async function generateVideoSimple(options, videoId) {
   }
 }
 
-// Remotion renderer setup (use Remotion instead of hybrid/efficient generator)
-const {bundle, renderMedia, getCompositions} = require('@remotion/renderer');
+// Remotion renderer setup (use bundler + renderer)
+const {bundle} = require('@remotion/bundler');
+const {renderMedia, getCompositions} = require('@remotion/renderer');
 const os = require('os');
 
 async function generateVideoWithRemotion({ title, story, backgroundCategory, voiceAlias }, videoId) {
