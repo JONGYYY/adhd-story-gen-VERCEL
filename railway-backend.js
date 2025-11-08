@@ -198,9 +198,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (openingBuf) await fsp.writeFile(openingAudio, openingBuf);
   if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
 
-  // Durations (ensure banner shows for at least 2.5s)
-  const openingDurRaw = openingBuf ? await getAudioDurationFromFile(openingAudio) : 0.8;
-  const openingDur = Math.max(openingDurRaw, 2.5);
+  // Durations (banner duration equals exact title TTS duration)
+  const openingDurRaw = openingBuf ? await getAudioDurationFromFile(openingAudio) : 0;
+  const openingDur = openingDurRaw;
   const storyDur = storyBuf ? await getAudioDurationFromFile(storyAudio) : 3.0;
 
   // Word timestamps for captions
@@ -411,7 +411,7 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
   if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
 
   // Durations (opening should be minimum 2.5s)
-  const openingDurMs = openingBuf ? Math.max(Math.round((await getAudioDurationFromFile(openingAudio)) * 1000), 2500) : 0;
+  const openingDurMs = openingBuf ? Math.round((await getAudioDurationFromFile(openingAudio)) * 1000) : 0;
   const storyDurMs = storyBuf ? Math.round((await getAudioDurationFromFile(storyAudio)) * 1000) : 0;
   const narrationPath = null; // We will pass split tracks (data URLs) to Remotion
 
