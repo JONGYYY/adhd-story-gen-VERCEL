@@ -395,10 +395,14 @@ export default function Create() {
             // Add a small delay to ensure UI updates
             setTimeout(() => {
               const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_API_URL || '';
-              // Redirect to the MP4 served by the worker
-              const target = statusData.videoUrl || `${API_BASE}/videos/${data.videoId}.mp4`;
-              console.log('Redirecting to:', target);
-              window.location.href = target;
+              // Use absolute worker URL. If API returned a relative path (/videos/..), prefix with API_BASE.
+              const absoluteUrl = statusData.videoUrl
+                ? (statusData.videoUrl.startsWith('http')
+                    ? statusData.videoUrl
+                    : `${API_BASE}${statusData.videoUrl}`)
+                : `${API_BASE}/videos/${data.videoId}.mp4`;
+              console.log('Redirecting to:', absoluteUrl);
+              window.location.href = absoluteUrl;
             }, 500);
             
           } else if (statusData.status === 'failed') {
