@@ -344,19 +344,19 @@ async function generateVideoSimple(options, videoId) {
   videoStatus.set(videoId, { status: 'processing', progress: 75, message: 'Finalizing...' });
 
   try {
-    const videoUrl = await buildVideoWithFfmpeg({
-      title: options?.customStory?.title,
-      story: options?.customStory?.story,
+    // Enforce Remotion-only path
+    const videoUrl = await generateVideoWithRemotion({
+      title: options?.customStory?.title || '',
+      story: options?.customStory?.story || '',
       backgroundCategory: options?.background?.category || 'random',
-      voiceAlias: options?.voice?.id
+      voiceAlias: options?.voice?.id || 'adam'
     }, videoId);
-
     videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl });
     console.log(`Video generation completed for ID: ${videoId}`);
   } catch (err) {
-    console.error('Video build failed:', err);
+    console.error('Video build failed (Remotion-only):', err);
     const msg = err instanceof Error ? err.message : String(err);
-    videoStatus.set(videoId, { status: 'failed', error: msg });
+    videoStatus.set(videoId, { status: 'failed', error: msg || 'Remotion rendering failed' });
   }
 }
 
@@ -370,34 +370,20 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
   await fsp.mkdir(tmpDir, { recursive: true });
 
   // 1) Resolve inputs (banner, background, audio)
-  // Background
-  const preferredRemote = EXTERNAL_BG[backgroundCategory] || null;
-  let bgPath;
-  if (preferredRemote && preferredRemote.startsWith('http')) {
-    bgPath = path.join(tmpDir, `bg-${videoId}.mp4`);
-    const bgRes = await fetch(preferredRemote);
-    const bgBuf = Buffer.from(await bgRes.arrayBuffer());
-    await fsp.writeFile(bgPath, bgBuf);
-  } else {
-    const local = path.join(__dirname, 'public', 'backgrounds', backgroundCategory || 'subway', '1.mp4');
-    if (fs.existsSync(local)) bgPath = local; else {
-      bgPath = path.join(tmpDir, `bg-${videoId}.mp4`);
-      const fallback = EXTERNAL_BG.random;
-      const bgRes = await fetch(fallback);
-      const bgBuf = Buffer.from(await bgRes.arrayBuffer());
-      await fsp.writeFile(bgPath, bgBuf);
-    }
-  }
+  // Background: pass remote URL directly so Remotion can fetch it
+  let bgUrl = EXTERNAL_BG[backgroundCategory] || EXTERNAL_BG.random;
 
-  // Banner assets (top + bottom)
-  const bannerTopPath = path.join(__dirname, 'public', 'banners', 'redditbannertop.png');
-  const bannerBottomPath = path.join(__dirname, 'public', 'banners', 'redditbannerbottom.png');
+  // Banner assets: use staticFile in composition, so no need to pass file paths
 
   // Audio via ElevenLabs (optional)
   const openingText = title || '';
   const storyText = (story || '').split('[BREAK]')[0].trim() || story || '';
   const openingBuf = await synthesizeVoiceEleven(openingText, voiceAlias).catch(() => null);
   const storyBuf = await synthesizeVoiceEleven(storyText, voiceAlias).catch(() => null);
+  // Also prepare data URLs for Remotion to consume directly
+  const openingDataUrl = openingBuf ? `data:audio/mpeg;base64,${openingBuf.toString('base64')}` : '';
+  const storyDataUrl = storyBuf ? `data:audio/mpeg;base64,${storyBuf.toString('base64')}` : '';
+  // Still write to disk for measuring durations
   const openingAudio = path.join(tmpDir, `open-${videoId}.mp3`);
   const storyAudio = path.join(tmpDir, `story-${videoId}.mp3`);
   if (openingBuf) await fsp.writeFile(openingAudio, openingBuf);
@@ -406,7 +392,7 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
   // Durations (opening should be minimum 2.5s)
   const openingDurMs = openingBuf ? Math.max(Math.round((await getAudioDurationFromFile(openingAudio)) * 1000), 2500) : 0;
   const storyDurMs = storyBuf ? Math.round((await getAudioDurationFromFile(storyAudio)) * 1000) : 0;
-  const narrationPath = null; // We will pass split tracks to Remotion
+  const narrationPath = null; // We will pass split tracks (data URLs) to Remotion
 
   // Compute rough alignment for STORY only (per-word evenly distributed over story audio duration)
   let alignment = { words: [], sampleRate: 16000 };
@@ -454,14 +440,14 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
     browserExecutable: process.env.BROWSER_EXECUTABLE || 'chromium',
     inputProps: {
       bannerPng: '', // legacy unused
-      bannerTopPng: fs.existsSync(bannerTopPath) ? bannerTopPath : '',
-      bannerBottomPng: fs.existsSync(bannerBottomPath) ? bannerBottomPath : '',
+      bannerTopPng: '', // use staticFile in composition
+      bannerBottomPng: '', // use staticFile in composition
       bannerTitleText: openingText,
       openingDurationMs: openingDurMs,
-      bgVideo: bgPath,
+      bgVideo: bgUrl, // remote URL
       narrationWav: '',
-      openingWav: openingBuf ? openingAudio : '',
-      storyWav: storyBuf ? storyAudio : '',
+      openingWav: openingDataUrl,
+      storyWav: storyDataUrl,
       alignment,
       safeZone: { left: 120, right: 120, top: 320, bottom: 320 },
       fps,
@@ -494,13 +480,8 @@ async function generateVideoHandler(req, res) {
 				}, videoId);
 				videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl });
 			} catch (e) {
-				console.error('Remotion generation failed, falling back to FFmpeg path:', e);
-				try {
-					await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId);
-				} catch (fallbackErr) {
-					console.error('Fallback generation failed:', fallbackErr);
-					videoStatus.set(videoId, { status: 'failed', error: 'Video build failed' });
-				}
+				console.error('Remotion generation failed (no fallback):', e);
+				videoStatus.set(videoId, { status: 'failed', error: (e instanceof Error ? e.message : 'Video build failed') });
 			}
 		})();
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Img } from 'remotion';
+import { Img, staticFile } from 'remotion';
 
 interface BannerOverlayProps {
   // Legacy single-image banner
@@ -18,7 +18,9 @@ export const BannerOverlay: React.FC<BannerOverlayProps> = ({
   titleText,
   style
 }) => {
-  const hasComposite = topSrc && bottomSrc && typeof titleText === 'string' && titleText.length > 0;
+  const resolvedTop = topSrc || staticFile('/banners/redditbannertop.png');
+  const resolvedBottom = bottomSrc || staticFile('/banners/redditbannerbottom.png');
+  const hasComposite = resolvedTop && resolvedBottom && typeof titleText === 'string' && titleText.length > 0;
 
   if (!hasComposite && src) {
     // Fallback: legacy single-image banner
@@ -67,9 +69,9 @@ export const BannerOverlay: React.FC<BannerOverlayProps> = ({
         }}
       >
         {/* Top banner image with rounded top corners */}
-        {topSrc && (
+        {resolvedTop && (
           <Img
-            src={topSrc}
+            src={resolvedTop}
             style={{
               width: '100%',
               height: 'auto',
@@ -113,9 +115,9 @@ export const BannerOverlay: React.FC<BannerOverlayProps> = ({
         </div>
 
         {/* Bottom banner image with rounded bottom corners */}
-        {bottomSrc && (
+        {resolvedBottom && (
           <Img
-            src={bottomSrc}
+            src={resolvedBottom}
             style={{
               width: '100%',
               height: 'auto',
