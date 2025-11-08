@@ -463,8 +463,8 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
     chromiumOptions: {
       gl: 'angle',
       disableWebSecurity: true,
-      // Common flags to run in containers
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--mute-audio']
+      // Common flags to run in containers + enforce new headless mode
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--mute-audio', '--headless=new']
     },
     inputProps: {
       bannerPng: '', // legacy unused
