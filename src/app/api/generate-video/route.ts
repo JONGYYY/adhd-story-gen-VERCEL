@@ -91,13 +91,31 @@ export async function POST(request: NextRequest) {
     } else {
       const subreddit = options.subreddit.startsWith('r/') ? options.subreddit : `r/${options.subreddit}`;
       console.log('Normalized subreddit:', subreddit);
-      const storyParams = {
-        subreddit,
-        isCliffhanger: options.isCliffhanger,
-        narratorGender: options.voice.gender,
-      };
-      console.log('Generating story with params:', JSON.stringify(storyParams, null, 2));
-      story = await generateStory(storyParams);
+
+      // Deterministic local test story to avoid OpenAI dependency for r/test
+      if (subreddit === 'r/test') {
+        console.log('Using built-in test story for r/test');
+        const isCliff = Boolean(options.isCliffhanger);
+        story = {
+          title: 'Simple Test Story Title',
+          story: isCliff
+            ? 'Mini test story [BREAK] continue'
+            : 'Mini test story for video',
+          subreddit,
+          author: 'Anonymous'
+        };
+      } else {
+        if (!process.env.OPENAI_API_KEY) {
+          throw new Error('OPENAI_API_KEY is not set on the UI service');
+        }
+        const storyParams = {
+          subreddit,
+          isCliffhanger: options.isCliffhanger,
+          narratorGender: options.voice.gender,
+        };
+        console.log('Generating story with params:', JSON.stringify(storyParams, null, 2));
+        story = await generateStory(storyParams);
+      }
     }
 
     // Log story data before validation
