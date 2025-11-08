@@ -453,6 +453,8 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
     serveUrl: bundled,
     codec: 'h264',
     outputLocation: outPath,
+    // Use system Chromium provided by Nixpacks to avoid downloading headless shell
+    browserExecutable: process.env.BROWSER_EXECUTABLE || 'chromium',
     inputProps: {
       bannerPng: fs.existsSync(bannerPath) ? bannerPath : '',
       bgVideo: bgPath,
