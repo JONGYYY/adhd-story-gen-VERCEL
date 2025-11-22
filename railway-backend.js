@@ -202,10 +202,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const openingDurRaw = openingBuf ? await getAudioDurationFromFile(openingAudio) : 0;
   let openingDur = openingDurRaw;
   const storyDur = storyBuf ? await getAudioDurationFromFile(storyAudio) : 3.0;
-  // If no title TTS but we have a title, show banner briefly so overlays are visible
-  if ((!openingBuf || openingDur <= 0) && openingText) {
-    openingDur = 2.0;
-  }
+  // Ensure overlays are visible even if title TTS is missing/0s
+  openingDur = Math.max(openingDur, 2.0);
 
   // Word timestamps for captions
   const wordTimestamps = buildWordTimestamps(storyDur, storyText);
