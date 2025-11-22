@@ -237,10 +237,17 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   let idx = 1;
   const topIdx = hasTopBanner ? idx++ : -1;
   const bottomIdx = hasBottomBanner ? idx++ : -1;
+  // Synthetic white box as separate lavfi input (avoids drawbox issues)
+  const wantWhiteBox = openingDur > 0;
+  const whiteBoxIdx = wantWhiteBox ? idx++ : -1;
   const openingIdx = openingBuf ? idx++ : -1;
   const storyIdx = storyBuf ? idx++ : -1;
   if (hasTopBanner) args.push('-i', bannerTopPath);
   if (hasBottomBanner) args.push('-i', bannerBottomPath);
+  if (wantWhiteBox) {
+    // 900x200 white box, duration equals opening duration
+    args.push('-f', 'lavfi', '-i', `color=c=white:s=900x200:d=${openingDur.toFixed(2)}`);
+  }
   if (openingBuf) args.push('-i', openingAudio);
   if (storyBuf) args.push('-i', storyAudio);
 
@@ -252,6 +259,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (hasBottomBanner) {
     filter += `;[${bottomIdx}:v]scale=900:-1[bot];[${current}][bot]overlay=(main_w-w)/2:(main_h-h):enable='between(t,0,${openingDur.toFixed(2)})'[v_bot]`;
     current = 'v_bot';
+  }
+  if (wantWhiteBox) {
+    // Centered white box
+    filter += `;[${current}][${whiteBoxIdx}:v]overlay=(main_w-900)/2:(main_h-200)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_box]`;
+    current = 'v_box';
   }
 
   // Draw per-word captions over the composed video
