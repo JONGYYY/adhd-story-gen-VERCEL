@@ -254,11 +254,6 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     current = 'v_bot';
   }
 
-  // White rectangle in the middle with same width as banners (900px)
-  // Centered vertically, visible only during opening
-  filter += `;[${current}]drawbox=x=(main_w-900)/2:y=(main_h-200)/2:w=900:h=200:color=white@1.0:t=fill:enable='between(t,0,${openingDur.toFixed(2)})'[v_mid]`;
-  current = 'v_mid';
-
   // Draw per-word captions over the composed video
   wordTimestamps.forEach((w, i) => {
     const st = (openingDur + w.start).toFixed(2);
