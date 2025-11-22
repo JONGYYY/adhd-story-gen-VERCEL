@@ -251,19 +251,39 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (openingBuf) args.push('-i', openingAudio);
   if (storyBuf) args.push('-i', storyAudio);
 
-  // Overlay top and bottom banners during opening duration
+  // Compose a stacked banner: top + white box + bottom, then overlay as one unit
+  // Scale top/bottom to 900 width first
   if (hasTopBanner) {
-    filter += `;[${topIdx}:v]scale=900:-1[top];[${current}][top]overlay=(main_w-w)/2:0:enable='between(t,0,${openingDur.toFixed(2)})'[v_top]`;
-    current = 'v_top';
+    filter += `;[${topIdx}:v]scale=900:-1[top]`;
   }
   if (hasBottomBanner) {
-    filter += `;[${bottomIdx}:v]scale=900:-1[bot];[${current}][bot]overlay=(main_w-w)/2:(main_h-h):enable='between(t,0,${openingDur.toFixed(2)})'[v_bot]`;
-    current = 'v_bot';
+    filter += `;[${bottomIdx}:v]scale=900:-1[bot]`;
   }
-  if (wantWhiteBox) {
-    // Centered white box
-    filter += `;[${current}][${whiteBoxIdx}:v]overlay=(main_w-900)/2:(main_h-200)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_box]`;
-    current = 'v_box';
+  if (hasTopBanner && wantWhiteBox && hasBottomBanner) {
+    filter += `;[top][${whiteBoxIdx}:v]vstack=inputs=2[tw];[tw][bot]vstack=inputs=2[banner]`;
+    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    current = 'v_banner';
+  } else if (hasTopBanner && wantWhiteBox) {
+    filter += `;[top][${whiteBoxIdx}:v]vstack=inputs=2[banner]`;
+    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    current = 'v_banner';
+  } else if (wantWhiteBox && hasBottomBanner) {
+    filter += `;[${whiteBoxIdx}:v][bot]vstack=inputs=2[banner]`;
+    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    current = 'v_banner';
+  } else if (hasTopBanner && hasBottomBanner) {
+    filter += `;[top][bot]vstack=inputs=2[banner]`;
+    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    current = 'v_banner';
+  } else if (hasTopBanner) {
+    filter += `;[${current}][top]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    current = 'v_banner';
+  } else if (hasBottomBanner) {
+    filter += `;[${current}][bot]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    current = 'v_banner';
+  } else if (wantWhiteBox) {
+    filter += `;[${current}][${whiteBoxIdx}:v]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    current = 'v_banner';
   }
 
   // Draw per-word captions over the composed video
