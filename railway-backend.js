@@ -206,11 +206,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Word timestamps for captions
   const wordTimestamps = buildWordTimestamps(storyDur, storyText);
 
-  // Banner image (overlay during opening). Prefer centered card asset
-  let bannerPath = path.join(__dirname, 'public', 'banners', 'redditbannerbottom.png');
-  if (!fs.existsSync(bannerPath)) {
-    bannerPath = path.join(__dirname, 'public', 'banners', 'redditbannertop.png');
-  }
+  // Banner images (overlay during opening)
+  const bannerTopPath = path.join(__dirname, 'public', 'banners', 'redditbannertop.png');
+  const bannerBottomPath = path.join(__dirname, 'public', 'banners', 'redditbannerbottom.png');
+  const hasTopBanner = fs.existsSync(bannerTopPath);
+  const hasBottomBanner = fs.existsSync(bannerBottomPath);
 
   // Font fallback
   let fontPath = '';
@@ -226,37 +226,43 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
 
   const { spawn } = require('child_process');
 
-  // Build filter_complex: scale+crop to 1080x1920, overlay banner during opening, draw per-word captions.
-  let filter = `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=brightness=0.05:contrast=1.1:saturation=1.1[bg];`;
-  const bannerExists = fs.existsSync(bannerPath);
-  if (bannerExists) {
-    // Scale banner and center slightly lower than midpoint during opening
-    filter += `[1:v]scale=900:-1[banner];[bg][banner]overlay=(main_w-w)/2:(main_h-h)/2+120:enable='between(t,0,${openingDur.toFixed(2)})'[v0]`;
-  } else {
-    filter += `[bg]null[v0]`;
+  // Build filter_complex: scale+crop to 1080x1920 (base), overlays and captions will be appended
+  let filter = `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=brightness=0.05:contrast=1.1:saturation=1.1[bg]`;
+  let current = 'bg';
+
+  // Prepare inputs and determine indexes
+  const args = ['-y', '-i', bgPath];
+  let idx = 1;
+  const topIdx = hasTopBanner ? idx++ : -1;
+  const bottomIdx = hasBottomBanner ? idx++ : -1;
+  const openingIdx = openingBuf ? idx++ : -1;
+  const storyIdx = storyBuf ? idx++ : -1;
+  if (hasTopBanner) args.push('-i', bannerTopPath);
+  if (hasBottomBanner) args.push('-i', bannerBottomPath);
+  if (openingBuf) args.push('-i', openingAudio);
+  if (storyBuf) args.push('-i', storyAudio);
+
+  // Overlay top and bottom banners during opening duration
+  if (hasTopBanner) {
+    filter += `;[${topIdx}:v]scale=900:-1[top];[${current}][top]overlay=(main_w-w)/2:0:enable='between(t,0,${openingDur.toFixed(2)})'[v_top]`;
+    current = 'v_top';
   }
-  let current = 'v0';
+  if (hasBottomBanner) {
+    filter += `;[${bottomIdx}:v]scale=900:-1[bot];[${current}][bot]overlay=(main_w-w)/2:(main_h-h):enable='between(t,0,${openingDur.toFixed(2)})'[v_bot]`;
+    current = 'v_bot';
+  }
+
+  // Draw per-word captions over the composed video
   wordTimestamps.forEach((w, i) => {
     const st = (openingDur + w.start).toFixed(2);
     const en = (openingDur + w.end).toFixed(2);
     const txt = (w.text || '').replace(/'/g, "\\'").replace(/:/g, '\\:');
-    // Centered captions, no box; keep subtle shadow for contrast
     const draw = fontPath
       ? `drawtext=fontfile='${fontPath}':text='${txt.toUpperCase()}':fontsize=86:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,${st},${en})':shadowx=3:shadowy=3:shadowcolor=black@0.8`
       : `drawtext=text='${txt.toUpperCase()}':fontsize=86:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,${st},${en})':shadowx=3:shadowy=3:shadowcolor=black@0.8`;
     filter += `;[${current}]${draw}[t${i}]`;
     current = `t${i}`;
   });
-
-  // Prepare inputs and determine indexes
-  const args = ['-y', '-i', bgPath];
-  let idx = 1;
-  const bannerIdx = bannerExists ? idx++ : -1;
-  const openingIdx = openingBuf ? idx++ : -1;
-  const storyIdx = storyBuf ? idx++ : -1;
-  if (bannerExists) args.push('-i', bannerPath);
-  if (openingBuf) args.push('-i', openingAudio);
-  if (storyBuf) args.push('-i', storyAudio);
 
   // Audio graph within the same filter_complex
   let haveAudio = false;
