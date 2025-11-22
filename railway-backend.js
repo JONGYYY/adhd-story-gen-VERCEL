@@ -205,16 +205,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Ensure overlays are visible even if title TTS is missing/0s
   openingDur = Math.max(openingDur, 2.0);
 
-  // Word timestamps for captions (fallback to title words if story is empty)
-  const effectiveCaptionText = (storyText && storyText.trim().length > 0) ? storyText : (openingText || '');
-  const wordTimestamps = buildWordTimestamps(storyDur, effectiveCaptionText);
-  console.log('[captions]', {
-    openingDur,
-    storyDur,
-    storyTextLen: (storyText || '').length,
-    effectiveCaptionTextLen: effectiveCaptionText.length,
-    numWords: wordTimestamps.length
-  });
+  // Word timestamps for captions (based on story text only)
+  const wordTimestamps = buildWordTimestamps(storyDur, storyText);
 
   // Banner images (overlay during opening)
   const bannerTopPath = path.join(__dirname, 'public', 'banners', 'redditbannertop.png');
