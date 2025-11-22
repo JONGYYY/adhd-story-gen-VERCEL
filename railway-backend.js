@@ -252,40 +252,34 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (storyBuf) args.push('-i', storyAudio);
 
   // Compose a stacked banner: top + white box + bottom, then overlay as one unit
-  // Scale top/bottom to 900 width first and apply rounded corners via alpha mask
-  const cornerR = 18; // corner radius
-  const r2 = cornerR * cornerR;
+  // Scale top/bottom to 900 width first
   if (hasTopBanner) {
-    // Round top-left and top-right corners only
     filter += `;[${topIdx}:v]scale=900:-1[top]`;
-    filter += `;[top]format=rgba,geq=alpha='if(lt(X,${cornerR})*lt(Y,${cornerR})*gt(((${cornerR}-X)^2)+(${cornerR}-Y)^2,${r2}),0,if(lt(W-1-X,${cornerR})*lt(Y,${cornerR})*gt(((W-1-X-${cornerR})^2)+(${cornerR}-Y)^2,${r2}),0,255))'[topr]`;
   }
   if (hasBottomBanner) {
-    // Round bottom-left and bottom-right corners only
     filter += `;[${bottomIdx}:v]scale=900:-1[bot]`;
-    filter += `;[bot]format=rgba,geq=alpha='if(lt(X,${cornerR})*lt(H-1-Y,${cornerR})*gt(((${cornerR}-X)^2)+(H-1-Y-${cornerR})^2,${r2}),0,if(lt(W-1-X,${cornerR})*lt(H-1-Y,${cornerR})*gt(((W-1-X-${cornerR})^2)+(H-1-Y-${cornerR})^2,${r2}),0,255))'[botr]`;
   }
   if (hasTopBanner && wantWhiteBox && hasBottomBanner) {
-    filter += `;[topr][${whiteBoxIdx}:v]vstack=inputs=2[tw];[tw][botr]vstack=inputs=2[banner]`;
+    filter += `;[top][${whiteBoxIdx}:v]vstack=inputs=2[tw];[tw][bot]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner && wantWhiteBox) {
-    filter += `;[topr][${whiteBoxIdx}:v]vstack=inputs=2[banner]`;
+    filter += `;[top][${whiteBoxIdx}:v]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (wantWhiteBox && hasBottomBanner) {
-    filter += `;[${whiteBoxIdx}:v][botr]vstack=inputs=2[banner]`;
+    filter += `;[${whiteBoxIdx}:v][bot]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner && hasBottomBanner) {
-    filter += `;[topr][botr]vstack=inputs=2[banner]`;
+    filter += `;[top][bot]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner) {
-    filter += `;[${current}][topr]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][top]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasBottomBanner) {
-    filter += `;[${current}][botr]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][bot]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (wantWhiteBox) {
     filter += `;[${current}][${whiteBoxIdx}:v]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
