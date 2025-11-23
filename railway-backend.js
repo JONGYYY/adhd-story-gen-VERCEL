@@ -209,8 +209,15 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const wordTimestamps = buildWordTimestamps(storyDur, storyText);
 
   // Banner images (overlay during opening)
-  const bannerTopPath = path.join(__dirname, 'public', 'banners', 'redditbannertop.png');
-  const bannerBottomPath = path.join(__dirname, 'public', 'banners', 'redditbannerbottom.png');
+  // Prefer pre-rounded assets if present to avoid brittle FFmpeg masking
+  const bannerTopRounded = path.join(__dirname, 'public', 'banners', 'redditbannertop_rounded.png');
+  const bannerBottomRounded = path.join(__dirname, 'public', 'banners', 'redditbannerbottom_rounded.png');
+  const bannerTopPath = fs.existsSync(bannerTopRounded)
+    ? bannerTopRounded
+    : path.join(__dirname, 'public', 'banners', 'redditbannertop.png');
+  const bannerBottomPath = fs.existsSync(bannerBottomRounded)
+    ? bannerBottomRounded
+    : path.join(__dirname, 'public', 'banners', 'redditbannerbottom.png');
   const hasTopBanner = fs.existsSync(bannerTopPath);
   const hasBottomBanner = fs.existsSync(bannerBottomPath);
 
