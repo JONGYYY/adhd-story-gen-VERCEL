@@ -252,34 +252,34 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (storyBuf) args.push('-i', storyAudio);
 
   // Compose a stacked banner: top + white box + bottom, then overlay as one unit
-  // Scale top/bottom to 900 width first
+  // Scale top/bottom to 900 width first (apply rounded corners via alpha mask using pow())
   if (hasTopBanner) {
-    filter += `;[${topIdx}:v]scale=900:-1[top]`;
+    filter += `;[${topIdx}:v]scale=900:-1,format=rgba,geq=alpha='if(lt(X,18)*lt(Y,18)*gt(pow(18-X,2)+pow(18-Y,2),324),0,if(lt(W-1-X,18)*lt(Y,18)*gt(pow(W-1-X-18,2)+pow(18-Y,2),324),0,255))'[topr]`;
   }
   if (hasBottomBanner) {
-    filter += `;[${bottomIdx}:v]scale=900:-1[bot]`;
+    filter += `;[${bottomIdx}:v]scale=900:-1,format=rgba,geq=alpha='if(lt(X,18)*lt(H-1-Y,18)*gt(pow(18-X,2)+pow(H-1-Y-18,2),324),0,if(lt(W-1-X,18)*lt(H-1-Y,18)*gt(pow(W-1-X-18,2)+pow(H-1-Y-18,2),324),0,255))'[botr]`;
   }
   if (hasTopBanner && wantWhiteBox && hasBottomBanner) {
-    filter += `;[top][${whiteBoxIdx}:v]vstack=inputs=2[tw];[tw][bot]vstack=inputs=2[banner]`;
+    filter += `;[topr][${whiteBoxIdx}:v]vstack=inputs=2[tw];[tw][botr]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner && wantWhiteBox) {
-    filter += `;[top][${whiteBoxIdx}:v]vstack=inputs=2[banner]`;
+    filter += `;[topr][${whiteBoxIdx}:v]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (wantWhiteBox && hasBottomBanner) {
-    filter += `;[${whiteBoxIdx}:v][bot]vstack=inputs=2[banner]`;
+    filter += `;[${whiteBoxIdx}:v][botr]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner && hasBottomBanner) {
-    filter += `;[top][bot]vstack=inputs=2[banner]`;
+    filter += `;[topr][botr]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner) {
-    filter += `;[${current}][top]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][topr]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasBottomBanner) {
-    filter += `;[${current}][bot]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][botr]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (wantWhiteBox) {
     filter += `;[${current}][${whiteBoxIdx}:v]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
