@@ -146,11 +146,56 @@ async function getAudioDurationFromFile(audioPath) {
   });
 }
 
+// Measure effective speech duration by trimming trailing silence using FFmpeg silencedetect
+async function getEffectiveSpeechDuration(audioPath, thresholdDb = -35, minSilenceSec = 0.25) {
+  const total = await getAudioDurationFromFile(audioPath).catch(() => 0);
+  if (!isFinite(total) || total <= 0) return 0;
+  return new Promise((resolve) => {
+    const { spawn } = require('child_process');
+    const args = ['-hide_banner', '-nostats', '-i', audioPath, '-af', `silencedetect=n=${thresholdDb}dB:d=${minSilenceSec}`, '-f', 'null', '-'];
+    const ff = spawn('ffmpeg', args);
+    let stderr = '';
+    ff.stderr.on('data', (d) => { stderr += d.toString(); });
+    ff.on('close', () => {
+      // Find last silence_start and prefer if near the end
+      const starts = [...stderr.matchAll(/silence_start:\s*([0-9.]+)/g)].map(m => parseFloat(m[1])).filter(n => isFinite(n));
+      let effective = total;
+      if (starts.length > 0) {
+        const lastStart = starts[starts.length - 1];
+        // If the last silence begins within the last 1.5s, treat it as trailing silence
+        if (total - lastStart >= minSilenceSec && total - lastStart <= 1.5 + minSilenceSec) {
+          effective = Math.max(0, lastStart);
+        }
+      }
+      // Safety bounds
+      if (!isFinite(effective) || effective <= 0) effective = total;
+      resolve(effective);
+    });
+    ff.on('error', () => resolve(total));
+  });
+}
+
+// Build word timestamps weighted by approximate word length for more natural pacing
 function buildWordTimestamps(totalDuration, text) {
   const words = (text || '').split(/\s+/).filter((w) => w.length > 0);
   if (words.length === 0 || !isFinite(totalDuration) || totalDuration <= 0) return [];
-  const avg = totalDuration / words.length;
-  return words.map((w, i) => ({ text: w, start: i * avg, end: (i + 1) * avg }));
+  // Weight by characters (strip punctuation), minimum weight 1
+  const clean = words.map(w => w.replace(/[.,!?;:]+$/g, ''));
+  const weights = clean.map(w => Math.max(1, w.length));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  let t = 0;
+  const stamps = clean.map((w, i) => {
+    const dur = (weights[i] / sum) * totalDuration;
+    const start = t;
+    const end = t + dur;
+    t = end;
+    return { text: w, start, end };
+  });
+  // Guard: ensure strictly increasing and end == totalDuration (floating errors)
+  if (stamps.length > 0) {
+    stamps[stamps.length - 1].end = totalDuration;
+  }
+  return stamps;
 }
 
 async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias }, videoId) {
@@ -198,12 +243,18 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (openingBuf) await fsp.writeFile(openingAudio, openingBuf);
   if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
 
-  // Durations (banner duration equals exact title TTS duration)
+  // Durations
+  // Use effective speech duration (trim trailing silence) so the banner hides exactly when the title ends
   const openingDurRaw = openingBuf ? await getAudioDurationFromFile(openingAudio) : 0;
-  let openingDur = openingDurRaw;
-  const storyDur = storyBuf ? await getAudioDurationFromFile(storyAudio) : 3.0;
-  // Ensure overlays are visible even if title TTS is missing/0s
-  openingDur = Math.max(openingDur, 2.0);
+  const openingDurEff = openingBuf ? await getEffectiveSpeechDuration(openingAudio).catch(() => openingDurRaw) : 0;
+  let openingDur = Math.max(openingDurEff, 0);
+  // If for some reason we couldn't detect, fall back to raw but cap with a small safety pad
+  if (openingDur === 0 && openingDurRaw > 0) openingDur = openingDurRaw;
+  // Ensure a tiny minimum so overlay shows briefly if title is ultra short
+  openingDur = Math.max(openingDur, 0.6);
+  // For caption pacing, also trim trailing silence from story
+  const storyDurRaw = storyBuf ? await getAudioDurationFromFile(storyAudio) : 3.0;
+  const storyDur = storyBuf ? await getEffectiveSpeechDuration(storyAudio).catch(() => storyDurRaw) : 3.0;
 
   // Word timestamps for captions
   const wordTimestamps = buildWordTimestamps(storyDur, storyText);
