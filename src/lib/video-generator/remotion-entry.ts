@@ -631,7 +631,7 @@ export async function generateVideoWithRemotion(options: VideoGenerationOptions,
     // Build center one-word captions (remove [BREAK]) starting right after the title finishes
     const subsPath = path.join(os.tmpdir(), `captions_${videoId}.ass`);
     const captionText = (fullStory || title).replace(/\[BREAK\]/g, ' ');
-    await buildCenterWordAss(captionText, storyAudioPath, subsPath, Math.max(0, titleDuration + 0.10));
+    await buildCenterWordAss(captionText, storyAudioPath, subsPath, Math.max(0, titleDuration));
 
     // Composite with audio, overlay only during title audio, captions after
     const finalPath = path.join(os.tmpdir(), `output_${videoId}.mp4`);
