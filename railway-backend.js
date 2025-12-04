@@ -198,7 +198,7 @@ function buildWordTimestamps(totalDuration, text) {
   return stamps;
 }
 
-async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias }, videoId) {
+async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias, subreddit, author }, videoId) {
   const videosDir = await ensureVideosDir();
   const outPath = path.join(videosDir, `${videoId}.mp4`);
 
@@ -284,6 +284,12 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     try { if (fs.existsSync(f)) { fontPath = f; break; } } catch {}
   }
 
+  // Prepare labels for top banner
+  const subLabelRaw = (subreddit || '').trim();
+  const subLabel = subLabelRaw ? (subLabelRaw.startsWith('r/') ? subLabelRaw : `r/${subLabelRaw.replace(/^r\\//,'')}`) : '';
+  const authorLabel = (author || 'Anonymous').replace(/^@/, '');
+  const esc = (s) => (s || '').replace(/'/g, "\\'").replace(/:/g, '\\:');
+
   const { spawn } = require('child_process');
 
   // Build filter_complex: scale+crop to 1080x1920 (base), overlays and captions will be appended
@@ -312,21 +318,36 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Compose a stacked banner: top + white box + bottom, then overlay as one unit
   // Scale top/bottom to 900 width first (use PNG’s native transparency; no masking)
   if (hasTopBanner) {
-    filter += `;[${topIdx}:v]scale=900:-1[top]`;
+    // Scale top, then annotate with subreddit and @author at x=20
+    filter += `;[${topIdx}:v]scale=900:-1[top0]`;
+    const topDraw1 = fontPath
+      ? `drawtext=fontfile='${fontPath}':text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=20:y=30:shadowx=2:shadowy=2:shadowcolor=white@0.6`
+      : `drawtext=text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=20:y=30:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+    const topDraw2 = fontPath
+      ? `drawtext=fontfile='${fontPath}':text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=20:y=(h-40-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`
+      : `drawtext=text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=20:y=(h-40-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+    filter += `;[top0]${topDraw1}[top1];[top1]${topDraw2}[top]`;
   }
   if (hasBottomBanner) {
     filter += `;[${bottomIdx}:v]scale=900:-1[bot]`;
   }
+  // Title text on the white box: left-aligned with padding (x=20,y=20)
+  if (wantWhiteBox) {
+    const titleDraw = fontPath
+      ? `drawtext=fontfile='${fontPath}':text='${esc(title)}':fontsize=52:fontcolor=black:x=20:y=20:line_spacing=6:shadowx=0:shadowy=0:box=0`
+      : `drawtext=text='${esc(title)}':fontsize=52:fontcolor=black:x=20:y=20:line_spacing=6:shadowx=0:shadowy=0:box=0`;
+    filter += `;[${whiteBoxIdx}:v]${titleDraw}[wb]`;
+  }
   if (hasTopBanner && wantWhiteBox && hasBottomBanner) {
-    filter += `;[top][${whiteBoxIdx}:v]vstack=inputs=2[tw];[tw][bot]vstack=inputs=2[banner]`;
+    filter += `;[top][wb]vstack=inputs=2[tw];[tw][bot]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner && wantWhiteBox) {
-    filter += `;[top][${whiteBoxIdx}:v]vstack=inputs=2[banner]`;
+    filter += `;[top][wb]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (wantWhiteBox && hasBottomBanner) {
-    filter += `;[${whiteBoxIdx}:v][bot]vstack=inputs=2[banner]`;
+    filter += `;[wb][bot]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner && hasBottomBanner) {
@@ -340,7 +361,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     filter += `;[${current}][bot]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (wantWhiteBox) {
-    filter += `;[${current}][${whiteBoxIdx}:v]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][wb]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   }
 
@@ -447,7 +468,9 @@ async function generateVideoSimple(options, videoId) {
       title: options?.customStory?.title || '',
       story: options?.customStory?.story || '',
       backgroundCategory: options?.background?.category || 'random',
-      voiceAlias: options?.voice?.id || 'adam'
+      voiceAlias: options?.voice?.id || 'adam',
+      subreddit: options?.customStory?.subreddit || '',
+      author: options?.customStory?.author || 'Anonymous'
     }, videoId);
     videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl });
     console.log(`Video generation completed for ID: ${videoId}`);
