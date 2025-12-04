@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs-20_x", "ffmpeg", "fontconfig", "dejavu_fonts", "chromium"]
+nixPkgs = ["nodejs", "ffmpeg", "fontconfig", "dejavu_fonts", "chromium"]
 
 [phases.install]
 cmds = [
