@@ -286,7 +286,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
 
   // Prepare labels for top banner
   const subLabelRaw = (subreddit || '').trim();
-  const subLabel = subLabelRaw ? (subLabelRaw.startsWith('r/') ? subLabelRaw : `r/${subLabelRaw.replace(/^r\\//,'')}`) : '';
+  // Normalize subreddit safely without regex-in-template to avoid parser edge-cases
+  const normalizedSub = subLabelRaw.startsWith('r/') ? subLabelRaw.slice(2) : subLabelRaw.replace(/^r\//, '');
+  const subLabel = normalizedSub ? ('r/' + normalizedSub) : '';
   const authorLabel = (author || 'Anonymous').replace(/^@/, '');
   const esc = (s) => (s || '').replace(/'/g, "\\'").replace(/:/g, '\\:');
 
