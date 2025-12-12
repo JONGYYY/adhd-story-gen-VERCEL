@@ -290,10 +290,16 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const normalizedSub = subLabelRaw.startsWith('r/') ? subLabelRaw.slice(2) : subLabelRaw.replace(/^r\//, '');
   const subLabel = normalizedSub ? ('r/' + normalizedSub) : '';
   const authorLabel = (author || 'Anonymous').replace(/^@/, '');
+  // Escape strings for FFmpeg filtergraph option values (drawtext in particular).
+  // We are NOT going through a shell, so shell quoting doesn't apply; this is for FFmpeg's own parser.
   const esc = (s) => (s || '')
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")
-    .replace(/:/g, '\\:');
+    .replace(/:/g, '\\:')
+    .replace(/,/g, '\\,');
+
+  // FFmpeg expressions treat comma as an argument separator; escape commas to keep between() intact.
+  const betweenEnable = (start, end) => `between(t\\,${Number(start).toFixed(2)}\\,${Number(end).toFixed(2)})`;
 
   // Wrap title to fit inside the 900px-wide white box (with padding) and grow box height by lines.
   // This is an approximate wrap (character-based), but we also hard-break overlong words so nothing can exceed the box width.
@@ -395,31 +401,31 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (hasTopBanner && wantWhiteBox && hasBottomBanner) {
     const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
     filter += `;[top][${wbOut}]vstack=inputs=2[tw];[tw][bot]vstack=inputs=2[banner]`;
-    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner && wantWhiteBox) {
     const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
     filter += `;[top][${wbOut}]vstack=inputs=2[banner]`;
-    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
     current = 'v_banner';
   } else if (wantWhiteBox && hasBottomBanner) {
     const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
     filter += `;[${wbOut}][bot]vstack=inputs=2[banner]`;
-    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner && hasBottomBanner) {
     filter += `;[top][bot]vstack=inputs=2[banner]`;
-    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner) {
-    filter += `;[${current}][top]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][top]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
     current = 'v_banner';
   } else if (hasBottomBanner) {
-    filter += `;[${current}][bot]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][bot]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
     current = 'v_banner';
   } else if (wantWhiteBox) {
     const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
-    filter += `;[${current}][${wbOut}]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    filter += `;[${current}][${wbOut}]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
     current = 'v_banner';
   }
 
@@ -429,8 +435,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     const en = (openingDur + w.end).toFixed(2);
     const txt = (w.text || '').replace(/'/g, "\\'").replace(/:/g, '\\:');
     const draw = fontPath
-      ? `drawtext=fontfile='${fontPath}':text='${txt.toUpperCase()}':fontsize=86:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,${st},${en})':shadowx=3:shadowy=3:shadowcolor=black@0.8`
-      : `drawtext=text='${txt.toUpperCase()}':fontsize=86:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,${st},${en})':shadowx=3:shadowy=3:shadowcolor=black@0.8`;
+      ? `drawtext=fontfile='${fontPath}':text='${txt.toUpperCase()}':fontsize=86:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable=${betweenEnable(st, en)}:shadowx=3:shadowy=3:shadowcolor=black@0.8`
+      : `drawtext=text='${txt.toUpperCase()}':fontsize=86:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable=${betweenEnable(st, en)}:shadowx=3:shadowy=3:shadowcolor=black@0.8`;
     filter += `;[${current}]${draw}[t${i}]`;
     current = `t${i}`;
   });
