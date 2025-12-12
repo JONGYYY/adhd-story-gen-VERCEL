@@ -290,7 +290,54 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const normalizedSub = subLabelRaw.startsWith('r/') ? subLabelRaw.slice(2) : subLabelRaw.replace(/^r\//, '');
   const subLabel = normalizedSub ? ('r/' + normalizedSub) : '';
   const authorLabel = (author || 'Anonymous').replace(/^@/, '');
-  const esc = (s) => (s || '').replace(/'/g, "\\'").replace(/:/g, '\\:');
+  const esc = (s) => (s || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/:/g, '\\:');
+
+  // Wrap title to fit inside the 900px-wide white box (with padding) and grow box height by lines.
+  // This is an approximate wrap (character-based), but we also hard-break overlong words so nothing can exceed the box width.
+  const wrapTitleForBox = (rawTitle, maxCharsPerLine = 26, maxLines = 6) => {
+    const t = String(rawTitle || '').trim();
+    if (!t) return { lines: [''], textForFfmpeg: '', boxHeight: 200 };
+
+    const breakLongWord = (word) => {
+      const parts = [];
+      let w = word;
+      while (w.length > maxCharsPerLine) {
+        parts.push(w.slice(0, maxCharsPerLine));
+        w = w.slice(maxCharsPerLine);
+      }
+      if (w.length) parts.push(w);
+      return parts;
+    };
+
+    const words = t.split(/\s+/).flatMap((w) => breakLongWord(w));
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      const next = cur ? `${cur} ${w}` : w;
+      if (next.length <= maxCharsPerLine) {
+        cur = next;
+      } else {
+        if (cur) lines.push(cur);
+        cur = w;
+      }
+      if (lines.length >= maxLines) break;
+    }
+    if (lines.length < maxLines && cur) lines.push(cur);
+
+    const minHeight = 200;
+    const paddingTop = 20;
+    const paddingBottom = 20;
+    const lineHeight = 62; // tuned for fontsize 52-ish
+    const boxHeight = Math.max(minHeight, paddingTop + paddingBottom + (lines.length * lineHeight));
+    // FFmpeg drawtext uses \n for newlines; we escape as \\n in the filter string.
+    const textForFfmpeg = lines.join('\\n');
+    return { lines, textForFfmpeg, boxHeight };
+  };
+
+  const wrapped = wrapTitleForBox(title, 26, 6);
 
   const { spawn } = require('child_process');
 
@@ -311,8 +358,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (hasTopBanner) args.push('-i', bannerTopPath);
   if (hasBottomBanner) args.push('-i', bannerBottomPath);
   if (wantWhiteBox) {
-    // 900x200 white box, duration equals opening duration
-    args.push('-f', 'lavfi', '-i', `color=c=white:s=900x200:d=${openingDur.toFixed(2)}`);
+    // 900xH white box, duration equals opening duration (min height, grows with wrapped title)
+    args.push('-f', 'lavfi', '-i', `color=c=white:s=900x${wrapped.boxHeight}:d=${openingDur.toFixed(2)}`);
   }
   if (openingBuf) args.push('-i', openingAudio);
   if (storyBuf) args.push('-i', storyAudio);
@@ -323,11 +370,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     // Scale top, then annotate with subreddit and @author at x=20
     filter += `;[${topIdx}:v]scale=900:-1[top0]`;
     const topDraw1 = fontPath
-      ? `drawtext=fontfile='${fontPath}':text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=20:y=30:shadowx=2:shadowy=2:shadowcolor=white@0.6`
-      : `drawtext=text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=20:y=30:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+      ? `drawtext=fontfile='${fontPath}':text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=170:y=30:shadowx=2:shadowy=2:shadowcolor=white@0.6`
+      : `drawtext=text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=170:y=30:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
     const topDraw2 = fontPath
-      ? `drawtext=fontfile='${fontPath}':text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=20:y=(h-40-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`
-      : `drawtext=text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=20:y=(h-40-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+      ? `drawtext=fontfile='${fontPath}':text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=170:y=(h-40-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`
+      : `drawtext=text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=170:y=(h-40-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
     filter += `;[top0]${topDraw1}[top1];[top1]${topDraw2}[top]`;
   }
   if (hasBottomBanner) {
@@ -336,8 +383,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Title text on the white box: left-aligned with padding (x=20,y=20)
   if (wantWhiteBox) {
     const titleDraw = fontPath
-      ? `drawtext=fontfile='${fontPath}':text='${esc(title)}':fontsize=52:fontcolor=black:x=20:y=20:line_spacing=6:shadowx=0:shadowy=0:box=0`
-      : `drawtext=text='${esc(title)}':fontsize=52:fontcolor=black:x=20:y=20:line_spacing=6:shadowx=0:shadowy=0:box=0`;
+      ? `drawtext=fontfile='${fontPath}':text='${esc(wrapped.textForFfmpeg)}':fontsize=52:fontcolor=black:x=20:y=20:line_spacing=10:shadowx=0:shadowy=0:box=0`
+      : `drawtext=text='${esc(wrapped.textForFfmpeg)}':fontsize=52:fontcolor=black:x=20:y=20:line_spacing=10:shadowx=0:shadowy=0:box=0`;
     filter += `;[${whiteBoxIdx}:v]${titleDraw}[wb]`;
   }
   if (hasTopBanner && wantWhiteBox && hasBottomBanner) {
