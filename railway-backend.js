@@ -299,7 +299,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // This is an approximate wrap (character-based), but we also hard-break overlong words so nothing can exceed the box width.
   const wrapTitleForBox = (rawTitle, maxCharsPerLine = 26, maxLines = 6) => {
     const t = String(rawTitle || '').trim();
-    if (!t) return { lines: [''], textForFfmpeg: '', boxHeight: 200 };
+    if (!t) return { lines: [''], boxHeight: 200, lineHeight: 62, paddingTop: 20, paddingBottom: 20 };
 
     const breakLongWord = (word) => {
       const parts = [];
@@ -332,9 +332,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     const paddingBottom = 20;
     const lineHeight = 62; // tuned for fontsize 52-ish
     const boxHeight = Math.max(minHeight, paddingTop + paddingBottom + (lines.length * lineHeight));
-    // FFmpeg drawtext uses \n for newlines; we escape as \\n in the filter string.
-    const textForFfmpeg = lines.join('\\n');
-    return { lines, textForFfmpeg, boxHeight };
+    return { lines, boxHeight, lineHeight, paddingTop, paddingBottom };
   };
 
   const wrapped = wrapTitleForBox(title, 26, 6);
@@ -382,21 +380,31 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   }
   // Title text on the white box: left-aligned with padding (x=20,y=20)
   if (wantWhiteBox) {
-    const titleDraw = fontPath
-      ? `drawtext=fontfile='${fontPath}':text='${esc(wrapped.textForFfmpeg)}':fontsize=52:fontcolor=black:x=20:y=20:line_spacing=10:shadowx=0:shadowy=0:box=0`
-      : `drawtext=text='${esc(wrapped.textForFfmpeg)}':fontsize=52:fontcolor=black:x=20:y=20:line_spacing=10:shadowx=0:shadowy=0:box=0`;
-    filter += `;[${whiteBoxIdx}:v]${titleDraw}[wb]`;
+    // Draw line-by-line instead of embedding \n (more robust for FFmpeg filter parsing)
+    const lines = (wrapped.lines && wrapped.lines.length ? wrapped.lines : ['']).slice(0, 6);
+    filter += `;[${whiteBoxIdx}:v]null[wb0]`;
+    for (let i = 0; i < lines.length; i++) {
+      const y = 20 + (i * (wrapped.lineHeight || 62));
+      const lineText = esc(lines[i] || '');
+      const drawLine = fontPath
+        ? `drawtext=fontfile='${fontPath}':text='${lineText}':fontsize=52:fontcolor=black:x=20:y=${y}:shadowx=0:shadowy=0:box=0`
+        : `drawtext=text='${lineText}':fontsize=52:fontcolor=black:x=20:y=${y}:shadowx=0:shadowy=0:box=0`;
+      filter += `;[wb${i}]${drawLine}[wb${i + 1}]`;
+    }
   }
   if (hasTopBanner && wantWhiteBox && hasBottomBanner) {
-    filter += `;[top][wb]vstack=inputs=2[tw];[tw][bot]vstack=inputs=2[banner]`;
+    const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
+    filter += `;[top][${wbOut}]vstack=inputs=2[tw];[tw][bot]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner && wantWhiteBox) {
-    filter += `;[top][wb]vstack=inputs=2[banner]`;
+    const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
+    filter += `;[top][${wbOut}]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (wantWhiteBox && hasBottomBanner) {
-    filter += `;[wb][bot]vstack=inputs=2[banner]`;
+    const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
+    filter += `;[${wbOut}][bot]vstack=inputs=2[banner]`;
     filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (hasTopBanner && hasBottomBanner) {
@@ -410,7 +418,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     filter += `;[${current}][bot]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   } else if (wantWhiteBox) {
-    filter += `;[${current}][wb]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
+    const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
+    filter += `;[${current}][${wbOut}]overlay=(main_w-w)/2:(main_h-h)/2:enable='between(t,0,${openingDur.toFixed(2)})'[v_banner]`;
     current = 'v_banner';
   }
 
