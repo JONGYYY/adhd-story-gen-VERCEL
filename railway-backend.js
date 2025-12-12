@@ -374,11 +374,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     // Scale top, then annotate with subreddit and @author at x=20
     filter += `;[${topIdx}:v]scale=900:-1[top0]`;
     const topDraw1 = fontPath
-      ? `drawtext=fontfile='${fontPath}':text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=170:y=30:shadowx=2:shadowy=2:shadowcolor=white@0.6`
-      : `drawtext=text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=170:y=30:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+      ? `drawtext=fontfile='${fontPath}':text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=190:y=36:shadowx=2:shadowy=2:shadowcolor=white@0.6`
+      : `drawtext=text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=190:y=36:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
     const topDraw2 = fontPath
-      ? `drawtext=fontfile='${fontPath}':text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=170:y=(h-40-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`
-      : `drawtext=text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=170:y=(h-40-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+      ? `drawtext=fontfile='${fontPath}':text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=190:y=(h-75-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`
+      : `drawtext=text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=190:y=(h-75-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
     filter += `;[top0]${topDraw1}[top1];[top1]${topDraw2}[top]`;
   }
   if (hasBottomBanner) {
