@@ -1,7 +1,7 @@
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getAnalytics, isSupported } from 'firebase/analytics';
-import { getFirestore, Firestore, enableIndexedDbPersistence } from 'firebase/firestore';
 
 type FirebaseConfig = {
   apiKey?: string;
@@ -13,11 +13,14 @@ type FirebaseConfig = {
   measurementId?: string;
 };
 
-// Lazily initialized singletons
 let cachedApp: FirebaseApp | null = null;
 let cachedAuth: Auth | null = null;
 let cachedDb: Firestore | null = null;
-let warnedMissingConfig = false;
+let warnedMissing = false;
+
+function isClient() {
+  return typeof window !== 'undefined';
+}
 
 function getConfig(): FirebaseConfig {
   return {
@@ -36,92 +39,97 @@ function hasRequiredConfig(cfg: FirebaseConfig): boolean {
   return required.every((k) => Boolean(cfg[k]));
 }
 
-function warnMissing(cfg: FirebaseConfig) {
-  if (warnedMissingConfig) return;
+function warnMissingConfig(cfg: FirebaseConfig) {
+  if (warnedMissing) return;
   const required = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'] as const;
   const missing = required.filter((k) => !cfg[k]);
-  if (missing.length > 0) {
-    console.error('Missing Firebase configuration keys:', missing);
-    if (typeof window !== 'undefined') {
-      console.error('Firebase configuration is incomplete. Please check your NEXT_PUBLIC_* environment variables.');
-    }
-    warnedMissingConfig = true;
+  if (missing.length) {
+    console.error('[firebase] Missing NEXT_PUBLIC Firebase config keys:', missing);
+    warnedMissing = true;
   }
 }
 
-function ensureClient(): boolean {
-  return typeof window !== 'undefined';
-}
-
 export function getClientApp(): FirebaseApp | null {
-  if (!ensureClient()) return null;
+  if (!isClient()) return null;
   if (cachedApp) return cachedApp;
 
   const cfg = getConfig();
   if (!hasRequiredConfig(cfg)) {
-    warnMissing(cfg);
+    warnMissingConfig(cfg);
     return null;
   }
 
   try {
-    cachedApp = getApps().length === 0 ? initializeApp(cfg as any) : getApps()[0];
+    cachedApp = getApps().length ? getApps()[0] : initializeApp(cfg as any);
     return cachedApp;
-  } catch (err) {
-    console.error('Failed to initialize Firebase app:', err);
+  } catch (e) {
+    console.error('[firebase] initializeApp failed:', e);
     cachedApp = null;
     return null;
   }
 }
 
 export function getClientAuth(): Auth | null {
-  if (!ensureClient()) return null;
+  if (!isClient()) return null;
   if (cachedAuth) return cachedAuth;
+
   const app = getClientApp();
   if (!app) return null;
+
   try {
     cachedAuth = getAuth(app);
     return cachedAuth;
-  } catch (err) {
-    console.error('Failed to get Firebase Auth:', err);
+  } catch (e) {
+    console.error('[firebase] getAuth failed:', e);
     cachedAuth = null;
     return null;
   }
 }
 
 export function getClientDb(): Firestore | null {
-  if (!ensureClient()) return null;
+  if (!isClient()) return null;
   if (cachedDb) return cachedDb;
+
   const app = getClientApp();
   if (!app) return null;
+
   try {
     cachedDb = getFirestore(app);
-    if (typeof window !== 'undefined') {
-      enableIndexedDbPersistence(cachedDb).catch((err: any) => {
-        if (err?.code === 'failed-precondition') {
-          console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-        } else if (err?.code === 'unimplemented') {
-          console.warn('The current browser does not support persistence.');
-        }
-      });
-    }
+
+    // Enable persistence best-effort (safe to ignore errors)
+    enableIndexedDbPersistence(cachedDb).catch((err: any) => {
+      if (err?.code === 'failed-precondition') {
+        console.warn('[firebase] Persistence failed: multiple tabs open');
+      } else if (err?.code === 'unimplemented') {
+        console.warn('[firebase] Persistence not supported in this browser');
+      } else {
+        console.warn('[firebase] Persistence error:', err);
+      }
+    });
+
     return cachedDb;
-  } catch (err) {
-    console.error('Failed to get Firestore:', err);
+  } catch (e) {
+    console.error('[firebase] getFirestore failed:', e);
     cachedDb = null;
     return null;
   }
 }
 
-// Initialize Analytics only on client side, best-effort
-if (typeof window !== 'undefined') {
+/**
+ * Optional: call from a client component after mount if you want analytics.
+ * This avoids weird SSR/client timing issues.
+ */
+export async function initClientAnalytics(): Promise<void> {
+  if (!isClient()) return;
+  const app = getClientApp();
+  if (!app) return;
+
   try {
-    const app = getClientApp();
-    if (app) {
-      isSupported().then((yes) => yes && getAnalytics(app)).catch((err) => {
-        console.warn('Failed to initialize analytics:', err);
-      });
-    }
-  } catch {}
+    const yes = await isSupported();
+    if (yes) getAnalytics(app);
+  } catch (e) {
+    console.warn('[firebase] analytics init failed:', e);
+  }
 }
 
 export type { Auth };
