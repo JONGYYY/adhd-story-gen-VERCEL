@@ -301,6 +301,25 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // FFmpeg expressions treat comma as an argument separator; escape commas to keep between() intact.
   const betweenEnable = (start, end) => `between(t\\,${Number(start).toFixed(2)}\\,${Number(end).toFixed(2)})`;
 
+  // Prefer a font family (via fontconfig) if available; fallback to fontfile path.
+  // Try PT Sans by default. You can override with env FONT_FAMILY.
+  let fontOpt = '';
+  try {
+    const { execFileSync } = require('child_process');
+    const preferredFamily = process.env.FONT_FAMILY || 'PT Sans';
+    execFileSync('fc-match', [preferredFamily], { stdio: ['ignore', 'pipe', 'ignore'] });
+    fontOpt = `font='${preferredFamily.replace(/'/g, "\\'")}'`;
+    console.log('[ffmpeg] Using font family:', preferredFamily);
+  } catch {
+    if (fontPath) {
+      fontOpt = `fontfile='${fontPath}'`;
+      console.log('[ffmpeg] Using fontfile fallback:', fontPath);
+    } else {
+      console.log('[ffmpeg] No font configured; drawtext will use defaults');
+    }
+  }
+  const fontOptPrefix = fontOpt ? `${fontOpt}:` : '';
+
   // Wrap title to fit inside the 900px-wide white box (with padding) and grow box height by lines.
   // This is an approximate wrap (character-based), but we also hard-break overlong words so nothing can exceed the box width.
   const wrapTitleForBox = (rawTitle, maxCharsPerLine = 26, maxLines = 6) => {
@@ -373,12 +392,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (hasTopBanner) {
     // Scale top, then annotate with subreddit and @author at x=20
     filter += `;[${topIdx}:v]scale=900:-1[top0]`;
-    const topDraw1 = fontPath
-      ? `drawtext=fontfile='${fontPath}':text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=190:y=36:shadowx=2:shadowy=2:shadowcolor=white@0.6`
-      : `drawtext=text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=190:y=36:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
-    const topDraw2 = fontPath
-      ? `drawtext=fontfile='${fontPath}':text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=190:y=(h-75-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`
-      : `drawtext=text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=190:y=(h-75-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+    const topDraw1 = `drawtext=${fontOptPrefix}text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=190:y=36:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+    const topDraw2 = `drawtext=${fontOptPrefix}text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=190:y=(h-75-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
     filter += `;[top0]${topDraw1}[top1];[top1]${topDraw2}[top]`;
   }
   if (hasBottomBanner) {
@@ -392,9 +407,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     for (let i = 0; i < lines.length; i++) {
       const y = 20 + (i * (wrapped.lineHeight || 62));
       const lineText = esc(lines[i] || '');
-      const drawLine = fontPath
-        ? `drawtext=fontfile='${fontPath}':text='${lineText}':fontsize=52:fontcolor=black:x=20:y=${y}:shadowx=0:shadowy=0:box=0`
-        : `drawtext=text='${lineText}':fontsize=52:fontcolor=black:x=20:y=${y}:shadowx=0:shadowy=0:box=0`;
+      const drawLine = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=52:fontcolor=black:x=20:y=${y}:shadowx=0:shadowy=0:box=0`;
       filter += `;[wb${i}]${drawLine}[wb${i + 1}]`;
     }
   }
@@ -434,9 +447,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     const st = (openingDur + w.start).toFixed(2);
     const en = (openingDur + w.end).toFixed(2);
     const txt = (w.text || '').replace(/'/g, "\\'").replace(/:/g, '\\:');
-    const draw = fontPath
-      ? `drawtext=fontfile='${fontPath}':text='${txt.toUpperCase()}':fontsize=86:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable=${betweenEnable(st, en)}:shadowx=3:shadowy=3:shadowcolor=black@0.8`
-      : `drawtext=text='${txt.toUpperCase()}':fontsize=86:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable=${betweenEnable(st, en)}:shadowx=3:shadowy=3:shadowcolor=black@0.8`;
+    const draw = `drawtext=${fontOptPrefix}text='${txt.toUpperCase()}':fontsize=86:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable=${betweenEnable(st, en)}:shadowx=3:shadowy=3:shadowcolor=black@0.8`;
     filter += `;[${current}]${draw}[t${i}]`;
     current = `t${i}`;
   });
