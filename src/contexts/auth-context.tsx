@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }>({ inFlight: false, lastOkAt: 0, retryMs: 0, timer: null });
 
   // Get the redirect URL from query params
-  const getRedirectPath = () => searchParams.get('from') || '/dashboard';
+  const getRedirectPath = () => searchParams.get('from') || '/create';
 
   // Create / refresh session cookie (retry on transient failure).
   // IMPORTANT: do NOT sign the user out if this fails; otherwise the UI can show "signed out"
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Only redirect if we're on an auth page
         const path = window.location.pathname;
         if (path.startsWith('/auth/')) {
-          router.push(getRedirectPath());
+          router.replace(getRedirectPath());
         }
       }
 
@@ -143,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const result = await signInWithEmailAndPassword(auth, email, password);
     await createSession(result.user, { forceRefresh: true });
-    router.push(getRedirectPath());
+    router.replace(getRedirectPath());
   };
 
   const signUp = async (email: string, password: string) => {
@@ -153,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const result = await createUserWithEmailAndPassword(auth, email, password);
     await createSession(result.user, { forceRefresh: true });
-    router.push(getRedirectPath());
+    router.replace(getRedirectPath());
   };
 
   const signInWithGoogle = async () => {
@@ -164,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     await createSession(result.user, { forceRefresh: true });
-    router.push(getRedirectPath());
+    router.replace(getRedirectPath());
   };
 
   const logout = async () => {
