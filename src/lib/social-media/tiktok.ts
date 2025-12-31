@@ -203,7 +203,10 @@ export class TikTokAPI {
       console.log('Initializing video upload...');
       
       // 1. Initialize upload
-      const initResponse = await fetch('https://open.tiktokapis.com/v2/video/init/', {
+      // TikTok Content Posting API (Sandbox): upload into the user's Inbox as a draft.
+      // Docs: POST /v2/post/publish/inbox/video/init/
+      const videoSize = videoData.video_file.length;
+      const initResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/inbox/video/init/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -214,6 +217,12 @@ export class TikTokAPI {
             title: videoData.title,
             privacy_level: videoData.privacy_level || 'SELF_ONLY',
           },
+          source_info: {
+            source: 'FILE_UPLOAD',
+            video_size: videoSize,
+            chunk_size: videoSize,
+            total_chunk_count: 1,
+          }
         }),
       });
 
@@ -225,15 +234,27 @@ export class TikTokAPI {
         throw new Error(`Failed to initialize video upload: ${initData.error?.message || initData.message || 'Unknown error'}`);
       }
 
-      const { upload_url, video_id } = initData;
-      console.log('Upload URL received, video ID:', video_id);
+      // Most v2 APIs return payload under { data: ... }
+      const initPayload = (initData && typeof initData === 'object' && 'data' in initData) ? (initData as any).data : initData;
+      const upload_url = (initPayload as any)?.upload_url;
+      const upload_id = (initPayload as any)?.upload_id;
+      const video_id = (initPayload as any)?.video_id;
+
+      if (!upload_url) {
+        console.error('Init response missing upload_url:', initData);
+        throw new Error('TikTok init did not return an upload_url');
+      }
+
+      console.log('Upload URL received:', upload_url);
 
       // 2. Upload video
       console.log('Uploading video file...');
       const uploadResponse = await fetch(upload_url, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'video/mp4',
+          'Content-Length': String(videoSize),
+          'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
         },
         body: videoData.video_file,
       });
@@ -246,32 +267,14 @@ export class TikTokAPI {
         throw new Error(`Failed to upload video: ${uploadError}`);
       }
 
-      // 3. Publish video
-      console.log('Publishing video...');
-      const publishResponse = await fetch('https://open.tiktokapis.com/v2/video/publish/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          video_id,
-        }),
-      });
-
-      const publishData = await publishResponse.json();
-      console.log('Publish response status:', publishResponse.status);
-      
-      if (!publishResponse.ok) {
-        console.error('Publish error response:', publishData);
-        throw new Error(`Failed to publish video: ${publishData.error?.message || publishData.message || 'Unknown error'}`);
-      }
-
-      console.log('Video uploaded and published successfully');
+      // In Sandbox mode, uploaded videos appear in the user's TikTok Inbox as drafts for manual publish.
+      // The init/upload flow is sufficient for that behavior.
+      console.log('Video uploaded successfully (inbox draft flow)');
       return {
-        ...publishData,
+        init: initData,
+        upload_id,
         video_id,
-        status: 'success'
+        status: 'uploaded'
       };
     } catch (error) {
       console.error('TikTok video upload error:', error);
