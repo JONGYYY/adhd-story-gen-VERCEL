@@ -758,11 +758,16 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
       ff.on('close', (code) => code === 0 ? resolve() : reject(new Error(`ffmpeg failed ${code}: ${stderr}`)));
     });
   } catch (err) {
-    console.error('Primary ffmpeg graph failed, falling back to simple compose:', err.message);
+    const allowFallback = (process.env.ALLOW_PLAIN_FALLBACK || '0') === '1';
+    if (!allowFallback) {
+      console.error('Primary ffmpeg graph failed (no fallback):', err.message);
+      throw err;
+    }
+
+    console.error('Primary ffmpeg graph failed, falling back to simple compose (no banner/captions):', err.message);
     // Fallback: background + concatenated audio, no banner/captions
     const fallbackArgs = ['-y', '-i', bgPath];
-    let fallbackAudioIdx = -1;
-    if (openingBuf) { fallbackArgs.push('-i', openingAudio); fallbackAudioIdx = 1; }
+    if (openingBuf) { fallbackArgs.push('-i', openingAudio); }
     if (storyBuf) { fallbackArgs.push('-i', storyAudio); }
 
     const audioInputs = openingBuf && storyBuf ? ['1:a', '2:a'] : (openingBuf ? ['1:a'] : (storyBuf ? ['1:a'] : []));
