@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }>({ inFlight: false, lastOkAt: 0, retryMs: 0, timer: null });
 
   // Get the redirect URL from query params
-  const getRedirectPath = () => searchParams.get('from') || '/create';
+  const getRedirectPath = () => searchParams.get('from') || '/dashboard';
 
   // Create / refresh session cookie (retry on transient failure).
   // IMPORTANT: do NOT sign the user out if this fails; otherwise the UI can show "signed out"
