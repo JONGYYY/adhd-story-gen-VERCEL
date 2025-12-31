@@ -54,14 +54,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Create / refresh session cookie (retry on transient failure).
   // IMPORTANT: do NOT sign the user out if this fails; otherwise the UI can show "signed out"
   // while server-side session cookie still allows access.
-  const createSession = async (user: User, opts?: { forceRefresh?: boolean }) => {
+  const createSession = async (
+    user: User,
+    opts?: { forceRefresh?: boolean; throwOnFailure?: boolean }
+  ): Promise<boolean> => {
     try {
       const forceRefresh = Boolean(opts?.forceRefresh);
+      const throwOnFailure = Boolean(opts?.throwOnFailure);
       const st = sessionStateRef.current;
       if (st.inFlight) return;
       // Throttle: avoid hammering /api/auth/session on every rerender/token change
       if (!forceRefresh && st.lastOkAt && Date.now() - st.lastOkAt < 10 * 60 * 1000) {
-        return;
+        return true;
       }
 
       st.inFlight = true;
@@ -74,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ idToken }),
       });
 
@@ -86,8 +91,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Session created successfully');
       st.lastOkAt = Date.now();
       st.retryMs = 0;
+      return true;
     } catch (error) {
       console.error('Error creating session:', error);
+      if (opts?.throwOnFailure) {
+        // Explicit login flows must hard-fail so we don't navigate to protected routes
+        // without a session cookie (middleware will bounce us back to /auth/login).
+        throw error;
+      }
       // Schedule retry with exponential backoff; keep user signed in.
       const st = sessionStateRef.current;
       st.retryMs = Math.min(st.retryMs ? st.retryMs * 2 : 2000, 60_000);
@@ -96,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Force refresh on retry in case token was stale
         createSession(user, { forceRefresh: true }).catch(() => {});
       }, st.retryMs);
+      return false;
     }
     finally {
       sessionStateRef.current.inFlight = false;
@@ -118,10 +130,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
 
       if (user) {
-        await createSession(user);
+        const ok = await createSession(user);
         // Only redirect if we're on an auth page
         const path = window.location.pathname;
-        if (path.startsWith('/auth/')) {
+        if (ok && path.startsWith('/auth/')) {
           router.replace(getRedirectPath());
         }
       }
@@ -142,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Firebase auth is not initialized');
     }
     const result = await signInWithEmailAndPassword(auth, email, password);
-    await createSession(result.user, { forceRefresh: true });
+    await createSession(result.user, { forceRefresh: true, throwOnFailure: true });
     router.replace(getRedirectPath());
   };
 
@@ -152,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Firebase auth is not initialized');
     }
     const result = await createUserWithEmailAndPassword(auth, email, password);
-    await createSession(result.user, { forceRefresh: true });
+    await createSession(result.user, { forceRefresh: true, throwOnFailure: true });
     router.replace(getRedirectPath());
   };
 
@@ -163,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
-    await createSession(result.user, { forceRefresh: true });
+    await createSession(result.user, { forceRefresh: true, throwOnFailure: true });
     router.replace(getRedirectPath());
   };
 
