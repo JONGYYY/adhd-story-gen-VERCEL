@@ -272,6 +272,44 @@ async function buildWordTimestampsFromAudio(audioPath, scriptText, fallbackDurat
   }
 }
 
+function secondsToAssTime(seconds) {
+  const s = Math.max(0, Number(seconds) || 0);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  const cs = Math.floor((s - Math.floor(s)) * 100); // centiseconds
+  return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+}
+
+async function writeAssWordCaptions({ outPath, wordTimestamps, offsetSec = 0 }) {
+  const header = `[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,86,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,4,0,5,10,10,960,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+
+  let body = '';
+  for (const w of wordTimestamps || []) {
+    const st = secondsToAssTime((w.start || 0) + offsetSec);
+    const en = secondsToAssTime((w.end || 0) + offsetSec);
+    const txt = String(w.text || '').replace(/\r?\n/g, ' ').trim();
+    if (!txt) continue;
+    // Escape ASS special characters minimally
+    const safe = txt.replace(/{/g, '\\{').replace(/}/g, '\\}');
+    body += `Dialogue: 0,${st},${en},Default,,0,0,0,,${safe.toUpperCase()}\n`;
+  }
+  await fsp.writeFile(outPath, header + body, 'utf-8');
+  return outPath;
+}
+
 async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias, subreddit, author }, videoId) {
   const videosDir = await ensureVideosDir();
   const outPath = path.join(videosDir, `${videoId}.mp4`);
@@ -335,7 +373,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
           if (code === 0) {
             const v = parseFloat(out.trim());
             resolve(isFinite(v) ? v : 0);
-          } else {
+  } else {
             resolve(0);
           }
         });
@@ -671,14 +709,15 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   }
 
   // Draw per-word captions over the composed video
-  wordTimestamps.forEach((w, i) => {
-    const st = (openingDur + w.start).toFixed(2);
-    const en = (openingDur + w.end).toFixed(2);
-    const txt = (w.text || '').replace(/'/g, "\\'").replace(/:/g, '\\:');
-    const draw = `drawtext=${fontOptPrefix}text='${txt.toUpperCase()}':fontsize=86:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:enable=${betweenEnable(st, en)}:shadowx=3:shadowy=3:shadowcolor=black@0.8`;
-    filter += `;[${current}]${draw}[t${i}]`;
-    current = `t${i}`;
-  });
+  // IMPORTANT: Use libass to render word captions from a file.
+  // This avoids huge filtergraphs (one drawtext per word) that can fail on longer videos.
+  const assPath = path.join(tmpDir, `captions-${videoId}.ass`);
+  await writeAssWordCaptions({ outPath: assPath, wordTimestamps, offsetSec: openingDur });
+  // Apply subtitles filter (libass)
+  // Escape commas/colons for filtergraph option parsing.
+  const assEsc = assPath.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
+  filter += `;[${current}]ass=filename=${assEsc}:original_size=1080x1920[v_cap]`;
+  current = 'v_cap';
 
   // Audio graph within the same filter_complex
   let haveAudio = false;
@@ -924,8 +963,8 @@ async function generateVideoHandler(req, res) {
 
 		// Start video generation in the background (FFmpeg-only; Remotion disabled for production stability)
 		(async () => {
-			try {
-				await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId);
+				try {
+					await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId);
 			} catch (e) {
 				console.error('FFmpeg generation failed:', e);
 				videoStatus.set(videoId, { status: 'failed', error: (e instanceof Error ? e.message : 'Video build failed') });
