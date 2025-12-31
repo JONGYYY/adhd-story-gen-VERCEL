@@ -192,35 +192,12 @@ export function Navigation() {
           <NavigationMenu className="hidden lg:flex">
             <NavigationMenuList>
               <NavigationMenuItem>
-                <NavigationMenuTrigger>Dashboard</NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <ul className="grid gap-3 p-6 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr] bg-popover rounded-lg border shadow-lg">
-                    <li className="row-span-3">
-                      <NavigationMenuLink asChild>
-                        <Link
-                          className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
-                          href="/dashboard"
-                        >
-                          <div className="mb-2 mt-4 text-lg font-medium">
-                            Dashboard
-                          </div>
-                          <p className="text-sm leading-tight text-muted-foreground">
-                            View your content performance and recent activity
-                          </p>
-                        </Link>
-                      </NavigationMenuLink>
-                    </li>
-                    <ListItem href="/analytics" title="Analytics">
-                      Track your content performance
-                    </ListItem>
-                    <ListItem href="/library" title="Content Library">
-                      Manage your stories and videos
-                    </ListItem>
-                    <ListItem href="/schedule" title="Schedule">
-                      Plan your content calendar
-                    </ListItem>
-                  </ul>
-                </NavigationMenuContent>
+                {/* Make "Dashboard" clickable (the trigger looked like a link but only opened a menu). */}
+                <NavigationMenuLink asChild>
+                  <Link href="/dashboard" className={navigationMenuTriggerStyle()}>
+                    Dashboard
+                  </Link>
+                </NavigationMenuLink>
               </NavigationMenuItem>
               <NavigationMenuItem>
                 <NavigationMenuTrigger>Create</NavigationMenuTrigger>
@@ -237,6 +214,25 @@ export function Navigation() {
                     </ListItem>
                     <ListItem href="/library" title="Content Library">
                       Manage your stories and videos
+                    </ListItem>
+                  </ul>
+                </NavigationMenuContent>
+              </NavigationMenuItem>
+              <NavigationMenuItem>
+                <NavigationMenuTrigger>Manage</NavigationMenuTrigger>
+                <NavigationMenuContent>
+                  <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-popover rounded-lg border shadow-lg">
+                    <ListItem href="/analytics" title="Analytics">
+                      Track your content performance
+                    </ListItem>
+                    <ListItem href="/library" title="Content Library">
+                      Manage your stories and videos
+                    </ListItem>
+                    <ListItem href="/schedule" title="Schedule">
+                      Plan your content calendar
+                    </ListItem>
+                    <ListItem href="/settings" title="Settings">
+                      Account and platform settings
                     </ListItem>
                   </ul>
                 </NavigationMenuContent>
