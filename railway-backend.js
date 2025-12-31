@@ -849,24 +849,13 @@ async function generateVideoHandler(req, res) {
 		// Set initial processing status so /video-status does not 404
 		videoStatus.set(videoId, { status: 'processing', progress: 0, message: 'Video generation started.' });
 
-		// Start video generation in the background (try Remotion, then FFmpeg fallback)
+		// Start video generation in the background (FFmpeg-only; Remotion disabled for production stability)
 		(async () => {
 			try {
-				const videoUrl = await generateVideoWithRemotion({
-					title: customStory?.title || '',
-					story: customStory?.story || '',
-					backgroundCategory: background?.category || 'random',
-					voiceAlias: voice?.id || 'adam'
-				}, videoId);
-				videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl });
+				await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId);
 			} catch (e) {
-				console.error('Remotion generation failed, attempting FFmpeg fallback:', e);
-				try {
-					await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId);
-				} catch (fallbackErr) {
-					console.error('FFmpeg fallback also failed:', fallbackErr);
-					videoStatus.set(videoId, { status: 'failed', error: (fallbackErr instanceof Error ? fallbackErr.message : 'Video build failed') });
-				}
+				console.error('FFmpeg generation failed:', e);
+				videoStatus.set(videoId, { status: 'failed', error: (e instanceof Error ? e.message : 'Video build failed') });
 			}
 		})();
 
