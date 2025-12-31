@@ -56,7 +56,30 @@ export async function GET(request: NextRequest) {
     console.log('Code received:', code ? `${code.substring(0, 10)}...` : 'NONE');
     console.log('State received:', state ? `${state.substring(0, 10)}...` : 'NONE');
 
-    // TODO: Validate state parameter against stored value
+    // Validate state + PKCE verifier from cookie (set by /api/auth/tiktok)
+    const oauthCookie = request.cookies.get('tiktok_oauth')?.value;
+    if (!oauthCookie) {
+      console.error('Missing tiktok_oauth cookie (state/pkce)');
+      const redirectUrl = `${APP_CONFIG.APP_URL}/settings/social-media?error=${encodeURIComponent(
+        'TikTok login session expired. Please try connecting again.'
+      )}`;
+      return NextResponse.redirect(redirectUrl);
+    }
+    let oauthState: { state?: string; codeVerifier?: string; redirectUri?: string; createdAt?: number } | null = null;
+    try {
+      oauthState = JSON.parse(oauthCookie);
+    } catch {
+      oauthState = null;
+    }
+    if (!oauthState?.state || oauthState.state !== state) {
+      console.error('OAuth state mismatch', { expected: oauthState?.state, got: state });
+      const redirectUrl = `${APP_CONFIG.APP_URL}/settings/social-media?error=${encodeURIComponent(
+        'Invalid OAuth state. Please try connecting again.'
+      )}`;
+      const resp = NextResponse.redirect(redirectUrl);
+      resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/api/auth/tiktok', maxAge: 0 });
+      return resp;
+    }
 
     // Get current user from session cookie
     const sessionCookie = request.cookies.get('session')?.value;
@@ -92,7 +115,10 @@ export async function GET(request: NextRequest) {
     console.log('Getting tokens from code...');
     let tokens;
     try {
-      tokens = await tiktokApi.getAccessToken(code);
+      tokens = await tiktokApi.getAccessToken(code, {
+        codeVerifier: oauthState.codeVerifier,
+        redirectUri: oauthState.redirectUri,
+      });
       console.log('Tokens received successfully:', !!tokens.access_token);
     } catch (error) {
       console.error('Error getting access token:', error);
@@ -100,7 +126,9 @@ export async function GET(request: NextRequest) {
         error instanceof Error ? error.message : 'Failed to get access token'
       )}`;
       console.log('Redirecting to error page:', redirectUrl);
-      return NextResponse.redirect(redirectUrl);
+      const resp = NextResponse.redirect(redirectUrl);
+      resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/api/auth/tiktok', maxAge: 0 });
+      return resp;
     }
 
     if (!tokens.access_token) {
@@ -169,7 +197,10 @@ export async function GET(request: NextRequest) {
     console.log('Redirecting to success page:', redirectUrl);
     console.log('=== TikTok OAuth Callback Completed ===');
     
-    return NextResponse.redirect(redirectUrl);
+    const resp = NextResponse.redirect(redirectUrl);
+    // Clear oauth cookie after use
+    resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/api/auth/tiktok', maxAge: 0 });
+    return resp;
   } catch (error) {
     console.error('=== UNHANDLED ERROR IN TIKTOK CALLBACK ===');
     console.error('Error details:', error);
@@ -181,6 +212,8 @@ export async function GET(request: NextRequest) {
     console.log('Redirecting to error page:', redirectUrl);
     console.log('=== TikTok OAuth Callback Failed ===');
     
-    return NextResponse.redirect(redirectUrl);
+    const resp = NextResponse.redirect(redirectUrl);
+    resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/api/auth/tiktok', maxAge: 0 });
+    return resp;
   }
 } 

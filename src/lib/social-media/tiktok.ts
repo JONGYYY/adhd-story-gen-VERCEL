@@ -1,5 +1,6 @@
 import { generateRandomString } from '@/lib/utils';
 import { APP_CONFIG } from '@/lib/config';
+import crypto from 'crypto';
 
 interface TikTokOAuthConfig {
   clientKey: string;
@@ -40,8 +41,29 @@ export class TikTokAPI {
     }
   }
 
-  getAuthUrl(): string {
+  private static base64Url(input: Buffer) {
+    return input
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/g, '');
+  }
+
+  private static sha256Base64Url(input: string) {
+    const hash = crypto.createHash('sha256').update(input).digest();
+    return TikTokAPI.base64Url(hash);
+  }
+
+  /**
+   * Create an OAuth authorization request.
+   * TikTok may require PKCE; we always include it for reliability.
+   */
+  createAuthRequest(opts?: { redirectUri?: string }) {
     const state = generateRandomString(32);
+    const redirectUri = opts?.redirectUri || TIKTOK_OAUTH_CONFIG.redirectUri;
+    // PKCE
+    const codeVerifier = TikTokAPI.base64Url(crypto.randomBytes(32));
+    const codeChallenge = TikTokAPI.sha256Base64Url(codeVerifier);
     
     // In test mode, redirect to our test endpoint
     if (TEST_MODE) {
@@ -51,20 +73,21 @@ export class TikTokAPI {
 
     const params = new URLSearchParams({
       client_key: TIKTOK_OAUTH_CONFIG.clientKey,
-      redirect_uri: TIKTOK_OAUTH_CONFIG.redirectUri,
-      scope: 'user.info.basic,user.info.profile,video.list,video.upload,video.publish',
+      redirect_uri: redirectUri,
+      // Keep scope minimal for sandbox reliability; add more only if needed.
+      scope: 'user.info.basic,user.info.profile,video.upload,video.publish',
       response_type: 'code',
       state,
-      app_id: TIKTOK_OAUTH_CONFIG.clientKey,
-      app_source_domain: new URL(TIKTOK_OAUTH_CONFIG.redirectUri).hostname,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
     });
 
     const url = `${TIKTOK_OAUTH_CONFIG.baseUrl}?${params.toString()}`;
     console.log('Generated TikTok OAuth URL:', url);
-    return url;
+    return { url, state, codeVerifier, redirectUri };
   }
 
-  async getAccessToken(code: string) {
+  async getAccessToken(code: string, opts?: { codeVerifier?: string; redirectUri?: string }) {
     console.log('Getting access token from code...');
     
     // In test mode, return mock tokens
@@ -88,14 +111,18 @@ export class TikTokAPI {
         client_secret: TIKTOK_OAUTH_CONFIG.clientSecret,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: TIKTOK_OAUTH_CONFIG.redirectUri,
+        redirect_uri: opts?.redirectUri || TIKTOK_OAUTH_CONFIG.redirectUri,
       });
+      if (opts?.codeVerifier) {
+        params.set('code_verifier', opts.codeVerifier);
+      }
 
       console.log('Token request params:', {
         client_key: `${TIKTOK_OAUTH_CONFIG.clientKey.substring(0, 8)}...`,
         client_secret: 'HIDDEN',
         code: `${code.substring(0, 8)}...`,
-        redirect_uri: TIKTOK_OAUTH_CONFIG.redirectUri
+        redirect_uri: opts?.redirectUri || TIKTOK_OAUTH_CONFIG.redirectUri,
+        pkce: Boolean(opts?.codeVerifier),
       });
 
       const response = await fetch(tokenUrl, {

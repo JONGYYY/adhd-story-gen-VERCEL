@@ -5,7 +5,7 @@ import { TikTokAPI } from '@/lib/social-media/tiktok';
 export const runtime = 'nodejs';
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     console.log('Initiating TikTok OAuth flow...');
     
@@ -38,10 +38,29 @@ export async function GET() {
     const tiktokApi = new TikTokAPI();
     
     console.log('Generating OAuth URL...');
-    const authUrl = tiktokApi.getAuthUrl();
+    const origin = new URL(request.url).origin;
+    const redirectUri = `${origin}/api/auth/tiktok/callback`;
+    const authReq = tiktokApi.createAuthRequest({ redirectUri });
     
-    console.log('OAuth URL generated successfully:', authUrl);
-    return NextResponse.json({ url: authUrl });
+    // Persist state + PKCE verifier in an httpOnly cookie for the callback.
+    const response = NextResponse.json({ url: authReq.url });
+    response.cookies.set({
+      name: 'tiktok_oauth',
+      value: JSON.stringify({
+        state: authReq.state,
+        codeVerifier: authReq.codeVerifier,
+        redirectUri: authReq.redirectUri,
+        createdAt: Date.now(),
+      }),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/api/auth/tiktok',
+      maxAge: 10 * 60, // 10 minutes
+    });
+
+    console.log('OAuth URL generated successfully:', authReq.url);
+    return response;
   } catch (error) {
     console.error('Error initiating TikTok OAuth:', error);
     return NextResponse.json(
