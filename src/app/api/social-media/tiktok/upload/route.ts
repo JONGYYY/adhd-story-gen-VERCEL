@@ -33,6 +33,21 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('TikTok credentials found');
+    if (!credentials.accessToken || typeof credentials.accessToken !== 'string') {
+      return NextResponse.json(
+        { error: 'TikTok access token is missing. Please disconnect and reconnect TikTok.' },
+        { status: 400 }
+      );
+    }
+    if (credentials.accessToken.startsWith('test_access_token_')) {
+      return NextResponse.json(
+        {
+          error:
+            'Your TikTok connection is using a TEST token (TIKTOK_TEST_MODE). Disable test mode and reconnect TikTok in Settings → Social Media.',
+        },
+        { status: 400 }
+      );
+    }
 
     // Parse form data
     const formData = await request.formData();

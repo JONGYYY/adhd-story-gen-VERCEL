@@ -15,8 +15,8 @@ const TIKTOK_OAUTH_CONFIG: TikTokOAuthConfig = {
   baseUrl: 'https://www.tiktok.com/auth/authorize',
 };
 
-// Add test mode for debugging
-const TEST_MODE = process.env.TIKTOK_TEST_MODE === 'true';
+// Add test mode for debugging (NEVER allow in production).
+const TEST_MODE = process.env.NODE_ENV !== 'production' && process.env.TIKTOK_TEST_MODE === 'true';
 
 console.log('TikTok OAuth Config:', {
   clientKey: TIKTOK_OAUTH_CONFIG.clientKey ? `${TIKTOK_OAUTH_CONFIG.clientKey.substring(0, 8)}...` : 'NOT_SET',

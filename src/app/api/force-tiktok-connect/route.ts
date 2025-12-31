@@ -6,6 +6,12 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     console.log('=== Force TikTok Connect Test ===');
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json(
+        { success: false, error: 'force-tiktok-connect is disabled in production' },
+        { status: 404 }
+      );
+    }
     
     // This is a temporary test endpoint to bypass TikTok OAuth issues
     // It will simulate a successful OAuth callback
