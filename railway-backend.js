@@ -199,6 +199,79 @@ function buildWordTimestamps(totalDuration, text) {
   return stamps;
 }
 
+// Word-level timestamps from audio (preferred): OpenAI Whisper transcription with word timestamps.
+// Falls back to heuristic timings if unavailable.
+async function buildWordTimestampsFromAudio(audioPath, scriptText, fallbackDurationSec) {
+  const mode = (process.env.CAPTION_ALIGN || 'openai').toLowerCase(); // openai | heuristic | off
+  if (mode === 'off' || mode === 'heuristic') {
+    return buildWordTimestamps(fallbackDurationSec, scriptText);
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn('[captions] OPENAI_API_KEY missing; using heuristic timestamps');
+    return buildWordTimestamps(fallbackDurationSec, scriptText);
+  }
+
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const file = fs.createReadStream(audioPath);
+
+    // Request verbose JSON with word timestamps (Whisper)
+    const result = await openai.audio.transcriptions.create({
+      file,
+      model: 'whisper-1',
+      response_format: 'verbose_json',
+      timestamp_granularities: ['word']
+    });
+
+    const words = (result && result.words) ? result.words : [];
+    if (!Array.isArray(words) || words.length === 0) {
+      console.warn('[captions] OpenAI returned no word timestamps; using heuristic');
+      return buildWordTimestamps(fallbackDurationSec, scriptText);
+    }
+
+    const transcribed = words
+      .map((w) => ({
+        text: String(w.word || '').trim(),
+        start: Number(w.start) || 0,
+        end: Number(w.end) || 0
+      }))
+      .filter((w) => w.text.length > 0 && isFinite(w.start) && isFinite(w.end) && w.end > w.start);
+
+    if (transcribed.length === 0) {
+      console.warn('[captions] OpenAI word timestamps invalid; using heuristic');
+      return buildWordTimestamps(fallbackDurationSec, scriptText);
+    }
+
+    // Try to keep the ORIGINAL script words (so captions match your story) if it aligns well with transcription.
+    const normalize = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const scriptWords = String(scriptText || '').split(/\s+/).filter(Boolean);
+    const transWords = transcribed.map((w) => w.text);
+
+    const minLen = Math.min(scriptWords.length, transWords.length);
+    if (minLen > 0 && scriptWords.length === transWords.length) {
+      let matches = 0;
+      for (let i = 0; i < minLen; i++) {
+        if (normalize(scriptWords[i]) === normalize(transWords[i])) matches++;
+      }
+      const ratio = matches / minLen;
+      if (ratio >= 0.7) {
+        // Use transcription timestamps but display the intended script tokens
+        return transcribed.map((t, i) => ({
+          text: scriptWords[i] || t.text,
+          start: t.start,
+          end: t.end
+        }));
+      }
+    }
+
+    // Otherwise, use transcription words as-is (best sync)
+    return transcribed;
+  } catch (e) {
+    console.warn('[captions] OpenAI transcription failed; using heuristic:', e?.message || e);
+    return buildWordTimestamps(fallbackDurationSec, scriptText);
+  }
+}
+
 async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias, subreddit, author }, videoId) {
   const videosDir = await ensureVideosDir();
   const outPath = path.join(videosDir, `${videoId}.mp4`);
@@ -411,8 +484,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const { bgPath, bgInfo } = await resolveBackgroundForVideo(totalDurSec);
   try { console.log('[bg] selected', JSON.stringify(bgInfo)); } catch {}
 
-  // Word timestamps for captions
-  const wordTimestamps = buildWordTimestamps(storyDur, storyText);
+  // Word timestamps for captions (audio-based to avoid drift)
+  const wordTimestamps = await buildWordTimestampsFromAudio(storyAudio, storyText, storyDur);
 
   // Banner images (overlay during opening)
   // Prefer pre-rounded assets if present to avoid brittle FFmpeg masking
