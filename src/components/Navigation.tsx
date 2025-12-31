@@ -39,6 +39,7 @@ export function Navigation() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
 
+  // Avoid flashing signed-out CTAs while auth is still loading
   const isLoggedIn = !!user;
   const userEmail = user?.email;
 
@@ -253,7 +254,7 @@ export function Navigation() {
 
         <div className="flex-1 flex justify-end space-x-4">
           <nav className="flex items-center space-x-2">
-            {isLoggedIn ? (
+            {!loading && isLoggedIn ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -289,6 +290,8 @@ export function Navigation() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            ) : loading ? (
+              <div className="text-sm text-muted-foreground">Loading...</div>
             ) : (
               <>
                 <Button variant="ghost" asChild>

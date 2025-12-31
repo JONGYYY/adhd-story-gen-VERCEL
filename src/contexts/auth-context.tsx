@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   User,
@@ -8,6 +8,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  onIdTokenChanged,
   GoogleAuthProvider,
   signInWithPopup,
   sendPasswordResetEmail
@@ -40,15 +41,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const sessionStateRef = useRef<{
+    inFlight: boolean;
+    lastOkAt: number;
+    retryMs: number;
+    timer: any;
+  }>({ inFlight: false, lastOkAt: 0, retryMs: 0, timer: null });
 
   // Get the redirect URL from query params
   const getRedirectPath = () => searchParams.get('from') || '/create';
 
-  // Create session cookie
-  const createSession = async (user: User) => {
+  // Create / refresh session cookie (retry on transient failure).
+  // IMPORTANT: do NOT sign the user out if this fails; otherwise the UI can show "signed out"
+  // while server-side session cookie still allows access.
+  const createSession = async (user: User, opts?: { forceRefresh?: boolean }) => {
     try {
+      const forceRefresh = Boolean(opts?.forceRefresh);
+      const st = sessionStateRef.current;
+      if (st.inFlight) return;
+      // Throttle: avoid hammering /api/auth/session on every rerender/token change
+      if (!forceRefresh && st.lastOkAt && Date.now() - st.lastOkAt < 10 * 60 * 1000) {
+        return;
+      }
+
+      st.inFlight = true;
       console.log('Getting ID token for session creation...');
-      const idToken = await user.getIdToken(true); // Force refresh the token
+      const idToken = await user.getIdToken(forceRefresh);
       console.log('ID token obtained, creating session...');
       
       const response = await fetch('/api/auth/session', {
@@ -66,9 +84,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       console.log('Session created successfully');
+      st.lastOkAt = Date.now();
+      st.retryMs = 0;
     } catch (error) {
       console.error('Error creating session:', error);
-      throw error;
+      // Schedule retry with exponential backoff; keep user signed in.
+      const st = sessionStateRef.current;
+      st.retryMs = Math.min(st.retryMs ? st.retryMs * 2 : 2000, 60_000);
+      if (st.timer) clearTimeout(st.timer);
+      st.timer = setTimeout(() => {
+        // Force refresh on retry in case token was stale
+        createSession(user, { forceRefresh: true }).catch(() => {});
+      }, st.retryMs);
+    }
+    finally {
+      sessionStateRef.current.inFlight = false;
     }
   };
 
@@ -82,33 +112,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    // Use onIdTokenChanged so we re-mint the session cookie on token refresh,
+    // and avoid edge cases where auth state is still set but tokens rotated.
+    const unsubscribe = onIdTokenChanged(auth, async (user) => {
       setUser(user);
 
       if (user) {
-        try {
-          await createSession(user);
-          // Only redirect if we're on an auth page
-          const path = window.location.pathname;
-          if (path.startsWith('/auth/')) {
-            router.push(getRedirectPath());
-          }
-        } catch (error) {
-          console.error('Error in auth state change:', error);
-          // If session creation fails, sign out
-          try {
-            if (auth) {
-              await signOut(auth);
-            }
-          } catch {}
-          setUser(null);
+        await createSession(user);
+        // Only redirect if we're on an auth page
+        const path = window.location.pathname;
+        if (path.startsWith('/auth/')) {
+          router.push(getRedirectPath());
         }
       }
 
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      try { unsubscribe(); } catch {}
+      const st = sessionStateRef.current;
+      if (st.timer) clearTimeout(st.timer);
+    };
   }, [router]);
 
   const signIn = async (email: string, password: string) => {
@@ -117,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Firebase auth is not initialized');
     }
     const result = await signInWithEmailAndPassword(auth, email, password);
-    await createSession(result.user);
+    await createSession(result.user, { forceRefresh: true });
     router.push(getRedirectPath());
   };
 
@@ -127,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Firebase auth is not initialized');
     }
     const result = await createUserWithEmailAndPassword(auth, email, password);
-    await createSession(result.user);
+    await createSession(result.user, { forceRefresh: true });
     router.push(getRedirectPath());
   };
 
@@ -138,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
-    await createSession(result.user);
+    await createSession(result.user, { forceRefresh: true });
     router.push(getRedirectPath());
   };
 
@@ -160,6 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    const auth = getClientAuth();
     if (!auth) {
       throw new Error('Firebase auth is not initialized');
     }
