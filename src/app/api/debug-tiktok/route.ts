@@ -3,17 +3,19 @@ import { TikTokAPI } from '@/lib/social-media/tiktok';
 
 // Prevent static generation
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const clientKey = process.env.TIKTOK_CLIENT_KEY;
     const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/tiktok/callback`;
+    const origin = new URL(request.url).origin;
+    const redirectUri = `${origin}/api/auth/tiktok/callback`;
     
     // Test the OAuth URL generation using TikTok API class
     const tiktokApi = new TikTokAPI();
-    const oauthUrl = tiktokApi.getAuthUrl();
+    const authReq = tiktokApi.createAuthRequest({ redirectUri });
+    const oauthUrl = authReq.url;
 
     return NextResponse.json({
       success: true,
@@ -22,6 +24,7 @@ export async function GET() {
         clientSecret: clientSecret ? 'SET' : 'NOT_SET',
         redirectUri,
         oauthUrl,
+        oauthHasPkce: oauthUrl.includes('code_challenge=') && oauthUrl.includes('code_challenge_method='),
         appUrl: process.env.NEXT_PUBLIC_APP_URL
       },
       recommendations: [

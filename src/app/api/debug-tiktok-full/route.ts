@@ -2,19 +2,22 @@ import { NextResponse } from 'next/server';
 import { TikTokAPI } from '@/lib/social-media/tiktok';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     console.log('=== TikTok Full Debug Started ===');
     
     const clientKey = process.env.TIKTOK_CLIENT_KEY;
     const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-    const redirectUri = `${appUrl}/api/auth/tiktok/callback`;
+    const origin = new URL(request.url).origin;
+    const appUrl = origin;
+    const redirectUri = `${origin}/api/auth/tiktok/callback`;
     
     // Test the OAuth URL generation
     const tiktokApi = new TikTokAPI();
-    const oauthUrl = tiktokApi.getAuthUrl();
+    const authReq = tiktokApi.createAuthRequest({ redirectUri });
+    const oauthUrl = authReq.url;
     
     // Parse the OAuth URL to check parameters
     const parsedUrl = new URL(oauthUrl);
@@ -86,7 +89,7 @@ export async function GET() {
         hasClientSecret: !!clientSecret,
         hasAppUrl: !!appUrl,
         redirectUriValid: redirectUri.startsWith('https://'),
-        domainMatch: parsedUrl.searchParams.get('app_source_domain') === new URL(appUrl || '').hostname
+        hasPkce: 'code_challenge' in params && 'code_challenge_method' in params
       },
       tests: {
         callbackAccessible: callbackTest,
