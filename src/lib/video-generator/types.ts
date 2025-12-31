@@ -7,7 +7,9 @@ export type SubredditStory = {
 };
 
 export type VideoBackground = {
-  category: 'minecraft' | 'subway' | 'cooking' | 'workers' | 'random';
+  // Keep legacy categories for backwards compatibility, but prefer:
+  // minecraft | subway | food | worker | random
+  category: 'minecraft' | 'subway' | 'food' | 'worker' | 'workers' | 'cooking' | 'asmr' | 'random';
   speedMultiplier: number;
 };
 

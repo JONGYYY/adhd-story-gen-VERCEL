@@ -80,14 +80,14 @@ export default function Create() {
       category: 'Gaming',
     },
     {
-      id: 'cooking',
-      name: 'Cooking',
-      thumbnail: '/backgrounds/cooking.jpg',
+      id: 'food',
+      name: 'Food',
+      thumbnail: '/backgrounds/food.jpg',
       category: 'Lifestyle',
     },
     {
-      id: 'workers',
-      name: 'Workers',
+      id: 'worker',
+      name: 'Worker',
       thumbnail: '/backgrounds/workers.jpg',
       category: 'Lifestyle',
     }

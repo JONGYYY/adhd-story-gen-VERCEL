@@ -36,8 +36,11 @@ async function getVideosInDirectory(directory: string): Promise<string[]> {
 let BACKGROUND_VIDEOS: Record<VideoBackground['category'], string[]> = {
   minecraft: [],
   subway: [],
+  food: [],
+  worker: [],
   cooking: [],
   workers: [],
+  asmr: [],
   random: [],
 };
 
@@ -193,7 +196,7 @@ export async function processBackgroundClip(clip: VideoClip): Promise<string> {
   }
 }
 
-export type BackgroundCategory = 'minecraft' | 'subway' | 'cooking' | 'workers' | 'random';
+export type BackgroundCategory = 'minecraft' | 'subway' | 'food' | 'worker' | 'workers' | 'cooking' | 'asmr' | 'random';
 
 export interface BackgroundOptions {
   category?: BackgroundCategory;
@@ -249,7 +252,7 @@ export function getBackgroundVideo(options: BackgroundOptions = {}): string {
 }
 
 function getRandomCategory(): BackgroundCategory {
-  const categories: BackgroundCategory[] = ['minecraft', 'subway', 'cooking', 'workers', 'random'];
+  const categories: BackgroundCategory[] = ['minecraft', 'subway', 'food', 'worker', 'cooking', 'asmr', 'random'];
   const randomIndex = Math.floor(Math.random() * categories.length);
   return categories[randomIndex];
 } 

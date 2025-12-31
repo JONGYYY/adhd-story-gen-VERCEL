@@ -78,7 +78,8 @@ function buildExternalBgMap() {
   const mdn = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
   const base = (process.env.BACKGROUND_BASE_URL || '').replace(/\/$/, '');
   const defaultFilename = process.env.BACKGROUND_FILENAME || '1.mp4';
-  const categories = ['minecraft', 'subway', 'cooking', 'workers', 'asmr'];
+  // Background categories supported by the UI/worker. Note: worker/food use S3 listing + montage.
+  const categories = ['minecraft', 'subway', 'food', 'worker', 'workers'];
   
   const map = {};
   for (const cat of categories) {
@@ -202,33 +203,182 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const videosDir = await ensureVideosDir();
   const outPath = path.join(videosDir, `${videoId}.mp4`);
 
-  // Resolve BG (remote env URL preferred, else local public/backgrounds/<cat>/1.mp4, else fallback)
-  function resolveLocalBg(category) {
-    const p = path.join(__dirname, 'public', 'backgrounds', category, '1.mp4');
-    return fs.existsSync(p) ? p : null;
-  }
-  let preferredRemote = EXTERNAL_BG[backgroundCategory] || null;
-  if (backgroundCategory === 'random') {
-    const pool = ['minecraft', 'subway', 'cooking', 'workers', 'asmr'];
-    preferredRemote = EXTERNAL_BG[pool[Math.floor(Math.random() * pool.length)]];
-  }
-  let bgPath;
   const tmpDir = path.join(__dirname, 'tmp');
   await fsp.mkdir(tmpDir, { recursive: true });
-  if (preferredRemote && preferredRemote.startsWith('http')) {
-    bgPath = path.join(tmpDir, `bg-${videoId}.mp4`);
-    const bgRes = await fetch(preferredRemote);
-    const bgBuf = Buffer.from(await bgRes.arrayBuffer());
-    await fsp.writeFile(bgPath, bgBuf);
-  } else {
-    bgPath = resolveLocalBg(backgroundCategory) || resolveLocalBg('subway') || resolveLocalBg('minecraft');
-    if (!bgPath) {
-      bgPath = path.join(tmpDir, `bg-${videoId}.mp4`);
-      const fallback = EXTERNAL_BG.random;
-      const bgRes = await fetch(fallback);
-      const bgBuf = Buffer.from(await bgRes.arrayBuffer());
-      await fsp.writeFile(bgPath, bgBuf);
+
+  // Resolve background from S3 (preferred) with category-specific behavior:
+  // - minecraft/subway: pick ONE random video (no 6s chopping)
+  // - worker/food: build a montage of ceil(totalDur/6) clips of up to 6 seconds each
+  async function resolveBackgroundForVideo(totalDurSec) {
+    const AWS = require('aws-sdk');
+    const bucket = process.env.S3_BUCKET;
+    const region = process.env.S3_REGION || process.env.AWS_REGION || 'us-east-1';
+    // BACKGROUND_BASE_URL should look like https://<bucket>.s3.<region>.amazonaws.com/backgrounds
+    const baseUrlRaw = (process.env.BACKGROUND_BASE_URL || '').replace(/\/$/, '');
+    const basePrefix = (process.env.BACKGROUND_PREFIX || 'backgrounds').replace(/^\/+/, '').replace(/\/+$/, '');
+    const publicBase = (process.env.S3_PUBLIC_BASE_URL || baseUrlRaw.replace(/\/backgrounds$/i, '') || `https://${bucket}.s3.${region}.amazonaws.com`).replace(/\/$/, '');
+
+    const s3 = new AWS.S3({ region });
+
+    const normalizeCat = (cat) => {
+      if (!cat) return 'random';
+      if (cat === 'workers') return 'worker';
+      return cat;
+    };
+    const cat = normalizeCat(backgroundCategory);
+
+    const prefixesFor = (c) => {
+      // Handle worker vs workers ambiguity in S3 folder naming
+      if (c === 'worker') return [`${basePrefix}/worker/`, `${basePrefix}/workers/`];
+      return [`${basePrefix}/${c}/`];
+    };
+
+    const listMp4Keys = async (prefix) => {
+      let token = undefined;
+      const keys = [];
+      for (;;) {
+        const resp = await s3.listObjectsV2({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }).promise();
+        for (const obj of resp.Contents || []) {
+          const k = obj.Key;
+          if (k && k.toLowerCase().endsWith('.mp4')) keys.push(k);
+        }
+        if (!resp.IsTruncated) break;
+        token = resp.NextContinuationToken;
+      }
+      return keys;
+    };
+
+    const keyToUrl = (key) => `${publicBase}/${String(key).replace(/^\/+/, '')}`;
+
+    const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    const getVideoDurationSeconds = async (input) => {
+      const { spawn } = require('child_process');
+      return await new Promise((resolve) => {
+        const p = spawn('ffprobe', ['-v', 'quiet', '-show_entries', 'format=duration', '-of', 'csv=p=0', input]);
+        let out = '';
+        p.stdout.on('data', (d) => (out += d.toString()));
+        p.on('close', (code) => {
+          if (code === 0) {
+            const v = parseFloat(out.trim());
+            resolve(isFinite(v) ? v : 0);
+          } else {
+            resolve(0);
+          }
+        });
+        p.on('error', () => resolve(0));
+      });
+    };
+
+    const runFfmpeg = async (args, label) => {
+      const { spawn } = require('child_process');
+      return await new Promise((resolve, reject) => {
+        const ff = spawn('ffmpeg', args);
+        let stderr = '';
+        ff.stderr.on('data', (d) => { stderr += d.toString(); });
+        ff.on('close', (code) => code === 0 ? resolve() : reject(new Error(`${label} failed ${code}: ${stderr}`)));
+        ff.on('error', reject);
+      });
+    };
+
+    const buildMontage = async (keys, chunkSec = 6) => {
+      const total = Math.max(0.1, Number(totalDurSec) || 0);
+      const chunks = Math.max(1, Math.ceil(total / chunkSec));
+      const segPaths = [];
+      for (let i = 0; i < chunks; i++) {
+        const remaining = total - (i * chunkSec);
+        const thisDur = Math.max(0.1, Math.min(chunkSec, remaining));
+        const key = pickRandom(keys);
+        const url = keyToUrl(key);
+        const srcDur = await getVideoDurationSeconds(url);
+        const maxStart = Math.max(0, (srcDur || (thisDur + 0.5)) - thisDur);
+        const start = maxStart > 0 ? (Math.random() * maxStart) : 0;
+        const segPath = path.join(tmpDir, `bgseg-${videoId}-${i}.mp4`);
+        await runFfmpeg([
+          '-y',
+          '-ss', `${start}`,
+          '-t', `${thisDur}`,
+          '-i', url,
+          '-an',
+          '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920',
+          '-r', '30',
+          '-c:v', 'libx264',
+          '-preset', 'veryfast',
+          '-crf', '23',
+          '-pix_fmt', 'yuv420p',
+          segPath
+        ], `bg-seg-${i}`);
+        segPaths.push(segPath);
+      }
+
+      const listPath = path.join(tmpDir, `bgconcat-${videoId}.txt`);
+      const listBody = segPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n') + '\n';
+      await fsp.writeFile(listPath, listBody);
+
+      const montagePath = path.join(tmpDir, `bgmontage-${videoId}.mp4`);
+      await runFfmpeg([
+        '-y',
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', listPath,
+        '-an',
+        '-r', '30',
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '23',
+        '-pix_fmt', 'yuv420p',
+        montagePath
+      ], 'bg-concat');
+
+      return montagePath;
+    };
+
+    // If S3 not configured, fall back to existing single-URL behavior
+    if (!bucket) {
+      console.warn('[bg] Missing S3_BUCKET; falling back to EXTERNAL_BG mapping');
+      const fallbackUrl = EXTERNAL_BG[cat] || EXTERNAL_BG.random;
+      return { bgPath: fallbackUrl, bgInfo: { mode: 'fallback_url', url: fallbackUrl } };
     }
+
+    // Random category picks among known categories
+    const effectiveCat = cat === 'random'
+      ? pickRandom(['minecraft', 'subway', 'food', 'worker'])
+      : cat;
+
+    const prefixes = prefixesFor(effectiveCat);
+    let keys = [];
+    let usedPrefix = null;
+    for (const pfx of prefixes) {
+      try {
+        const ks = await listMp4Keys(pfx);
+        if (ks.length > 0) {
+          keys = ks;
+          usedPrefix = pfx;
+          break;
+        }
+      } catch (e) {
+        console.warn('[bg] listObjects failed for prefix', pfx, e?.message || e);
+      }
+    }
+
+    if (!keys.length) {
+      console.warn('[bg] No mp4 keys found in S3 for', effectiveCat, 'prefixes', prefixes, '; falling back to EXTERNAL_BG');
+      const fallbackUrl = EXTERNAL_BG[effectiveCat] || EXTERNAL_BG.random;
+      return { bgPath: fallbackUrl, bgInfo: { mode: 'fallback_url', url: fallbackUrl } };
+    }
+
+    console.log('[bg] category=', effectiveCat, 'prefix=', usedPrefix, 'files=', keys.length);
+
+    // No split for minecraft/subway
+    if (effectiveCat === 'minecraft' || effectiveCat === 'subway') {
+      const key = pickRandom(keys);
+      const url = keyToUrl(key);
+      return { bgPath: url, bgInfo: { mode: 'single', key, url, count: keys.length } };
+    }
+
+    // Split montage for worker/food
+    const montage = await buildMontage(keys, 6);
+    return { bgPath: montage, bgInfo: { mode: 'montage', prefix: usedPrefix, count: keys.length, totalDurSec, montage } };
   }
 
   // Synthesize TTS for title and story segments
@@ -255,6 +405,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // For caption pacing, also trim trailing silence from story
   const storyDurRaw = storyBuf ? await getAudioDurationFromFile(storyAudio) : 3.0;
   const storyDur = storyBuf ? await getEffectiveSpeechDuration(storyAudio).catch(() => storyDurRaw) : 3.0;
+
+  // Resolve background with knowledge of final duration
+  const totalDurSec = Math.max(0.1, openingDur + (storyDur || 0));
+  const { bgPath, bgInfo } = await resolveBackgroundForVideo(totalDurSec);
+  try { console.log('[bg] selected', JSON.stringify(bgInfo)); } catch {}
 
   // Word timestamps for captions
   const wordTimestamps = buildWordTimestamps(storyDur, storyText);
