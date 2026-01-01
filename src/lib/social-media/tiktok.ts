@@ -58,9 +58,11 @@ export class TikTokAPI {
    * Create an OAuth authorization request.
    * TikTok may require PKCE; we always include it for reliability.
    */
-  createAuthRequest(opts?: { redirectUri?: string }) {
+  createAuthRequest(opts?: { redirectUri?: string; scope?: string }) {
     const state = generateRandomString(32);
     const redirectUri = opts?.redirectUri || TIKTOK_OAUTH_CONFIG.redirectUri;
+    const scope =
+      opts?.scope || 'user.info.basic,user.info.profile,video.upload,video.publish';
     // PKCE
     const codeVerifier = TikTokAPI.base64Url(crypto.randomBytes(32));
     const codeChallenge = TikTokAPI.sha256Base64Url(codeVerifier);
@@ -74,8 +76,7 @@ export class TikTokAPI {
     const params = new URLSearchParams({
       client_key: TIKTOK_OAUTH_CONFIG.clientKey,
       redirect_uri: redirectUri,
-      // Keep scope minimal for sandbox reliability; add more only if needed.
-      scope: 'user.info.basic,user.info.profile,video.upload,video.publish',
+      scope,
       response_type: 'code',
       state,
       code_challenge: codeChallenge,
