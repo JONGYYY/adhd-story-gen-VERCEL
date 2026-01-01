@@ -22,45 +22,7 @@ export async function GET(request: Request) {
     // Parse the OAuth URL to check parameters
     const parsedUrl = new URL(oauthUrl);
     const params = Object.fromEntries(parsedUrl.searchParams.entries());
-    
-    // Test if the callback URL is accessible
-    let callbackTest = null;
-    try {
-      const callbackResponse = await fetch(`${redirectUri}?test=true`, {
-        method: 'GET',
-        headers: { 'User-Agent': 'TikTok-Debug-Test' }
-      });
-      callbackTest = {
-        status: callbackResponse.status,
-        accessible: callbackResponse.status < 500,
-        headers: Object.fromEntries(callbackResponse.headers.entries())
-      };
-    } catch (error) {
-      callbackTest = {
-        status: 'ERROR',
-        accessible: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-    
-    // Test TikTok OAuth endpoint accessibility
-    let tiktokEndpointTest = null;
-    try {
-      const tiktokResponse = await fetch('https://www.tiktok.com/auth/authorize', {
-        method: 'HEAD',
-        headers: { 'User-Agent': 'TikTok-Debug-Test' }
-      });
-      tiktokEndpointTest = {
-        status: tiktokResponse.status,
-        accessible: tiktokResponse.status < 400
-      };
-    } catch (error) {
-      tiktokEndpointTest = {
-        status: 'ERROR',
-        accessible: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
+    // IMPORTANT: This endpoint must return quickly. Avoid network calls here (they can hang on some hosts).
     
     return NextResponse.json({
       success: true,
@@ -92,8 +54,8 @@ export async function GET(request: Request) {
         hasPkce: 'code_challenge' in params && 'code_challenge_method' in params
       },
       tests: {
-        callbackAccessible: callbackTest,
-        tiktokEndpointAccessible: tiktokEndpointTest
+        callbackAccessible: { skipped: true },
+        tiktokEndpointAccessible: { skipped: true }
       },
       diagnostics: {
         possibleIssues: [
