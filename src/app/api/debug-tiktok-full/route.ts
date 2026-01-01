@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { TikTokAPI } from '@/lib/social-media/tiktok';
+import { getPublicOrigin } from '@/lib/server/public-origin';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
     
     const clientKey = process.env.TIKTOK_CLIENT_KEY;
     const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
-    const origin = new URL(request.url).origin;
+    const origin = getPublicOrigin(request);
     const appUrl = origin;
     const redirectUri = `${origin}/api/auth/tiktok/callback`;
     

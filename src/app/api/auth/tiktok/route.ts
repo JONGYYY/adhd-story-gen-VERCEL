@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { TikTokAPI } from '@/lib/social-media/tiktok';
+import { getPublicOrigin } from '@/lib/server/public-origin';
 
 // Prevent static generation
 export const runtime = 'nodejs';
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
     const tiktokApi = new TikTokAPI();
     
     console.log('Generating OAuth URL...');
-    const origin = new URL(request.url).origin;
+    const origin = getPublicOrigin(request);
     const redirectUri = `${origin}/api/auth/tiktok/callback`;
     const authReq = tiktokApi.createAuthRequest({ redirectUri });
     
