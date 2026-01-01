@@ -82,6 +82,12 @@ export class TikTokAPI {
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
     });
+    // Some TikTok configurations expect these fields for Web/Desktop.
+    // (We keep them consistent with older implementations.)
+    try {
+      params.set('app_id', TIKTOK_OAUTH_CONFIG.clientKey);
+      params.set('app_source_domain', new URL(redirectUri).hostname);
+    } catch {}
 
     const url = `${TIKTOK_OAUTH_CONFIG.baseUrl}?${params.toString()}`;
     console.log('Generated TikTok OAuth URL:', url);

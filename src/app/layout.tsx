@@ -38,7 +38,10 @@ export const metadata: Metadata = {
     creator: '@storygen_ai',
   },
   other: {
-    'tiktok-developers-site-verification': 'lCB1D6ic1nHrxoB34K6qSEXbBo1wFThs'
+    'tiktok-developers-site-verification':
+      process.env.TIKTOK_DEVELOPERS_SITE_VERIFICATION ||
+      process.env.TIKTOK_VERIFICATION_CODE ||
+      'tiktok-developers-site-verification=5Kt6Vq9a21F6XcwGsCk9MrAw2mymMuFj'
   }
 };
 
@@ -50,7 +53,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="tiktok-developers-site-verification" content="lCB1D6ic1nHrxoB34K6qSEXbBo1wFThs" />
+        <meta
+          name="tiktok-developers-site-verification"
+          content={
+            process.env.TIKTOK_DEVELOPERS_SITE_VERIFICATION ||
+            process.env.TIKTOK_VERIFICATION_CODE ||
+            'tiktok-developers-site-verification=5Kt6Vq9a21F6XcwGsCk9MrAw2mymMuFj'
+          }
+        />
       </head>
       <body className={GeistSans.className}>
         <ThemeProvider
