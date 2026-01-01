@@ -84,25 +84,8 @@ export default function SocialMediaSettings() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/auth/${platform}`);
-      if (!response.ok) {
-        throw new Error(`Failed to initiate ${platform} connection`);
-      }
-      
-      const data = await response.json();
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      if (!data.url) {
-        throw new Error(`No OAuth URL received from ${platform}`);
-      }
-
-      // Log the URL for debugging
-      console.log(`Redirecting to ${platform} OAuth URL:`, data.url);
-      
-      // Redirect to the OAuth URL
-      window.location.href = data.url;
+      // Use a server-side redirect for robustness (ensures oauth cookies are set and avoids stale URLs).
+      window.location.href = `/api/auth/${platform}?redirect=1`;
     } catch (error) {
       console.error(`Error connecting to ${platform}:`, error);
       setError(error instanceof Error ? error.message : `Failed to connect to ${platform}`);

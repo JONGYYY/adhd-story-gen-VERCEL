@@ -50,8 +50,13 @@ export async function GET(request: Request) {
         : 'user.info.basic,user.info.profile,video.upload,video.publish';
     const authReq = tiktokApi.createAuthRequest({ redirectUri, scope });
     
+    // If redirect=1, do a server-side redirect (more robust than returning JSON + client redirect).
+    const doRedirect = url.searchParams.get('redirect') === '1';
+
     // Persist state + PKCE verifier in an httpOnly cookie for the callback.
-    const response = NextResponse.json({ url: authReq.url });
+    const response = doRedirect
+      ? NextResponse.redirect(authReq.url)
+      : NextResponse.json({ url: authReq.url });
     response.cookies.set({
       name: 'tiktok_oauth',
       value: JSON.stringify({
