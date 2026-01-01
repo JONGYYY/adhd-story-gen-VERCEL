@@ -24,6 +24,14 @@ export async function middleware(request: NextRequest) {
   // Get the pathname of the request
   const path = request.nextUrl.pathname;
 
+  // Canonicalize host: force non-www to avoid cookie/OAuth redirect mismatches.
+  const host = request.headers.get('host') || '';
+  if (host.startsWith('www.')) {
+    const url = request.nextUrl.clone();
+    url.hostname = host.replace(/^www\./, '').split(':')[0];
+    return NextResponse.redirect(url);
+  }
+
   // Skip middleware for API routes
   if (path.startsWith('/api/')) {
     return NextResponse.next();
