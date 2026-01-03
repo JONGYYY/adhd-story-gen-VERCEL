@@ -13,7 +13,9 @@ const TIKTOK_OAUTH_CONFIG: TikTokOAuthConfig = {
   clientKey: process.env.TIKTOK_CLIENT_KEY || '',
   clientSecret: process.env.TIKTOK_CLIENT_SECRET || '',
   redirectUri: `${APP_CONFIG.APP_URL}/api/auth/tiktok/callback`,
-  baseUrl: 'https://www.tiktok.com/auth/authorize',
+  // OAuth v2 authorization endpoint (OAuth v1 endpoints are deprecated).
+  // See: https://developers.tiktok.com/bulletin/migration-guidance-oauth-v1
+  baseUrl: process.env.TIKTOK_AUTHORIZE_URL || 'https://www.tiktok.com/v2/auth/authorize/',
 };
 
 // Add test mode for debugging (NEVER allow in production).
