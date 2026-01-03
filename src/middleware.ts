@@ -24,16 +24,6 @@ export async function middleware(request: NextRequest) {
   // Get the pathname of the request
   const path = request.nextUrl.pathname;
 
-  // Canonicalize host: prefer www.
-  // Rationale: with Namecheap DNS, apex often can't CNAME to Railway/Vercel without breaking TXT verification,
-  // so we commonly serve the app on www and keep apex for TXT records + redirects.
-  const host = (request.headers.get('host') || '').split(':')[0];
-  if (host === 'taleo.media') {
-    const url = request.nextUrl.clone();
-    url.hostname = 'www.taleo.media';
-    return NextResponse.redirect(url);
-  }
-
   // Skip middleware for API routes
   if (path.startsWith('/api/')) {
     return NextResponse.next();
