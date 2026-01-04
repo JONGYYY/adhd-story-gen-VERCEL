@@ -63,13 +63,13 @@ function run(cmd: string, args: string[]) {
   execFileSync(cmd, args, { stdio: 'inherit' });
 }
 
-type FontFace = { family: string; style: string };
+type FontFace = { family: string; style: string; file: string };
 
 function uniqFaces(faces: FontFace[]): FontFace[] {
   const seen = new Set<string>();
   const out: FontFace[] = [];
   for (const f of faces) {
-    const key = `${f.family}||${f.style}`;
+    const key = `${f.family}||${f.style}||${f.file}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(f);
@@ -80,19 +80,22 @@ function uniqFaces(faces: FontFace[]): FontFace[] {
 function getMatchingFaces(match: string): FontFace[] {
   const re = new RegExp(match, 'i');
   // Use fontconfig to list font families + styles.
+  // We include the resolved file path and pass it to FFmpeg via `fontfile=...` to avoid silent fallbacks.
   // A single line can include multiple families separated by comma (styles usually not comma-separated, but handle anyway).
-  const raw = execFileSync('fc-list', ['-f', '%{family}|%{style}\n'], { encoding: 'utf-8' });
+  const raw = execFileSync('fc-list', ['-f', '%{file}|%{family}|%{style}\n'], { encoding: 'utf-8' });
   const faces: FontFace[] = [];
   for (const line of raw.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    const [famRaw, styleRaw] = trimmed.split('|');
+    const [fileRaw, famRaw, styleRaw] = trimmed.split('|');
+    const file = (fileRaw || '').trim();
+    if (!file) continue;
     const style = (styleRaw || '').trim() || 'Regular';
     for (const fam of String(famRaw || '')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean)) {
-      faces.push({ family: fam, style });
+      faces.push({ family: fam, style, file });
     }
   }
 
@@ -123,13 +126,13 @@ async function main() {
   const segPaths: string[] = [];
 
   for (let i = 0; i < selected.length; i++) {
-    const { family, style } = selected[i];
+    const { family, style, file } = selected[i];
     const segPath = path.join(segDir, `seg-${String(i).padStart(4, '0')}.mp4`);
     segPaths.push(segPath);
 
     const familyEsc = escapeAssLikeTextForDrawtext(family);
     const styleEsc = escapeAssLikeTextForDrawtext(style);
-    const fontPatternEsc = escapeAssLikeTextForDrawtext(`${family}:style=${style}`);
+    const fileEsc = escapeAssLikeTextForDrawtext(file);
 
     const line1 = escapeAssLikeTextForDrawtext(`${family} (${style})`);
     const line2 = escapeAssLikeTextForDrawtext('The quick brown fox jumps over 1234567890');
@@ -139,7 +142,7 @@ async function main() {
       // Render the FONT NAME line using the default font (no `font=`) so it's readable even if
       // the candidate font has missing glyphs (some "Sans" families can be symbol/icon fonts).
       `drawtext=text='${line1}':fontsize=72:fontcolor=white:borderw=8:bordercolor=black:x=(w-text_w)/2:y=h*0.35,` +
-      `drawtext=font='${fontPatternEsc}':text='${line2}':fontsize=92:fontcolor=white:borderw=10:bordercolor=black:x=(w-text_w)/2:y=h*0.50,` +
+      `drawtext=fontfile='${fileEsc}':text='${line2}':fontsize=92:fontcolor=white:borderw=10:bordercolor=black:x=(w-text_w)/2:y=h*0.50,` +
       `drawtext=text='${String(i + 1)}/${String(selected.length)}':fontsize=44:fontcolor=white@0.95:borderw=6:bordercolor=black:x=40:y=40`;
 
     run('ffmpeg', [
