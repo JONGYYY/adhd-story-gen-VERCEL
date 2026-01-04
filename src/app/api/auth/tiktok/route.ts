@@ -39,8 +39,9 @@ export async function GET(request: Request) {
     const tiktokApi = new TikTokAPI();
     
     console.log('Generating OAuth URL...');
-    const origin = getPublicOrigin(request);
-    const redirectUri = `${origin}/api/auth/tiktok/callback`;
+    // IMPORTANT: We intentionally use apex for redirect_uri so TikTok domain verification works.
+    // www is a CNAME (can't reliably publish TXT), so TikTok rejects redirect_uri on www.
+    const redirectUri = `https://taleo.media/api/auth/tiktok/callback`;
     const url = new URL(request.url);
     const mode = url.searchParams.get('mode');
     // Use this only for debugging: isolates whether TikTok rejects because of video scopes.
@@ -68,7 +69,9 @@ export async function GET(request: Request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      path: '/api/auth/tiktok',
+      // Must be readable on apex callback.
+      path: '/',
+      domain: process.env.NODE_ENV === 'production' ? '.taleo.media' : undefined,
       maxAge: 10 * 60, // 10 minutes
     });
 

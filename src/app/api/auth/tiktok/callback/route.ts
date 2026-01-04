@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
         'Invalid OAuth state. Please try connecting again.'
       )}`;
       const resp = NextResponse.redirect(redirectUrl);
-      resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/api/auth/tiktok', maxAge: 0 });
+      resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/', domain: process.env.NODE_ENV === 'production' ? '.taleo.media' : undefined, maxAge: 0 });
       return resp;
     }
 
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       )}`;
       console.log('Redirecting to error page:', redirectUrl);
       const resp = NextResponse.redirect(redirectUrl);
-      resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/api/auth/tiktok', maxAge: 0 });
+      resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/', domain: process.env.NODE_ENV === 'production' ? '.taleo.media' : undefined, maxAge: 0 });
       return resp;
     }
 
@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
     
     const resp = NextResponse.redirect(redirectUrl);
     // Clear oauth cookie after use
-    resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/api/auth/tiktok', maxAge: 0 });
+    resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/', domain: process.env.NODE_ENV === 'production' ? '.taleo.media' : undefined, maxAge: 0 });
     return resp;
   } catch (error) {
     console.error('=== UNHANDLED ERROR IN TIKTOK CALLBACK ===');
@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
     console.log('=== TikTok OAuth Callback Failed ===');
     
     const resp = NextResponse.redirect(redirectUrl);
-    resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/api/auth/tiktok', maxAge: 0 });
+    resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/', domain: process.env.NODE_ENV === 'production' ? '.taleo.media' : undefined, maxAge: 0 });
     return resp;
   }
 } 

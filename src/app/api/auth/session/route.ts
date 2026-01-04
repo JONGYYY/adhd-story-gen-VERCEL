@@ -70,9 +70,9 @@ export async function POST(request: NextRequest) {
     console.log('Session cookie created successfully, length:', sessionCookie.length);
 
     const hostHeader = request.headers.get('host');
-    // Use host-only cookies to avoid cross-subdomain/domain issues
-    const cookieDomain = undefined;
-    console.log('Resolved cookie domain:', '(host-only)');
+    // For TikTok OAuth (www -> apex callback), we need session cookies shared across subdomains.
+    const cookieDomain = isProduction ? determineCookieDomain(hostHeader) : undefined;
+    console.log('Resolved cookie domain:', cookieDomain || '(host-only)');
 
     // Set cookie options
     const options = {
@@ -83,7 +83,6 @@ export async function POST(request: NextRequest) {
       secure: isProduction,
       path: '/',
       sameSite: 'lax' as const,
-      // host-only cookie
       domain: cookieDomain,
     };
 
