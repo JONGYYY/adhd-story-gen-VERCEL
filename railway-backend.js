@@ -297,6 +297,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
 
   let body = '';
+  // "Pop in" animation (CapCut-style) using ASS transforms:
+  // - Start smaller + invisible
+  // - Quickly overshoot to ~110%
+  // - Settle back to 100%
+  // Times are in milliseconds relative to each line's start.
+  const popIn = `{\\fscx70\\fscy70\\alpha&HFF&\\t(0,80,\\fscx110\\fscy110\\alpha&H00&)\\t(80,140,\\fscx100\\fscy100&)}`;
   for (const w of wordTimestamps || []) {
     const st = secondsToAssTime((w.start || 0) + offsetSec);
     const en = secondsToAssTime((w.end || 0) + offsetSec);
@@ -304,7 +310,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     if (!txt) continue;
     // Escape ASS special characters minimally
     const safe = txt.replace(/{/g, '\\{').replace(/}/g, '\\}');
-    body += `Dialogue: 0,${st},${en},Default,,0,0,0,,${safe.toUpperCase()}\n`;
+    body += `Dialogue: 0,${st},${en},Default,,0,0,0,,${popIn}${safe.toUpperCase()}\n`;
   }
   await fsp.writeFile(outPath, header + body, 'utf-8');
   return outPath;
