@@ -14,6 +14,8 @@ console.log(`Attempting to start server on port: ${PORT}`); // Added log
 
 // In-memory video status storage (for simplicity)
 const videoStatus = new Map();
+// In-memory font preview job status
+const fontPreviewStatus = new Map();
 
 // Middleware
 app.use(cors());
@@ -25,6 +27,125 @@ async function ensureVideosDir() {
   const videosDir = path.join(__dirname, 'public', 'videos');
   await fsp.mkdir(videosDir, { recursive: true });
   return videosDir;
+}
+
+async function ensureFontPreviewsDir() {
+  const dir = path.join(__dirname, 'public', 'font-previews');
+  await fsp.mkdir(dir, { recursive: true });
+  return dir;
+}
+
+function listInstalledFontFaces({ match, limit } = {}) {
+  const { execFileSync } = require('child_process');
+  const re = match ? new RegExp(String(match), 'i') : null;
+  const raw = execFileSync('fc-list', ['-f', '%{file}|%{family}|%{style}\n'], { encoding: 'utf-8' });
+  const out = [];
+  const seen = new Set();
+  for (const line of raw.split('\n')) {
+    const t = line.trim();
+    if (!t) continue;
+    const [fileRaw, famRaw, styleRaw] = t.split('|');
+    const file = (fileRaw || '').trim();
+    const familyRaw = (famRaw || '').trim();
+    const style = (styleRaw || '').trim() || 'Regular';
+    if (!file || !familyRaw) continue;
+    for (const family of familyRaw.split(',').map((s) => s.trim()).filter(Boolean)) {
+      const label = `${family} (${style})`;
+      if (re && !re.test(label)) continue;
+      const key = `${file}||${family}||${style}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ file, family, style, label });
+      if (limit && out.length >= limit) return out;
+    }
+  }
+  return out;
+}
+
+function escapeDrawtext(s) {
+  return String(s || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/:/g, '\\:')
+    .replace(/'/g, "\\'")
+    .replace(/\r?\n/g, ' ');
+}
+
+async function generateFontsPreviewMp4({ outPath, match, limit = 180, perFontSeconds = 0.35, fps = 30 } = {}, jobId) {
+  const { spawn } = require('child_process');
+  const tmpDir = path.join(__dirname, 'tmp');
+  await fsp.mkdir(tmpDir, { recursive: true });
+
+  const faces = listInstalledFontFaces({ match, limit });
+  if (!faces.length) throw new Error('No fonts matched (or fontconfig not available).');
+
+  const workDir = await fsp.mkdtemp(path.join(tmpDir, `fontpreview-${jobId}-`));
+  const segDir = path.join(workDir, 'segs');
+  await fsp.mkdir(segDir, { recursive: true });
+
+  const segPaths = [];
+  const total = faces.length;
+
+  const run = (args) => new Promise((resolve, reject) => {
+    const p = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    p.stderr.on('data', (d) => { stderr += String(d); });
+    p.on('close', (code) => {
+      if (code === 0) return resolve();
+      reject(new Error(`ffmpeg failed ${code}: ${stderr.slice(-2000)}`));
+    });
+  });
+
+  for (let i = 0; i < faces.length; i++) {
+    const face = faces[i];
+    const segPath = path.join(segDir, `seg-${String(i).padStart(4, '0')}.mp4`);
+    segPaths.push(segPath);
+
+    const label = escapeDrawtext(face.label);
+    const sample = escapeDrawtext('THE QUICK BROWN FOX 1234567890');
+    const fontfileEsc = escapeDrawtext(face.file);
+
+    const vf =
+      // White BG; label uses default font to stay readable.
+      `drawtext=text='${label}':fontsize=58:fontcolor=white:borderw=10:bordercolor=black:x=(w-text_w)/2:y=h*0.33,` +
+      // Sample uses the actual font file to avoid silent fallback.
+      `drawtext=fontfile='${fontfileEsc}':text='${sample}':fontsize=92:fontcolor=white:borderw=12:bordercolor=black:x=(w-text_w)/2:y=h*0.52,` +
+      `drawtext=text='${i + 1}/${total}':fontsize=42:fontcolor=white@0.95:borderw=6:bordercolor=black:x=40:y=40`;
+
+    fontPreviewStatus.set(jobId, { status: 'processing', progress: Math.round((i / total) * 95), message: `Rendering font ${i + 1}/${total}` });
+
+    await run([
+      '-y',
+      '-f', 'lavfi',
+      '-i', `color=c=white:s=1080x1920:d=${Number(perFontSeconds)}`,
+      '-vf', vf,
+      '-r', String(fps),
+      '-c:v', 'libx264',
+      '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart',
+      segPath
+    ]);
+  }
+
+  const concatList = segPaths.map((p) => `file '${String(p).replace(/'/g, "'\\''")}'`).join('\n') + '\n';
+  const concatPath = path.join(workDir, 'concat.txt');
+  await fsp.writeFile(concatPath, concatList, 'utf-8');
+
+  fontPreviewStatus.set(jobId, { status: 'processing', progress: 96, message: 'Concatenating segments' });
+  await run([
+    '-y',
+    '-f', 'concat',
+    '-safe', '0',
+    '-i', concatPath,
+    '-c:v', 'libx264',
+    '-preset', 'veryfast',
+    '-crf', '23',
+    '-pix_fmt', 'yuv420p',
+    '-r', String(fps),
+    '-movflags', '+faststart',
+    outPath
+  ]);
+
+  fontPreviewStatus.set(jobId, { status: 'completed', progress: 100, message: 'Done', videoUrl: `/font-previews/${path.basename(outPath)}`, count: total });
 }
 
 // Pick a sample background mp4 to copy (kept for reference/local assets)
@@ -61,6 +182,68 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
     service: 'railway-video-backend'
   });
+});
+
+// List fonts available on THIS worker (fontconfig)
+app.get('/api/fonts', (req, res) => {
+  try {
+    const match = req.query.match ? String(req.query.match) : '';
+    const limit = req.query.limit ? Number(req.query.limit) : 500;
+    const faces = listInstalledFontFaces({ match, limit: isFinite(limit) ? limit : 500 });
+    res.json({ success: true, count: faces.length, fonts: faces.map((f) => f.label) });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e?.message || String(e) });
+  }
+});
+
+// Generate a font preview MP4 from fonts available on THIS worker.
+// Usage:
+//   POST /api/fonts-preview/start?limit=180&per=0.35&match=sans
+// Then poll:
+//   GET  /api/fonts-preview/status/:jobId
+app.post('/api/fonts-preview/start', async (req, res) => {
+  try {
+    const jobId = uuidv4();
+    const limit = req.query.limit ? Number(req.query.limit) : 180;
+    const per = req.query.per ? Number(req.query.per) : 0.35;
+    const match = req.query.match ? String(req.query.match) : '';
+
+    const dir = await ensureFontPreviewsDir();
+    const outPath = path.join(dir, `railway-fonts-${jobId}.mp4`);
+    fontPreviewStatus.set(jobId, { status: 'processing', progress: 0, message: 'Starting…' });
+
+    (async () => {
+      try {
+        await generateFontsPreviewMp4(
+          {
+            outPath,
+            match,
+            limit: isFinite(limit) ? limit : 180,
+            perFontSeconds: isFinite(per) ? per : 0.35
+          },
+          jobId
+        );
+      } catch (e) {
+        console.error('Font preview generation failed:', e);
+        fontPreviewStatus.set(jobId, { status: 'failed', error: e?.message || String(e) });
+      }
+    })();
+
+    res.status(202).json({
+      success: true,
+      jobId,
+      statusUrl: `/api/fonts-preview/status/${jobId}`,
+      note: 'This runs on the worker. When completed, videoUrl will be under /font-previews/.'
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e?.message || String(e) });
+  }
+});
+
+app.get('/api/fonts-preview/status/:jobId', (req, res) => {
+  const st = fontPreviewStatus.get(req.params.jobId);
+  if (!st) return res.status(404).json({ success: false, error: 'Job not found' });
+  res.json({ success: true, ...st });
 });
 
 // Root route: show basic info (avoid accidental redirects)
@@ -634,8 +817,16 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const fontOptPrefix = fontOpt ? `${fontOpt}:` : '';
 
   // Badge: optional image displayed next to the author label
-  const badgePath = path.join(__dirname, 'public', 'Badge', 'badge.png');
-  const hasBadge = fs.existsSync(badgePath);
+  // Be liberal in what we accept (case-sensitive FS on Linux).
+  const badgeCandidates = [
+    path.join(__dirname, 'public', 'Badge', 'badge.png'),
+    path.join(__dirname, 'public', 'badge', 'badge.png'),
+    path.join(__dirname, 'public', 'badge.png'),
+  ];
+  const badgePath = badgeCandidates.find((p) => {
+    try { return fs.existsSync(p); } catch { return false; }
+  }) || '';
+  const hasBadge = Boolean(badgePath);
 
   // Measure approximate author label width so we can place the badge right next to it.
   // We use a best-effort Canvas measurement; if unavailable, fallback to a heuristic.
@@ -743,9 +934,12 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
 
     if (hasBadge) {
       // Scale badge to match name height, and place it 10px to the right of the measured name width.
+      // Clamp to stay on-screen within the 900px-wide top banner.
       const badgeX = AUTHOR_X + authorTextWidthPx + BADGE_GAP_PX;
-      filter += `;[${badgeIdx}:v]scale=-1:${AUTHOR_FONT_SIZE}[badge0]`;
-      filter += `;[top2][badge0]overlay=x=${badgeX}:y=${AUTHOR_Y_EXPR}[top]`;
+      const badgeXExpr = `min(${badgeX}\\,main_w-w-10)`; // escape comma in expression
+      filter += `;[${badgeIdx}:v]scale=-1:${AUTHOR_FONT_SIZE}:flags=lanczos,format=rgba[badge0]`;
+      // Overlay badge LAST so it's always in the front layer.
+      filter += `;[top2][badge0]overlay=x=${badgeXExpr}:y=${AUTHOR_Y_EXPR}[top]`;
     } else {
       filter += `;[top2]null[top]`;
     }
