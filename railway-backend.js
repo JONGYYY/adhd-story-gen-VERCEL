@@ -285,6 +285,10 @@ async function writeAssWordCaptions({ outPath, wordTimestamps, offsetSec = 0 }) 
   // Baloo 2 is a variable font in Google Fonts (Baloo2[wght].ttf). We default to the family name
   // and rely on the "Bold" style flag to select a heavy weight.
   const captionFont = String(process.env.CAPTION_FONT || 'Baloo 2').replace(/,/g, ' ').trim() || 'Arial';
+  const captionFontSizeRaw = Number(process.env.CAPTION_FONT_SIZE || 240);
+  const captionFontSize = Number.isFinite(captionFontSizeRaw) && captionFontSizeRaw > 0 ? captionFontSizeRaw : 240;
+  const captionOutlineRaw = Number(process.env.CAPTION_OUTLINE || 5);
+  const captionOutline = Number.isFinite(captionOutlineRaw) && captionOutlineRaw >= 0 ? captionOutlineRaw : 5;
   const header = `[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -293,7 +297,7 @@ WrapStyle: 2
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${captionFont},300,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,4,0,5,10,10,960,1
+Style: Default,${captionFont},${captionFontSize},&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,${captionOutline},0,5,10,10,960,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
