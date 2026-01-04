@@ -609,14 +609,20 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const betweenEnable = (start, end) => `between(t\\,${Number(start).toFixed(2)}\\,${Number(end).toFixed(2)})`;
 
   // Prefer a font family (via fontconfig) if available; fallback to fontfile path.
-  // Try PT Sans by default. You can override with env FONT_FAMILY.
+  // You can override with env FONT_FAMILY or force a specific font file with FONT_FILE.
   let fontOpt = '';
   try {
     const { execFileSync } = require('child_process');
-    const preferredFamily = process.env.FONT_FAMILY || 'PT Sans';
-    execFileSync('fc-match', [preferredFamily], { stdio: ['ignore', 'pipe', 'ignore'] });
-    fontOpt = `font='${preferredFamily.replace(/'/g, "\\'")}'`;
-    console.log('[ffmpeg] Using font family:', preferredFamily);
+    const preferredFamily = process.env.FONT_FAMILY || 'Adelle Sans Devanagari ExtraBold';
+    const forcedFile = process.env.FONT_FILE || '';
+    if (forcedFile && fs.existsSync(forcedFile)) {
+      fontOpt = `fontfile='${forcedFile.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+      console.log('[ffmpeg] Using forced FONT_FILE:', forcedFile);
+    } else {
+      execFileSync('fc-match', [preferredFamily], { stdio: ['ignore', 'pipe', 'ignore'] });
+      fontOpt = `font='${preferredFamily.replace(/'/g, "\\'")}'`;
+      console.log('[ffmpeg] Using font family:', preferredFamily);
+    }
   } catch {
     if (fontPath) {
       fontOpt = `fontfile='${fontPath}'`;
@@ -699,7 +705,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (hasTopBanner) {
     // Scale top, then annotate with author name.
     filter += `;[${topIdx}:v]scale=900:-1[top0]`;
-    const topDraw = `drawtext=${fontOptPrefix}text='${esc(authorLabel)}':fontsize=33:fontcolor=black:x=190:y=(h-75-33):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+    // Author label: +3 font size, move up 5px, bold via font selection (ExtraBold family or FONT_FILE).
+    const topDraw = `drawtext=${fontOptPrefix}text='${esc(authorLabel)}':fontsize=36:fontcolor=black:x=190:y=(h-75-36-5):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
     filter += `;[top0]${topDraw}[top]`;
   }
   if (hasBottomBanner) {
@@ -713,7 +720,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     for (let i = 0; i < lines.length; i++) {
       const y = 20 + (i * (wrapped.lineHeight || 62));
       const lineText = esc(lines[i] || '');
-      const drawLine = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=52:fontcolor=black:x=24:y=${y}:shadowx=0:shadowy=0:box=0`;
+      // Title: move right +10px (was x=24)
+      const drawLine = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=52:fontcolor=black:x=34:y=${y}:shadowx=0:shadowy=0:box=0`;
       filter += `;[wb${i}]${drawLine}[wb${i + 1}]`;
     }
   }
