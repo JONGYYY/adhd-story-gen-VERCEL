@@ -155,8 +155,10 @@ export default function VideoPage() {
         throw new Error(result.error || 'Upload failed');
       }
       
-      // Show success message
-      alert('Video uploaded to TikTok successfully! Check your TikTok drafts.');
+      // Show success message (Sandbox uploads land in TikTok Inbox as a draft, not always in Drafts immediately)
+      alert(
+        'Upload sent to TikTok! In Sandbox mode, the video appears in your TikTok Inbox as a draft (may take 1–5 minutes).'
+      );
       
     } catch (error) {
       console.error('TikTok upload error:', error);
