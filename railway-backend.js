@@ -798,9 +798,30 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   try {
     const { execFileSync } = require('child_process');
     const forcedFile = process.env.FONT_FILE || '';
-    if (forcedFile && fs.existsSync(forcedFile)) {
-      fontOpt = `fontfile='${forcedFile.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
-      console.log('[ffmpeg] Using forced FONT_FILE:', forcedFile);
+    // Optional: download a licensed font (e.g. Gill Sans) if you provide a URL.
+    // NOTE: Gill Sans is proprietary; we do not fetch it automatically without an explicit URL.
+    const fontUrl = process.env.FONT_URL || process.env.GILL_SANS_URL || '';
+    const downloadedPath = path.join(__dirname, 'public', 'fonts', 'downloaded-font.ttf');
+    try {
+      if (fontUrl && !forcedFile) {
+        if (!fs.existsSync(downloadedPath)) {
+          console.log('[ffmpeg] Downloading font from FONT_URL/GILL_SANS_URL...');
+          await fsp.mkdir(path.dirname(downloadedPath), { recursive: true });
+          const resp = await fetch(fontUrl);
+          if (!resp.ok) throw new Error(`Font download failed ${resp.status}`);
+          const buf = Buffer.from(await resp.arrayBuffer());
+          await fsp.writeFile(downloadedPath, buf);
+          console.log('[ffmpeg] Font downloaded to:', downloadedPath);
+        }
+      }
+    } catch (e) {
+      console.warn('[ffmpeg] Font download failed; continuing with fontconfig/fallback:', e?.message || e);
+    }
+
+    const effectiveFile = forcedFile || (fontUrl ? downloadedPath : '');
+    if (effectiveFile && fs.existsSync(effectiveFile)) {
+      fontOpt = `fontfile='${effectiveFile.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+      console.log('[ffmpeg] Using fontfile:', effectiveFile);
     } else {
       execFileSync('fc-match', [preferredFamily], { stdio: ['ignore', 'pipe', 'ignore'] });
       fontOpt = `font='${preferredFamily.replace(/'/g, "\\'")}'`;
@@ -847,8 +868,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   } catch {}
 
   // Banner title styling (used on the white box)
-  const TITLE_FONT_SIZE = Number(process.env.BANNER_TITLE_FONT_SIZE || 50);
-  const TITLE_FONT_SIZE_OK = Number.isFinite(TITLE_FONT_SIZE) && TITLE_FONT_SIZE > 0 ? TITLE_FONT_SIZE : 50;
+  const TITLE_FONT_SIZE = Number(process.env.BANNER_TITLE_FONT_SIZE || 48);
+  const TITLE_FONT_SIZE_OK = Number.isFinite(TITLE_FONT_SIZE) && TITLE_FONT_SIZE > 0 ? TITLE_FONT_SIZE : 48;
   const TITLE_LINE_HEIGHT = Math.round(TITLE_FONT_SIZE_OK * 1.2);
 
   // Wrap title to fit inside the 900px-wide white box (with padding) and grow box height by lines.
