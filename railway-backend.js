@@ -284,7 +284,7 @@ function secondsToAssTime(seconds) {
 async function writeAssWordCaptions({ outPath, wordTimestamps, offsetSec = 0 }) {
   // Baloo 2 is a variable font in Google Fonts (Baloo2[wght].ttf). We default to the family name
   // and rely on the "Bold" style flag to select a heavy weight.
-  const captionFont = String(process.env.CAPTION_FONT || 'Baloo 2').replace(/,/g, ' ').trim() || 'Arial';
+  const captionFont = String(process.env.CAPTION_FONT || 'Titan One').replace(/,/g, ' ').trim() || 'Arial';
   const captionFontSizeRaw = Number(process.env.CAPTION_FONT_SIZE || 140);
   const captionFontSize = Number.isFinite(captionFontSizeRaw) && captionFontSizeRaw > 0 ? captionFontSizeRaw : 140;
   const captionOutlineRaw = Number(process.env.CAPTION_OUTLINE || 9);
