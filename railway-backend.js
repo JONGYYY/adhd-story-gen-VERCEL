@@ -289,6 +289,10 @@ async function writeAssWordCaptions({ outPath, wordTimestamps, offsetSec = 0 }) 
   const captionFontSize = Number.isFinite(captionFontSizeRaw) && captionFontSizeRaw > 0 ? captionFontSizeRaw : 140;
   const captionOutlineRaw = Number(process.env.CAPTION_OUTLINE || 9);
   const captionOutline = Number.isFinite(captionOutlineRaw) && captionOutlineRaw >= 0 ? captionOutlineRaw : 9;
+  // "Inner thickness" hack: render a filled underlay (no outline) slightly larger behind the main text.
+  // This makes the fill look thicker even when the font weight can't be reliably selected.
+  const innerThickRaw = Number(process.env.CAPTION_INNER_THICKNESS || 4); // scale offset percentage points
+  const innerThick = Number.isFinite(innerThickRaw) ? Math.max(0, Math.min(20, innerThickRaw)) : 4;
   const header = `[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -306,10 +310,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   let body = '';
   // "Pop in" animation (CapCut-style) using ASS transforms:
   // - Start smaller + invisible
-  // - Quickly overshoot to ~110%
-  // - Settle back to 100%
+  // - Quickly overshoot
+  // - Settle
   // Times are in milliseconds relative to each line's start.
-  const popIn = `{\\fscx70\\fscy70\\alpha&HFF&\\t(0,80,\\fscx110\\fscy110\\alpha&H00&)\\t(80,140,\\fscx100\\fscy100&)}`;
+  const popInTag = (scaleOffset = 0) => {
+    const s0 = 70 + scaleOffset;
+    const s1 = 110 + scaleOffset;
+    const s2 = 100 + scaleOffset;
+    return `{\\fscx${s0}\\fscy${s0}\\alpha&HFF&\\t(0,80,\\fscx${s1}\\fscy${s1}\\alpha&H00&)\\t(80,140,\\fscx${s2}\\fscy${s2}&)}`;
+  };
   for (const w of wordTimestamps || []) {
     const st = secondsToAssTime((w.start || 0) + offsetSec);
     const en = secondsToAssTime((w.end || 0) + offsetSec);
@@ -317,7 +326,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     if (!txt) continue;
     // Escape ASS special characters minimally
     const safe = txt.replace(/{/g, '\\{').replace(/}/g, '\\}');
-    body += `Dialogue: 0,${st},${en},Default,,0,0,0,,${popIn}${safe.toUpperCase()}\n`;
+    const upper = safe.toUpperCase();
+    // Underlay (Layer 0): no outline, tiny blur, slightly larger scale to fake a heavier fill.
+    // Keep it subtle so it doesn't look like a glow.
+    const underlay = `{\\bord0\\shad0\\blur0.6}` + popInTag(innerThick);
+    body += `Dialogue: 0,${st},${en},Default,,0,0,0,,${underlay}${upper}\n`;
+    // Main (Layer 1): your outlined text.
+    body += `Dialogue: 1,${st},${en},Default,,0,0,0,,${popInTag(0)}${upper}\n`;
   }
   await fsp.writeFile(outPath, header + body, 'utf-8');
   return outPath;
