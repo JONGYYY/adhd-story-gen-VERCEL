@@ -18,7 +18,8 @@
     "start:railway": "node railway-backend.js",
     "lint": "next lint",
     "render:local": "tsx apps/worker/src/cli.ts",
-    "fonts:preview:sans": "tsx scripts/preview-sans-fonts.ts"
+    "fonts:preview:sans": "tsx scripts/preview-sans-fonts.ts --match sans",
+    "fonts:preview:round": "tsx scripts/preview-sans-fonts.ts --match \"round|rounded|bubble|comic|baloo|fredoka|nunito|quicksand|cooper\""
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

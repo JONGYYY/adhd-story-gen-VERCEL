@@ -10,6 +10,7 @@ type Args = {
   fps: number;
   perFontSeconds: number;
   limit: number; // 0 means unlimited
+  match: string; // regex string (case-insensitive by default)
 };
 
 function getArg(flag: string): string | undefined {
@@ -25,14 +26,16 @@ function parseArgs(): Args {
   const fps = Number(getArg('--fps') || 30);
   const perFontSeconds = Number(getArg('--per-font-seconds') || 1.25);
   const limit = Number(getArg('--limit') || 0);
+  const match = String(getArg('--match') || 'sans');
 
   if (!Number.isFinite(width) || width <= 0) throw new Error(`Invalid --width: ${width}`);
   if (!Number.isFinite(height) || height <= 0) throw new Error(`Invalid --height: ${height}`);
   if (!Number.isFinite(fps) || fps <= 0) throw new Error(`Invalid --fps: ${fps}`);
   if (!Number.isFinite(perFontSeconds) || perFontSeconds <= 0) throw new Error(`Invalid --per-font-seconds: ${perFontSeconds}`);
   if (!Number.isFinite(limit) || limit < 0) throw new Error(`Invalid --limit: ${limit}`);
+  if (!match) throw new Error('Invalid --match (empty).');
 
-  return { out, width, height, fps, perFontSeconds, limit };
+  return { out, width, height, fps, perFontSeconds, limit, match };
 }
 
 function uniq(arr: string[]): string[] {
@@ -60,7 +63,8 @@ function run(cmd: string, args: string[]) {
   execFileSync(cmd, args, { stdio: 'inherit' });
 }
 
-function getSansFamilies(): string[] {
+function getMatchingFamilies(match: string): string[] {
+  const re = new RegExp(match, 'i');
   // Use fontconfig to list font families. A single line can include multiple families separated by comma.
   const raw = execFileSync('fc-list', ['-f', '%{family}\n'], { encoding: 'utf-8' });
   const families = raw
@@ -69,18 +73,18 @@ function getSansFamilies(): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const sans = families.filter((f) => /sans/i.test(f));
+  const matching = families.filter((f) => re.test(f));
   // Keep stable-ish order but dedupe, then sort for easier scanning.
-  return uniq(sans).sort((a, b) => a.localeCompare(b));
+  return uniq(matching).sort((a, b) => a.localeCompare(b));
 }
 
 async function main() {
   const args = parseArgs();
-  const fonts = getSansFamilies();
+  const fonts = getMatchingFamilies(args.match);
   const selected = args.limit > 0 ? fonts.slice(0, args.limit) : fonts;
 
   if (selected.length === 0) {
-    throw new Error('No Sans fonts found via fc-list.');
+    throw new Error(`No fonts matched /${args.match}/i via fc-list.`);
   }
 
   await fs.mkdir(path.dirname(args.out), { recursive: true });
@@ -159,7 +163,7 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log(`Wrote: ${args.out}`);
   // eslint-disable-next-line no-console
-  console.log(`Fonts included: ${selected.length} (matched "sans")`);
+  console.log(`Fonts included: ${selected.length} (matched /${args.match}/i)`);
 }
 
 main().catch((err) => {
