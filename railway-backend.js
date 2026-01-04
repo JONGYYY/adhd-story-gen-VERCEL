@@ -273,11 +273,17 @@ async function buildWordTimestampsFromAudio(audioPath, scriptText, fallbackDurat
 }
 
 function secondsToAssTime(seconds) {
+  // ASS time precision is centiseconds. Use rounding (not floor) and handle carry
+  // to avoid collapsing very short words into 0-length intervals (which can disappear).
   const s = Math.max(0, Number(seconds) || 0);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = Math.floor(s % 60);
-  const cs = Math.floor((s - Math.floor(s)) * 100); // centiseconds
+  let totalCs = Math.round(s * 100);
+  if (!isFinite(totalCs) || totalCs < 0) totalCs = 0;
+  const h = Math.floor(totalCs / (3600 * 100));
+  totalCs -= h * 3600 * 100;
+  const m = Math.floor(totalCs / (60 * 100));
+  totalCs -= m * 60 * 100;
+  const sec = Math.floor(totalCs / 100);
+  const cs = totalCs - sec * 100;
   return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
 }
 
@@ -285,8 +291,8 @@ async function writeAssWordCaptions({ outPath, wordTimestamps, offsetSec = 0 }) 
   // Baloo 2 is a variable font in Google Fonts (Baloo2[wght].ttf). We default to the family name
   // and rely on the "Bold" style flag to select a heavy weight.
   const captionFont = String(process.env.CAPTION_FONT || 'Titan One').replace(/,/g, ' ').trim() || 'Arial';
-  const captionFontSizeRaw = Number(process.env.CAPTION_FONT_SIZE || 140);
-  const captionFontSize = Number.isFinite(captionFontSizeRaw) && captionFontSizeRaw > 0 ? captionFontSizeRaw : 140;
+  const captionFontSizeRaw = Number(process.env.CAPTION_FONT_SIZE || 110);
+  const captionFontSize = Number.isFinite(captionFontSizeRaw) && captionFontSizeRaw > 0 ? captionFontSizeRaw : 110;
   const captionOutlineRaw = Number(process.env.CAPTION_OUTLINE || 9);
   const captionOutline = Number.isFinite(captionOutlineRaw) && captionOutlineRaw >= 0 ? captionOutlineRaw : 9;
   // "Inner thickness" hack: render a filled underlay (no outline) slightly larger behind the main text.
@@ -319,9 +325,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     const s2 = 100 + scaleOffset;
     return `{\\fscx${s0}\\fscy${s0}\\alpha&HFF&\\t(0,80,\\fscx${s1}\\fscy${s1}\\alpha&H00&)\\t(80,140,\\fscx${s2}\\fscy${s2}&)}`;
   };
+  // Ensure every word has a visible, non-zero duration after ASS centisecond rounding.
+  // Also ensure monotonic non-overlapping times to avoid missed frames/words.
+  const minWordDurSec = Number(process.env.CAPTION_MIN_WORD_DUR || 0.06); // 60ms
+  let cursorSec = Math.max(0, Number(offsetSec) || 0);
   for (const w of wordTimestamps || []) {
-    const st = secondsToAssTime((w.start || 0) + offsetSec);
-    const en = secondsToAssTime((w.end || 0) + offsetSec);
+    const rawStart = (Number(w.start) || 0) + (Number(offsetSec) || 0);
+    const rawEnd = (Number(w.end) || 0) + (Number(offsetSec) || 0);
+    let startSec = Math.max(cursorSec, rawStart);
+    let endSec = Math.max(rawEnd, startSec + minWordDurSec);
+    cursorSec = endSec;
+
+    const st = secondsToAssTime(startSec);
+    const en = secondsToAssTime(endSec);
     const txt = String(w.text || '').replace(/\r?\n/g, ' ').trim();
     if (!txt) continue;
     // Escape ASS special characters minimally
@@ -578,12 +594,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     try { if (fs.existsSync(f)) { fontPath = f; break; } } catch {}
   }
 
-  // Prepare labels for top banner
-  const subLabelRaw = (subreddit || '').trim();
-  // Normalize subreddit safely without regex-in-template to avoid parser edge-cases
-  const normalizedSub = subLabelRaw.startsWith('r/') ? subLabelRaw.slice(2) : subLabelRaw.replace(/^r\//, '');
-  const subLabel = normalizedSub ? ('r/' + normalizedSub) : '';
-  const authorLabel = (author || 'Anonymous').replace(/^@/, '');
+  // Prepare label for top banner
+  // We intentionally do NOT render the subreddit label anymore; only the user-set display name.
+  const authorLabel = String(author || '').trim().replace(/^@/, '') || 'Anonymous';
   // Escape strings for FFmpeg filtergraph option values (drawtext in particular).
   // We are NOT going through a shell, so shell quoting doesn't apply; this is for FFmpeg's own parser.
   const esc = (s) => (s || '')
@@ -684,11 +697,10 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Compose a stacked banner: top + white box + bottom, then overlay as one unit
   // Scale top/bottom to 900 width first (use PNG’s native transparency; no masking)
   if (hasTopBanner) {
-    // Scale top, then annotate with subreddit and @author at x=20
+    // Scale top, then annotate with author name.
     filter += `;[${topIdx}:v]scale=900:-1[top0]`;
-    const topDraw1 = `drawtext=${fontOptPrefix}text='${esc(subLabel)}':fontsize=41:fontcolor=black:x=190:y=36:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
-    const topDraw2 = `drawtext=${fontOptPrefix}text='@${esc(authorLabel)}':fontsize=33:fontcolor=black:x=190:y=(h-75-33):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
-    filter += `;[top0]${topDraw1}[top1];[top1]${topDraw2}[top]`;
+    const topDraw = `drawtext=${fontOptPrefix}text='${esc(authorLabel)}':fontsize=33:fontcolor=black:x=190:y=(h-75-33):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+    filter += `;[top0]${topDraw}[top]`;
   }
   if (hasBottomBanner) {
     filter += `;[${bottomIdx}:v]scale=900:-1[bot]`;

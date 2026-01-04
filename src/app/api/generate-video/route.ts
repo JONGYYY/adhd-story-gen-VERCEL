@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { VideoOptions, SubredditStory } from '@/lib/video-generator/types';
 import { generateStory } from '@/lib/story-generator/openai';
+import { verifySessionCookie, getAdminFirestore } from '@/lib/firebase-admin';
 
 // Prevent static generation but use Node.js runtime for video generation
 export const runtime = 'nodejs';
@@ -10,6 +11,19 @@ export const dynamic = 'force-dynamic';
 // Railway API configuration (set in Vercel env)
 const RAW_RAILWAY_API_URL = (process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://taleo.media').trim();
 const RAILWAY_API_URL = RAW_RAILWAY_API_URL.replace(/\/$/, '');
+
+async function getDisplayNameFromSession(request: NextRequest): Promise<string | null> {
+  const sessionCookie = request.cookies.get('session')?.value;
+  if (!sessionCookie) return null;
+  const decoded = await verifySessionCookie(sessionCookie);
+  if (!decoded?.uid) return null;
+  const db = await getAdminFirestore();
+  const snap = await db.collection('profiles').doc(decoded.uid).get();
+  if (!snap.exists) return null;
+  const data = snap.data() as any;
+  const name = typeof data?.displayName === 'string' ? data.displayName.trim() : '';
+  return name || null;
+}
 
 // Force deployment trigger - updated with simplified Railway backend
 async function generateVideoOnRailway(options: VideoOptions, videoId: string, story: SubredditStory) {
@@ -78,6 +92,14 @@ export async function POST(request: NextRequest) {
     const options: VideoOptions = await request.json();
     console.log('Received video generation request with options:', JSON.stringify(options, null, 2));
 
+    // Pull user-defined display name (if logged in) for the banner author label.
+    let displayName: string | null = null;
+    try {
+      displayName = await getDisplayNameFromSession(request);
+    } catch (e) {
+      console.warn('Failed to load display name:', e);
+    }
+
     // Generate or use custom story (UI does light work, heavy work happens on worker)
     let story: SubredditStory;
     if (options.customStory) {
@@ -86,7 +108,7 @@ export async function POST(request: NextRequest) {
         title: options.customStory.title,
         story: options.customStory.story,
         subreddit: options.customStory.subreddit || 'r/stories',
-        author: 'Anonymous',
+        author: displayName || 'Anonymous',
       };
     } else {
       const subreddit = options.subreddit.startsWith('r/') ? options.subreddit : `r/${options.subreddit}`;
@@ -102,6 +124,7 @@ export async function POST(request: NextRequest) {
       };
       console.log('Generating story with params:', JSON.stringify(storyParams, null, 2));
       story = await generateStory(storyParams);
+      story.author = displayName || story.author || 'Anonymous';
     }
 
     // Log story data before validation

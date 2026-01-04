@@ -4,12 +4,57 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 export default function SettingsPage() {
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch('/api/profile', { credentials: 'include' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (cancelled) return;
+        if (typeof data?.displayName === 'string') setName(data.displayName);
+      } catch (e) {
+        console.warn('Failed to load profile:', e);
+      } finally {
+        if (!cancelled) setLoadingProfile(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const resp = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ displayName: name }),
+      });
+      if (!resp.ok) {
+        const msg = await resp.text();
+        alert(`Failed to save name: ${msg}`);
+        return;
+      }
+    } catch (e: any) {
+      alert(`Failed to save name: ${e?.message || e}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-10">
       <div className="space-y-6">
@@ -42,50 +87,20 @@ export default function SettingsPage() {
                 <div className="space-y-4">
                   <div className="grid gap-2">
                     <Label htmlFor="name">Name</Label>
-                    <Input id="name" placeholder="Your name" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="your@email.com" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="bio">Bio</Label>
-                    <Textarea
-                      id="bio"
-                      placeholder="Tell us about yourself..."
-                      className="min-h-[100px]"
+                    <Input
+                      id="name"
+                      placeholder="Your name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={loadingProfile || saving}
                     />
                   </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button>Save Changes</Button>
-              </CardFooter>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Password</CardTitle>
-                <CardDescription>
-                  Change your password to keep your account secure.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="current">Current Password</Label>
-                  <Input id="current" type="password" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="new">New Password</Label>
-                  <Input id="new" type="password" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="confirm">Confirm Password</Label>
-                  <Input id="confirm" type="password" />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button variant="outline">Change Password</Button>
+                <Button onClick={save} disabled={loadingProfile || saving}>
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </Button>
               </CardFooter>
             </Card>
           </TabsContent>
