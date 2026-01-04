@@ -282,6 +282,9 @@ function secondsToAssTime(seconds) {
 }
 
 async function writeAssWordCaptions({ outPath, wordTimestamps, offsetSec = 0 }) {
+  // Baloo 2 is a variable font in Google Fonts (Baloo2[wght].ttf). We default to the family name
+  // and rely on the "Bold" style flag to select a heavy weight.
+  const captionFont = String(process.env.CAPTION_FONT || 'Baloo 2').replace(/,/g, ' ').trim() || 'Arial';
   const header = `[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -290,7 +293,7 @@ WrapStyle: 2
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,300,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,4,0,5,10,10,960,1
+Style: Default,${captionFont},300,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,4,0,5,10,10,960,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -722,7 +725,10 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Apply subtitles filter (libass)
   // Escape commas/colons for filtergraph option parsing.
   const assEsc = assPath.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
-  filter += `;[${current}]ass=filename=${assEsc}:original_size=1080x1920[v_cap]`;
+  const fontsDir = path.join(__dirname, 'public', 'fonts');
+  const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
+  const fontsDirEsc = fontsDir.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
+  filter += `;[${current}]ass=filename=${assEsc}:original_size=1080x1920${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
   current = 'v_cap';
 
   // Audio graph within the same filter_complex

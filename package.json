@@ -19,7 +19,9 @@
     "lint": "next lint",
     "render:local": "tsx apps/worker/src/cli.ts",
     "fonts:preview:sans": "tsx scripts/preview-sans-fonts.ts --match sans",
-    "fonts:preview:round": "tsx scripts/preview-sans-fonts.ts --match \"round|rounded|bubble|comic|baloo|fredoka|nunito|quicksand|cooper\""
+    "fonts:preview:round": "tsx scripts/preview-sans-fonts.ts --match \"round|rounded|bubble|comic|baloo|fredoka|nunito|quicksand|cooper\"",
+    "captions:preview:pop": "tsx scripts/preview-caption-anim.ts --anim pop",
+    "captions:preview:bounce": "tsx scripts/preview-caption-anim.ts --anim bounce"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
