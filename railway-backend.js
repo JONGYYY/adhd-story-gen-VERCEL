@@ -656,8 +656,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   } catch {}
 
   // Banner title styling (used on the white box)
-  const TITLE_FONT_SIZE = Number(process.env.BANNER_TITLE_FONT_SIZE || 140); // was 28; user requested 5x
-  const TITLE_FONT_SIZE_OK = Number.isFinite(TITLE_FONT_SIZE) && TITLE_FONT_SIZE > 0 ? TITLE_FONT_SIZE : 140;
+  const TITLE_FONT_SIZE = Number(process.env.BANNER_TITLE_FONT_SIZE || 50);
+  const TITLE_FONT_SIZE_OK = Number.isFinite(TITLE_FONT_SIZE) && TITLE_FONT_SIZE > 0 ? TITLE_FONT_SIZE : 50;
   const TITLE_LINE_HEIGHT = Math.round(TITLE_FONT_SIZE_OK * 1.2);
 
   // Wrap title to fit inside the 900px-wide white box (with padding) and grow box height by lines.
