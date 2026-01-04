@@ -611,7 +611,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Prefer a font family (via fontconfig) if available; fallback to fontfile path.
   // You can override with env FONT_FAMILY or force a specific font file with FONT_FILE.
   let fontOpt = '';
-  const preferredFamily = process.env.FONT_FAMILY || 'Hiragino Sans';
+  const preferredFamily = process.env.FONT_FAMILY || 'Arial Rounded MT Bold';
   try {
     const { execFileSync } = require('child_process');
     const forcedFile = process.env.FONT_FILE || '';

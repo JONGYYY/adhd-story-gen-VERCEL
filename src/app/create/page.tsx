@@ -269,13 +269,14 @@ export default function Create() {
       console.log('Sending video generation request...');
       let response;
       try {
-        const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_API_URL || '';
-        // Call Railway worker via API alias on the worker
-        response = await fetch(`${API_BASE}/api/generate-video`, {
+        // Call the UI API route so it can attach the saved profile name + generate story as needed,
+        // then it delegates to the Railway worker.
+        response = await fetch(`/api/generate-video`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include',
           body: JSON.stringify(options),
         });
       } catch (fetchError) {
@@ -356,9 +357,8 @@ export default function Create() {
           
           let statusResponse;
           try {
-            const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_API_URL || '';
-            // Poll Railway worker via API alias
-            statusResponse = await fetch(`${API_BASE}/api/video-status/${data.videoId}`, {
+            // Poll via UI API route (it proxies to Railway as needed)
+            statusResponse = await fetch(`/api/video-status/${data.videoId}`, {
               method: 'GET',
               cache: 'no-cache',
               headers: {
