@@ -186,16 +186,7 @@ export class TikTokAPI {
     }
     
     try {
-      // TikTok v2 requires a `fields` parameter.
-      // (Missing fields returns: "Fields is required, please provide fields in the request")
-      const fields = [
-        'open_id',
-        'union_id',
-        'avatar_url',
-        'display_name',
-        'username',
-      ].join(',');
-      const userUrl = `https://open.tiktokapis.com/v2/user/info/?fields=${encodeURIComponent(fields)}`;
+      const userUrl = 'https://open.tiktokapis.com/v2/user/info/';
       console.log('User info endpoint:', userUrl);
 
       const response = await fetch(userUrl, {
@@ -284,7 +275,6 @@ export class TikTokAPI {
       const upload_url = (initPayload as any)?.upload_url;
       const upload_id = (initPayload as any)?.upload_id;
       const video_id = (initPayload as any)?.video_id;
-      const publish_id = (initPayload as any)?.publish_id;
 
       if (!upload_url) {
         console.error('Init response missing upload_url:', initData);
@@ -306,30 +296,21 @@ export class TikTokAPI {
       });
 
       console.log('Upload response status:', uploadResponse.status);
-      const uploadBody = await uploadResponse.text().catch(() => '');
       
       if (!uploadResponse.ok) {
-        console.error('Upload error response:', uploadBody);
-        throw new Error(`Failed to upload video: ${uploadBody}`);
+        const uploadError = await uploadResponse.text();
+        console.error('Upload error response:', uploadError);
+        throw new Error(`Failed to upload video: ${uploadError}`);
       }
 
-      // In Sandbox mode, uploads go to TikTok Inbox as a draft. TikTok may take time to process.
-      console.log('Video uploaded successfully (inbox draft flow)', {
-        publish_id,
-        upload_id,
-        video_id,
-        uploadResponseStatus: uploadResponse.status,
-      });
+      // In Sandbox mode, uploaded videos appear in the user's TikTok Inbox as drafts for manual publish.
+      // The init/upload flow is sufficient for that behavior.
+      console.log('Video uploaded successfully (inbox draft flow)');
       return {
         init: initData,
-        publish_id,
         upload_id,
         video_id,
-        upload_response: {
-          status: uploadResponse.status,
-          body: uploadBody?.slice(0, 2000) || '',
-        },
-        status: 'uploaded_to_tiktok'
+        status: 'uploaded'
       };
     } catch (error) {
       console.error('TikTok video upload error:', error);
