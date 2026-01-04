@@ -611,9 +611,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Prefer a font family (via fontconfig) if available; fallback to fontfile path.
   // You can override with env FONT_FAMILY or force a specific font file with FONT_FILE.
   let fontOpt = '';
+  const preferredFamily = process.env.FONT_FAMILY || 'Hiragino Sans';
   try {
     const { execFileSync } = require('child_process');
-    const preferredFamily = process.env.FONT_FAMILY || 'Adelle Sans Devanagari ExtraBold';
     const forcedFile = process.env.FONT_FILE || '';
     if (forcedFile && fs.existsSync(forcedFile)) {
       fontOpt = `fontfile='${forcedFile.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
@@ -633,11 +633,33 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   }
   const fontOptPrefix = fontOpt ? `${fontOpt}:` : '';
 
+  // Badge: optional image displayed next to the author label
+  const badgePath = path.join(__dirname, 'public', 'Badge', 'badge.png');
+  const hasBadge = fs.existsSync(badgePath);
+
+  // Measure approximate author label width so we can place the badge right next to it.
+  // We use a best-effort Canvas measurement; if unavailable, fallback to a heuristic.
+  const AUTHOR_FONT_SIZE = 28;
+  const AUTHOR_X = 190;
+  const AUTHOR_Y_EXPR = `(h-75-${AUTHOR_FONT_SIZE}-5)`;
+  const BADGE_GAP_PX = 10;
+  let authorTextWidthPx = Math.ceil((authorLabel || '').length * (AUTHOR_FONT_SIZE * 0.55));
+  try {
+    // @napi-rs/canvas is already a dependency; if it fails to load on some envs, we keep heuristic.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { createCanvas } = require('@napi-rs/canvas');
+    const c = createCanvas(10, 10);
+    const ctx = c.getContext('2d');
+    ctx.font = `${AUTHOR_FONT_SIZE}px ${preferredFamily}`;
+    const m = ctx.measureText(authorLabel || '');
+    if (m && isFinite(m.width)) authorTextWidthPx = Math.ceil(m.width);
+  } catch {}
+
   // Wrap title to fit inside the 900px-wide white box (with padding) and grow box height by lines.
   // This is an approximate wrap (character-based), but we also hard-break overlong words so nothing can exceed the box width.
   const wrapTitleForBox = (rawTitle, maxCharsPerLine = 26, maxLines = 6) => {
     const t = String(rawTitle || '').trim();
-    if (!t) return { lines: [''], boxHeight: 200, lineHeight: 62, paddingTop: 20, paddingBottom: 20 };
+    if (!t) return { lines: [''], boxHeight: 200, lineHeight: 34, paddingTop: 20, paddingBottom: 20 };
 
     const breakLongWord = (word) => {
       const parts = [];
@@ -668,7 +690,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     const minHeight = 200;
     const paddingTop = 20;
     const paddingBottom = 20;
-    const lineHeight = 62; // tuned for fontsize 52-ish
+    const lineHeight = 34; // tuned for fontsize ~28
     const boxHeight = Math.max(minHeight, paddingTop + paddingBottom + (lines.length * lineHeight));
     return { lines, boxHeight, lineHeight, paddingTop, paddingBottom };
   };
@@ -686,6 +708,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   let idx = 1;
   const topIdx = hasTopBanner ? idx++ : -1;
   const bottomIdx = hasBottomBanner ? idx++ : -1;
+  const badgeIdx = hasBadge ? idx++ : -1;
   // Synthetic white box as separate lavfi input (avoids drawbox issues)
   const wantWhiteBox = openingDur > 0;
   const whiteBoxIdx = wantWhiteBox ? idx++ : -1;
@@ -693,6 +716,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const storyIdx = storyBuf ? idx++ : -1;
   if (hasTopBanner) args.push('-i', bannerTopPath);
   if (hasBottomBanner) args.push('-i', bannerBottomPath);
+  if (hasBadge) args.push('-i', badgePath);
   if (wantWhiteBox) {
     // 900xH white box, duration equals opening duration (min height, grows with wrapped title)
     args.push('-f', 'lavfi', '-i', `color=c=white:s=900x${wrapped.boxHeight}:d=${openingDur.toFixed(2)}`);
@@ -703,11 +727,21 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Compose a stacked banner: top + white box + bottom, then overlay as one unit
   // Scale top/bottom to 900 width first (use PNG’s native transparency; no masking)
   if (hasTopBanner) {
-    // Scale top, then annotate with author name.
+    // Scale top, then annotate with author name (+ optional badge).
     filter += `;[${topIdx}:v]scale=900:-1[top0]`;
-    // Author label: +3 font size, move up 5px, bold via font selection (ExtraBold family or FONT_FILE).
-    const topDraw = `drawtext=${fontOptPrefix}text='${esc(authorLabel)}':fontsize=36:fontcolor=black:x=190:y=(h-75-36-5):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
-    filter += `;[top0]${topDraw}[top]`;
+    // Author label (requested): Hiragino Sans, size 28, moved up 5px. Faux-bold by drawing twice.
+    const nameDrawA = `drawtext=${fontOptPrefix}text='${esc(authorLabel)}':fontsize=${AUTHOR_FONT_SIZE}:fontcolor=black:x=${AUTHOR_X}:y=${AUTHOR_Y_EXPR}:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+    const nameDrawB = `drawtext=${fontOptPrefix}text='${esc(authorLabel)}':fontsize=${AUTHOR_FONT_SIZE}:fontcolor=black:x=${AUTHOR_X + 1}:y=${AUTHOR_Y_EXPR}:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+    filter += `;[top0]${nameDrawA}[top1];[top1]${nameDrawB}[top2]`;
+
+    if (hasBadge) {
+      // Scale badge to match name height, and place it 10px to the right of the measured name width.
+      const badgeX = AUTHOR_X + authorTextWidthPx + BADGE_GAP_PX;
+      filter += `;[${badgeIdx}:v]scale=-1:${AUTHOR_FONT_SIZE}[badge0]`;
+      filter += `;[top2][badge0]overlay=x=${badgeX}:y=${AUTHOR_Y_EXPR}[top]`;
+    } else {
+      filter += `;[top2]null[top]`;
+    }
   }
   if (hasBottomBanner) {
     filter += `;[${bottomIdx}:v]scale=900:-1[bot]`;
@@ -720,8 +754,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     for (let i = 0; i < lines.length; i++) {
       const y = 20 + (i * (wrapped.lineHeight || 62));
       const lineText = esc(lines[i] || '');
-      // Title: move right +10px (was x=24)
-      const drawLine = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=52:fontcolor=black:x=34:y=${y}:shadowx=0:shadowy=0:box=0`;
+      // Title: Hiragino Sans size 28, move right +10px from previous.
+      const drawLine = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=28:fontcolor=black:x=44:y=${y}:shadowx=0:shadowy=0:box=0`;
       filter += `;[wb${i}]${drawLine}[wb${i + 1}]`;
     }
   }
