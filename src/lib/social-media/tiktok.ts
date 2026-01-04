@@ -186,7 +186,16 @@ export class TikTokAPI {
     }
     
     try {
-      const userUrl = 'https://open.tiktokapis.com/v2/user/info/';
+      // TikTok v2 requires a `fields` parameter.
+      // (Missing fields returns: "Fields is required, please provide fields in the request")
+      const fields = [
+        'open_id',
+        'union_id',
+        'avatar_url',
+        'display_name',
+        'username',
+      ].join(',');
+      const userUrl = `https://open.tiktokapis.com/v2/user/info/?fields=${encodeURIComponent(fields)}`;
       console.log('User info endpoint:', userUrl);
 
       const response = await fetch(userUrl, {
