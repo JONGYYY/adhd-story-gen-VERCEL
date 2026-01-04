@@ -101,17 +101,19 @@ async function main() {
     const line2 = escapeAssLikeTextForDrawtext('The quick brown fox jumps over 1234567890');
 
     const vf =
-      `drawbox=x=0:y=0:w=iw:h=ih:color=black@1:t=fill,` +
-      `drawtext=font='${familyEsc}':text='${line1}':fontsize=72:fontcolor=white:borderw=6:bordercolor=black:x=(w-text_w)/2:y=h*0.35,` +
-      `drawtext=font='${familyEsc}':text='${line2}':fontsize=92:fontcolor=white:borderw=8:bordercolor=black:x=(w-text_w)/2:y=h*0.50,` +
-      `drawtext=text='${String(i + 1)}/${String(selected.length)}':fontsize=44:fontcolor=white@0.9:borderw=4:bordercolor=black:x=40:y=40`;
+      // White background + white text with black outline.
+      // Render the FONT NAME line using the default font (no `font=`) so it's readable even if
+      // the candidate font has missing glyphs (some "Sans" families can be symbol/icon fonts).
+      `drawtext=text='${line1}':fontsize=72:fontcolor=white:borderw=8:bordercolor=black:x=(w-text_w)/2:y=h*0.35,` +
+      `drawtext=font='${familyEsc}':text='${line2}':fontsize=92:fontcolor=white:borderw=10:bordercolor=black:x=(w-text_w)/2:y=h*0.50,` +
+      `drawtext=text='${String(i + 1)}/${String(selected.length)}':fontsize=44:fontcolor=white@0.95:borderw=6:bordercolor=black:x=40:y=40`;
 
     run('ffmpeg', [
       '-y',
       '-f',
       'lavfi',
       '-i',
-      `color=c=black:s=${args.width}x${args.height}:d=${args.perFontSeconds}`,
+      `color=c=white:s=${args.width}x${args.height}:d=${args.perFontSeconds}`,
       '-vf',
       vf,
       '-r',
