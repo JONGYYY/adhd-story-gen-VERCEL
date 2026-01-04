@@ -287,8 +287,8 @@ async function writeAssWordCaptions({ outPath, wordTimestamps, offsetSec = 0 }) 
   const captionFont = String(process.env.CAPTION_FONT || 'Baloo 2').replace(/,/g, ' ').trim() || 'Arial';
   const captionFontSizeRaw = Number(process.env.CAPTION_FONT_SIZE || 140);
   const captionFontSize = Number.isFinite(captionFontSizeRaw) && captionFontSizeRaw > 0 ? captionFontSizeRaw : 140;
-  const captionOutlineRaw = Number(process.env.CAPTION_OUTLINE || 5);
-  const captionOutline = Number.isFinite(captionOutlineRaw) && captionOutlineRaw >= 0 ? captionOutlineRaw : 5;
+  const captionOutlineRaw = Number(process.env.CAPTION_OUTLINE || 9);
+  const captionOutline = Number.isFinite(captionOutlineRaw) && captionOutlineRaw >= 0 ? captionOutlineRaw : 9;
   const header = `[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
