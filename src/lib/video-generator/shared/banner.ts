@@ -14,8 +14,8 @@ export type BannerAssets = {
 
 export async function getBannerAssets(): Promise<BannerAssets> {
   const projectRoot = process.cwd();
-  const topPath = path.join(projectRoot, 'public', 'banners', 'redditbannertop.png');
-  const bottomPath = path.join(projectRoot, 'public', 'banners', 'redditbannerbottom.png');
+  const topPath = path.join(projectRoot, 'public', 'banners', 'redditbannertop1.png');
+  const bottomPath = path.join(projectRoot, 'public', 'banners', 'redditbannerbottom1.png');
 
   // Verify assets exist
   try {
