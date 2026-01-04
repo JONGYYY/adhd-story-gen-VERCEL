@@ -531,10 +531,10 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const bannerBottomRounded = path.join(__dirname, 'public', 'banners', 'redditbannerbottom_rounded.png');
   const bannerTopPath = fs.existsSync(bannerTopRounded)
     ? bannerTopRounded
-    : path.join(__dirname, 'public', 'banners', 'redditbannertop.png');
+    : path.join(__dirname, 'public', 'banners', 'redditbannertop1.png');
   const bannerBottomPath = fs.existsSync(bannerBottomRounded)
     ? bannerBottomRounded
-    : path.join(__dirname, 'public', 'banners', 'redditbannerbottom.png');
+    : path.join(__dirname, 'public', 'banners', 'redditbannerbottom1.png');
   const hasTopBanner = fs.existsSync(bannerTopPath);
   const hasBottomBanner = fs.existsSync(bannerBottomPath);
 

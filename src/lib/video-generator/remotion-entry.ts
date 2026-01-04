@@ -447,8 +447,8 @@ export async function generateVideoWithRemotion(options: VideoGenerationOptions,
     console.log(`[${videoId}] 🎥 Using assumed background dimensions: ${videoWidth}x${videoHeight}`);
 
     // Prepare banners (download if present, otherwise fallback to local/public)
-    const topBannerPath = await resolveBannerAsset('redditbannertop.png', videoId);
-    const bottomBannerPath = await resolveBannerAsset('redditbannerbottom.png', videoId);
+    const topBannerPath = await resolveBannerAsset('redditbannertop1.png', videoId);
+    const bottomBannerPath = await resolveBannerAsset('redditbannerbottom1.png', videoId);
 
     // TTS for title + story with timeouts and robust fallbacks
     const makeSilentWav = (seconds: number): Buffer => {
