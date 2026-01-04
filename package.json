@@ -20,6 +20,7 @@
     "render:local": "tsx apps/worker/src/cli.ts",
     "fonts:preview:sans": "tsx scripts/preview-sans-fonts.ts --match sans",
     "fonts:preview:round": "tsx scripts/preview-sans-fonts.ts --match \"round|rounded|bubble|comic|baloo|fredoka|nunito|quicksand|cooper\"",
+    "fonts:preview:thick": "tsx scripts/preview-sans-fonts.ts --match \"(style=)?(black|heavy|extra\\s*bold|extra\\s*black|ultra\\s*bold|ultra\\s*black|super\\s*bold|super\\s*black|fat)\"",
     "captions:preview:pop": "tsx scripts/preview-caption-anim.ts --anim pop",
     "captions:preview:bounce": "tsx scripts/preview-caption-anim.ts --anim bounce"
   },
