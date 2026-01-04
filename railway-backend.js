@@ -655,11 +655,18 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     if (m && isFinite(m.width)) authorTextWidthPx = Math.ceil(m.width);
   } catch {}
 
+  // Banner title styling (used on the white box)
+  const TITLE_FONT_SIZE = Number(process.env.BANNER_TITLE_FONT_SIZE || 140); // was 28; user requested 5x
+  const TITLE_FONT_SIZE_OK = Number.isFinite(TITLE_FONT_SIZE) && TITLE_FONT_SIZE > 0 ? TITLE_FONT_SIZE : 140;
+  const TITLE_LINE_HEIGHT = Math.round(TITLE_FONT_SIZE_OK * 1.2);
+
   // Wrap title to fit inside the 900px-wide white box (with padding) and grow box height by lines.
   // This is an approximate wrap (character-based), but we also hard-break overlong words so nothing can exceed the box width.
-  const wrapTitleForBox = (rawTitle, maxCharsPerLine = 26, maxLines = 6) => {
+  // The base tuning was fontsize ~52 with maxCharsPerLine ~26.
+  // Scale chars/line inversely with font size so large titles don't overflow.
+  const wrapTitleForBox = (rawTitle, maxCharsPerLine = Math.max(8, Math.round((26 * 52) / TITLE_FONT_SIZE_OK)), maxLines = 6) => {
     const t = String(rawTitle || '').trim();
-    if (!t) return { lines: [''], boxHeight: 200, lineHeight: 34, paddingTop: 20, paddingBottom: 20 };
+    if (!t) return { lines: [''], boxHeight: 200, lineHeight: TITLE_LINE_HEIGHT, paddingTop: 20, paddingBottom: 20 };
 
     const breakLongWord = (word) => {
       const parts = [];
@@ -690,7 +697,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     const minHeight = 200;
     const paddingTop = 20;
     const paddingBottom = 20;
-    const lineHeight = 34; // tuned for fontsize ~28
+    const lineHeight = TITLE_LINE_HEIGHT;
     const boxHeight = Math.max(minHeight, paddingTop + paddingBottom + (lines.length * lineHeight));
     return { lines, boxHeight, lineHeight, paddingTop, paddingBottom };
   };
@@ -754,9 +761,10 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     for (let i = 0; i < lines.length; i++) {
       const y = 20 + (i * (wrapped.lineHeight || 62));
       const lineText = esc(lines[i] || '');
-      // Title: Hiragino Sans size 28, move right +10px from previous.
-      const drawLine = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=28:fontcolor=black:x=44:y=${y}:shadowx=0:shadowy=0:box=0`;
-      filter += `;[wb${i}]${drawLine}[wb${i + 1}]`;
+      // Title: bold + 5x font size (28 -> 140). Faux-bold by drawing twice with 1px offset.
+      const drawLineA = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=${TITLE_FONT_SIZE_OK}:fontcolor=black:x=44:y=${y}:shadowx=0:shadowy=0:box=0`;
+      const drawLineB = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=${TITLE_FONT_SIZE_OK}:fontcolor=black:x=45:y=${y}:shadowx=0:shadowy=0:box=0`;
+      filter += `;[wb${i}]${drawLineA}[wb${i}a];[wb${i}a]${drawLineB}[wb${i + 1}]`;
     }
   }
   if (hasTopBanner && wantWhiteBox && hasBottomBanner) {
