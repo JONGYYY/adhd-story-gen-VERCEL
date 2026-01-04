@@ -69,6 +69,7 @@ function uniqFaces(faces: FontFace[]): FontFace[] {
   const seen = new Set<string>();
   const out: FontFace[] = [];
   for (const f of faces) {
+    // Include file path to avoid collapsing distinct faces that share family/style labels.
     const key = `${f.family}||${f.style}||${f.file}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -80,7 +81,8 @@ function uniqFaces(faces: FontFace[]): FontFace[] {
 function getMatchingFaces(match: string): FontFace[] {
   const re = new RegExp(match, 'i');
   // Use fontconfig to list font families + styles.
-  // We include the resolved file path and pass it to FFmpeg via `fontfile=...` to avoid silent fallbacks.
+  // Include resolved file path and pass it to FFmpeg via `fontfile=...` to avoid silent fallbacks
+  // (which makes many previews look identical).
   // A single line can include multiple families separated by comma (styles usually not comma-separated, but handle anyway).
   const raw = execFileSync('fc-list', ['-f', '%{file}|%{family}|%{style}\n'], { encoding: 'utf-8' });
   const faces: FontFace[] = [];
@@ -130,8 +132,7 @@ async function main() {
     const segPath = path.join(segDir, `seg-${String(i).padStart(4, '0')}.mp4`);
     segPaths.push(segPath);
 
-    const familyEsc = escapeAssLikeTextForDrawtext(family);
-    const styleEsc = escapeAssLikeTextForDrawtext(style);
+    const fontPatternEsc = escapeAssLikeTextForDrawtext(`${family}:style=${style}`);
     const fileEsc = escapeAssLikeTextForDrawtext(file);
 
     const line1 = escapeAssLikeTextForDrawtext(`${family} (${style})`);
