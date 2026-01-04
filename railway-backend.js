@@ -686,8 +686,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (hasTopBanner) {
     // Scale top, then annotate with subreddit and @author at x=20
     filter += `;[${topIdx}:v]scale=900:-1[top0]`;
-    const topDraw1 = `drawtext=${fontOptPrefix}text='${esc(subLabel)}':fontsize=44:fontcolor=black:x=190:y=36:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
-    const topDraw2 = `drawtext=${fontOptPrefix}text='@${esc(authorLabel)}':fontsize=36:fontcolor=black:x=190:y=(h-75-36):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+    const topDraw1 = `drawtext=${fontOptPrefix}text='${esc(subLabel)}':fontsize=41:fontcolor=black:x=190:y=36:shadowx=2:shadowy=2:shadowcolor=white@0.6`;
+    const topDraw2 = `drawtext=${fontOptPrefix}text='@${esc(authorLabel)}':fontsize=33:fontcolor=black:x=190:y=(h-75-33):shadowx=2:shadowy=2:shadowcolor=white@0.6`;
     filter += `;[top0]${topDraw1}[top1];[top1]${topDraw2}[top]`;
   }
   if (hasBottomBanner) {
@@ -701,7 +701,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     for (let i = 0; i < lines.length; i++) {
       const y = 20 + (i * (wrapped.lineHeight || 62));
       const lineText = esc(lines[i] || '');
-      const drawLine = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=52:fontcolor=black:x=20:y=${y}:shadowx=0:shadowy=0:box=0`;
+      const drawLine = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=52:fontcolor=black:x=24:y=${y}:shadowx=0:shadowy=0:box=0`;
       filter += `;[wb${i}]${drawLine}[wb${i + 1}]`;
     }
   }
