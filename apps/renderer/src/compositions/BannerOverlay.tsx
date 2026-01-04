@@ -18,8 +18,8 @@ export const BannerOverlay: React.FC<BannerOverlayProps> = ({
   titleText,
   style
 }) => {
-  const resolvedTop = topSrc || staticFile('/banners/redditbannertop1.png');
-  const resolvedBottom = bottomSrc || staticFile('/banners/redditbannerbottom1.png');
+  const resolvedTop = topSrc || staticFile('/banners/redditbannertop.png');
+  const resolvedBottom = bottomSrc || staticFile('/banners/redditbannerbottom.png');
   const hasComposite = resolvedTop && resolvedBottom && typeof titleText === 'string' && titleText.length > 0;
 
   if (!hasComposite && src) {
