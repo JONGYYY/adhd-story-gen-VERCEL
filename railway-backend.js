@@ -643,23 +643,40 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     const s2 = 100 + scaleOffset;
     return `{\\fscx${s0}\\fscy${s0}\\alpha&HFF&\\t(0,80,\\fscx${s1}\\fscy${s1}\\alpha&H00&)\\t(80,140,\\fscx${s2}\\fscy${s2}&)}`;
   };
-  // Ensure every word has a visible, non-zero duration after ASS centisecond rounding.
-  // IMPORTANT: do NOT "push" start times forward (that introduces drift). Just ensure each event has >= 1cs.
-  const minWordDurSec = Number(process.env.CAPTION_MIN_WORD_DUR || 0.04); // ~1 frame at 30fps
-  for (const w of wordTimestamps || []) {
-    const rawStart = (Number(w.start) || 0) + (Number(offsetSec) || 0);
-    const rawEnd = (Number(w.end) || 0) + (Number(offsetSec) || 0);
-    const startSec = Math.max(0, rawStart);
-    const endSec = Math.max(rawEnd, startSec + (isFinite(minWordDurSec) ? minWordDurSec : 0.04));
-    // Convert to centiseconds and ensure end > start (ASS ignores 0-length events).
+  // Ensure every word is visible for at least ~1 frame and try to keep words sequential.
+  // This avoids "missing" words when events are too short or overlapped.
+  const minWordDurSecRaw = Number(process.env.CAPTION_MIN_WORD_DUR || 0.04);
+  const minWordDurSec = isFinite(minWordDurSecRaw) && minWordDurSecRaw > 0 ? minWordDurSecRaw : 0.04;
+  const minWordCs = Math.max(4, Math.round(minWordDurSec * 100)); // >= ~1 frame at 30fps (3.33cs)
+
+  const items = (wordTimestamps || [])
+    .map((w) => ({
+      text: String(w.text || '').replace(/\r?\n/g, ' ').trim(),
+      start: (Number(w.start) || 0) + (Number(offsetSec) || 0),
+      end: (Number(w.end) || 0) + (Number(offsetSec) || 0),
+    }))
+    .filter((w) => w.text.length > 0 && isFinite(w.start) && isFinite(w.end));
+
+  for (let idx = 0; idx < items.length; idx++) {
+    const w = items[idx];
+    const next = items[idx + 1];
+    const startSec = Math.max(0, w.start);
+    let endSec = Math.max(w.end, startSec + minWordDurSec);
+    // Prefer sequential: don't extend past next word's start (when it exists and is sane).
+    if (next && isFinite(next.start) && next.start > startSec) {
+      endSec = Math.min(endSec, next.start);
+    }
+
+    // Convert to centiseconds and enforce minimum visible duration.
     let stCs = Math.round(startSec * 100);
     let enCs = Math.round(endSec * 100);
     if (!isFinite(stCs) || stCs < 0) stCs = 0;
-    if (!isFinite(enCs) || enCs <= stCs) enCs = stCs + 1;
+    if (!isFinite(enCs) || enCs <= stCs) enCs = stCs + minWordCs;
+    if (enCs < stCs + minWordCs) enCs = stCs + minWordCs;
+
     const st = secondsToAssTime(stCs / 100);
     const en = secondsToAssTime(enCs / 100);
-    const txt = String(w.text || '').replace(/\r?\n/g, ' ').trim();
-    if (!txt) continue;
+    const txt = w.text;
     // Escape ASS special characters minimally
     const safe = txt.replace(/{/g, '\\{').replace(/}/g, '\\}');
     const upper = safe.toUpperCase();
