@@ -794,8 +794,10 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Banner/title font selection (match the caption-font approach: ship a font file in /public/fonts
   // and always use it via fontfile=... so Railway doesn't depend on system-installed fonts or env vars).
   //
-  // If you later add Gill Sans (licensed) as a file into /public/fonts, it will be picked up automatically.
+  // We prefer open-licensed bundled fonts first (so it "just works"), then any optional licensed font files.
   const bannerFontCandidates = [
+    // Preferred (bundled, open-licensed)
+    path.join(__dirname, 'public', 'fonts', 'sans-open', 'poppins-Poppins-Regular.ttf'),
     path.join(__dirname, 'public', 'fonts', 'GillSans.ttf'),
     path.join(__dirname, 'public', 'fonts', 'GillSans.otf'),
     path.join(__dirname, 'public', 'fonts', 'GillSansMTPro-Bold.ttf'),

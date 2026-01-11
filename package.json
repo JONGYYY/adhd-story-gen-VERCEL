@@ -23,6 +23,8 @@
     "fonts:preview:thick": "tsx scripts/preview-sans-fonts.ts --match \"(style=)?(black|heavy|extra\\s*bold|extra\\s*black|ultra\\s*bold|ultra\\s*black|super\\s*bold|super\\s*black|fat)\"",
     "fonts:download:cartoon": "tsx scripts/download-cartoon-fonts.ts",
     "fonts:preview:cartoon": "tsx scripts/preview-cartoon-fonts.ts",
+    "fonts:download:sans-open": "tsx scripts/download-sans-open-fonts.ts",
+    "fonts:preview:sans-open": "tsx scripts/preview-sans-open-fonts.ts",
     "captions:preview:pop": "tsx scripts/preview-caption-anim.ts --anim pop",
     "captions:preview:bounce": "tsx scripts/preview-caption-anim.ts --anim bounce"
   },

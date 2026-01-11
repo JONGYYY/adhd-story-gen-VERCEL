@@ -97,3 +97,6 @@ railway-*.log
 *.mp4
 *.mov
 *.avi
+
+# Allow committed preview MP4s for font galleries (these are small and intentional)
+!/public/font-previews/*.mp4
