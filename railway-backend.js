@@ -791,57 +791,30 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // FFmpeg expressions treat comma as an argument separator; escape commas to keep between() intact.
   const betweenEnable = (start, end) => `between(t\\,${Number(start).toFixed(2)}\\,${Number(end).toFixed(2)})`;
 
-  // Prefer a font family (via fontconfig) if available; fallback to fontfile path.
-  // You can override with env FONT_FAMILY or force a specific font file with FONT_FILE.
-  let fontOpt = '';
-  const preferredFamily = process.env.FONT_FAMILY || 'Arial Rounded MT Bold';
-  try {
-    const { execFileSync } = require('child_process');
-    const forcedFile = process.env.FONT_FILE || '';
-    // Optional: download a licensed font (e.g. Gill Sans) if you provide a URL.
-    // NOTE: Gill Sans is proprietary; we do not fetch it automatically without an explicit URL.
-    const fontUrl = process.env.FONT_URL || process.env.GILL_SANS_URL || '';
-    const downloadedPath = path.join(__dirname, 'public', 'fonts', 'downloaded-font.ttf');
-    try {
-      if (fontUrl && !forcedFile) {
-        if (!fs.existsSync(downloadedPath)) {
-          console.log('[ffmpeg] Downloading font from FONT_URL/GILL_SANS_URL...');
-          await fsp.mkdir(path.dirname(downloadedPath), { recursive: true });
-          const resp = await fetch(fontUrl);
-          if (!resp.ok) throw new Error(`Font download failed ${resp.status}`);
-          const buf = Buffer.from(await resp.arrayBuffer());
-          await fsp.writeFile(downloadedPath, buf);
-          console.log('[ffmpeg] Font downloaded to:', downloadedPath);
-        }
-      }
-    } catch (e) {
-      console.warn('[ffmpeg] Font download failed; continuing with fontconfig/fallback:', e?.message || e);
-    }
-
-    const effectiveFile = forcedFile || (fontUrl ? downloadedPath : '');
-    console.log('[ffmpeg] font selection:', {
-      preferredFamily,
-      hasForcedFile: Boolean(forcedFile),
-      hasFontUrl: Boolean(fontUrl),
-      effectiveFile: effectiveFile || '(none)'
-    });
-    if (effectiveFile && fs.existsSync(effectiveFile)) {
-      fontOpt = `fontfile='${effectiveFile.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
-      console.log('[ffmpeg] Using fontfile:', effectiveFile);
-    } else {
-      execFileSync('fc-match', [preferredFamily], { stdio: ['ignore', 'pipe', 'ignore'] });
-      fontOpt = `font='${preferredFamily.replace(/'/g, "\\'")}'`;
-      console.log('[ffmpeg] Using font family:', preferredFamily);
-    }
-  } catch {
-    if (fontPath) {
-      fontOpt = `fontfile='${fontPath}'`;
-      console.log('[ffmpeg] Using fontfile fallback:', fontPath);
-    } else {
-      console.log('[ffmpeg] No font configured; drawtext will use defaults');
-    }
+  // Banner/title font selection (match the caption-font approach: ship a font file in /public/fonts
+  // and always use it via fontfile=... so Railway doesn't depend on system-installed fonts or env vars).
+  //
+  // If you later add Gill Sans (licensed) as a file into /public/fonts, it will be picked up automatically.
+  const bannerFontCandidates = [
+    path.join(__dirname, 'public', 'fonts', 'GillSans.ttf'),
+    path.join(__dirname, 'public', 'fonts', 'GillSans.otf'),
+    path.join(__dirname, 'public', 'fonts', 'GillSansMTPro-Bold.ttf'),
+    path.join(__dirname, 'public', 'fonts', 'GillSansMTPro-Bold.otf'),
+    path.join(__dirname, 'public', 'fonts', 'ArialRoundedMTBold.ttf'),
+    path.join(__dirname, 'public', 'fonts', 'ArialRoundedMTBold.otf'),
+    path.join(__dirname, 'public', 'fonts', 'TitanOne-Regular.ttf'),
+    path.join(__dirname, 'public', 'fonts', 'Baloo2[wght].ttf'),
+  ];
+  let bannerFontFile = '';
+  for (const f of bannerFontCandidates) {
+    try { if (fs.existsSync(f)) { bannerFontFile = f; break; } } catch {}
   }
-  const fontOptPrefix = fontOpt ? `${fontOpt}:` : '';
+  // Final fallback to any system font file we can find (kept as last resort).
+  if (!bannerFontFile && fontPath) bannerFontFile = fontPath;
+  const fontOptPrefix = bannerFontFile
+    ? `fontfile='${bannerFontFile.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}':`
+    : '';
+  console.log('[banner-font] using fontfile:', bannerFontFile || '(none)');
 
   // Badge: optional image displayed next to the author label
   // Be liberal in what we accept (case-sensitive FS on Linux).
