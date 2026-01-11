@@ -302,7 +302,9 @@ export class TikTokAPI {
           'Content-Length': String(videoSize),
           'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
         },
-        body: videoData.video_file,
+        // Node's fetch BodyInit typing doesn't accept Buffer in some TS DOM lib setups.
+        // Convert to Uint8Array/ArrayBuffer to satisfy typings while preserving bytes.
+        body: new Uint8Array(videoData.video_file),
       });
 
       console.log('Upload response status:', uploadResponse.status);
