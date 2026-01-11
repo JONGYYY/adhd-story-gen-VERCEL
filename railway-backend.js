@@ -395,16 +395,46 @@ async function buildWordTimestampsFromAudio(audioPath, scriptText, fallbackDurat
   }
 
   try {
+    // Speed: transcode to small 16k mono Opus before uploading to Whisper.
+    // This is usually much faster than uploading full-quality mp3.
+    const tmpDir = path.join(__dirname, 'tmp');
+    await fsp.mkdir(tmpDir, { recursive: true });
+    const whisperInput = path.join(tmpDir, `whisper-${uuidv4()}.ogg`);
+    try {
+      const { spawn } = require('child_process');
+      await new Promise((resolve) => {
+        const p = spawn('ffmpeg', [
+          '-y',
+          '-i', audioPath,
+          '-vn',
+          '-ac', '1',
+          '-ar', '16000',
+          '-c:a', 'libopus',
+          '-b:a', '24k',
+          whisperInput
+        ]);
+        p.on('close', () => resolve());
+        p.on('error', () => resolve());
+      });
+    } catch {}
+
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const file = fs.createReadStream(audioPath);
+    const file = fs.createReadStream(fs.existsSync(whisperInput) ? whisperInput : audioPath);
 
     // Request verbose JSON with word timestamps (Whisper)
-    const result = await openai.audio.transcriptions.create({
-      file,
-      model: 'whisper-1',
-      response_format: 'verbose_json',
-      timestamp_granularities: ['word']
-    });
+    // Hard timeout so video generation never stalls on alignment.
+    const timeoutMs = Number(process.env.CAPTION_ALIGN_TIMEOUT_MS || 20000);
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), isFinite(timeoutMs) ? timeoutMs : 20000);
+    const result = await openai.audio.transcriptions.create(
+      {
+        file,
+        model: 'whisper-1',
+        response_format: 'verbose_json',
+        timestamp_granularities: ['word']
+      },
+      { signal: ac.signal }
+    ).finally(() => clearTimeout(t));
 
     const words = (result && result.words) ? result.words : [];
     if (!Array.isArray(words) || words.length === 0) {
@@ -555,7 +585,7 @@ async function buildWordTimestampsFromAudio(audioPath, scriptText, fallbackDurat
     }
     return aligned;
   } catch (e) {
-    console.warn('[captions] OpenAI transcription failed; using heuristic:', e?.message || e);
+    console.warn('[captions] OpenAI transcription failed/timed out; using heuristic:', e?.message || e);
     return buildWordTimestamps(fallbackDurationSec, scriptText);
   }
 }
@@ -614,18 +644,20 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     return `{\\fscx${s0}\\fscy${s0}\\alpha&HFF&\\t(0,80,\\fscx${s1}\\fscy${s1}\\alpha&H00&)\\t(80,140,\\fscx${s2}\\fscy${s2}&)}`;
   };
   // Ensure every word has a visible, non-zero duration after ASS centisecond rounding.
-  // Also ensure monotonic non-overlapping times to avoid missed frames/words.
+  // IMPORTANT: do NOT "push" start times forward (that introduces drift). Just ensure each event has >= 1cs.
   const minWordDurSec = Number(process.env.CAPTION_MIN_WORD_DUR || 0.04); // ~1 frame at 30fps
-  let cursorSec = Math.max(0, Number(offsetSec) || 0);
   for (const w of wordTimestamps || []) {
     const rawStart = (Number(w.start) || 0) + (Number(offsetSec) || 0);
     const rawEnd = (Number(w.end) || 0) + (Number(offsetSec) || 0);
-    let startSec = Math.max(cursorSec, rawStart);
-    let endSec = Math.max(rawEnd, startSec + minWordDurSec);
-    cursorSec = endSec;
-
-    const st = secondsToAssTime(startSec);
-    const en = secondsToAssTime(endSec);
+    const startSec = Math.max(0, rawStart);
+    const endSec = Math.max(rawEnd, startSec + (isFinite(minWordDurSec) ? minWordDurSec : 0.04));
+    // Convert to centiseconds and ensure end > start (ASS ignores 0-length events).
+    let stCs = Math.round(startSec * 100);
+    let enCs = Math.round(endSec * 100);
+    if (!isFinite(stCs) || stCs < 0) stCs = 0;
+    if (!isFinite(enCs) || enCs <= stCs) enCs = stCs + 1;
+    const st = secondsToAssTime(stCs / 100);
+    const en = secondsToAssTime(enCs / 100);
     const txt = String(w.text || '').replace(/\r?\n/g, ' ').trim();
     if (!txt) continue;
     // Escape ASS special characters minimally
