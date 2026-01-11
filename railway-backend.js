@@ -819,6 +819,12 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     }
 
     const effectiveFile = forcedFile || (fontUrl ? downloadedPath : '');
+    console.log('[ffmpeg] font selection:', {
+      preferredFamily,
+      hasForcedFile: Boolean(forcedFile),
+      hasFontUrl: Boolean(fontUrl),
+      effectiveFile: effectiveFile || '(none)'
+    });
     if (effectiveFile && fs.existsSync(effectiveFile)) {
       fontOpt = `fontfile='${effectiveFile.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
       console.log('[ffmpeg] Using fontfile:', effectiveFile);
@@ -851,7 +857,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
 
   // Measure approximate author label width so we can place the badge right next to it.
   // We use a best-effort Canvas measurement; if unavailable, fallback to a heuristic.
-  const AUTHOR_FONT_SIZE = 28;
+  const AUTHOR_FONT_SIZE = 42;
   const AUTHOR_X = 190;
   const AUTHOR_Y_EXPR = `(h-75-${AUTHOR_FONT_SIZE}-5)`;
   const BADGE_GAP_PX = 10;
@@ -866,6 +872,28 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     const m = ctx.measureText(authorLabel || '');
     if (m && isFinite(m.width)) authorTextWidthPx = Math.ceil(m.width);
   } catch {}
+  console.log('[banner] authorLabel:', authorLabel, 'fontSize:', AUTHOR_FONT_SIZE, 'textWidthPx:', authorTextWidthPx);
+  console.log('[banner] badge:', { hasBadge, badgePath });
+
+  // If badge exists, compute its scaled width (so we can clamp X without FFmpeg expression parsing issues)
+  let badgeScaledWidthPx = 0;
+  if (hasBadge) {
+    try {
+      const { spawnSync } = require('child_process');
+      const out = spawnSync('ffprobe', [
+        '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'stream=width,height',
+        '-of', 'csv=p=0:s=x',
+        badgePath
+      ], { encoding: 'utf-8' });
+      const txt = String(out.stdout || '').trim();
+      const [bw, bh] = txt.split('x').map((n) => Number(n));
+      if (bw > 0 && bh > 0) {
+        badgeScaledWidthPx = Math.max(1, Math.round((AUTHOR_FONT_SIZE / bh) * bw));
+      }
+    } catch {}
+  }
 
   // Banner title styling (used on the white box)
   const TITLE_FONT_SIZE = Number(process.env.BANNER_TITLE_FONT_SIZE || 48);
@@ -955,12 +983,13 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
 
     if (hasBadge) {
       // Scale badge to match name height, and place it 10px to the right of the measured name width.
-      // Clamp to stay on-screen within the 900px-wide top banner.
+      // Clamp to stay on-screen within the 900px-wide top banner (avoid expression parsing issues).
       const badgeX = AUTHOR_X + authorTextWidthPx + BADGE_GAP_PX;
-      const badgeXExpr = `min(${badgeX}\\,main_w-w-10)`; // escape comma in expression
+      const badgeXClamped = Math.max(0, Math.min(badgeX, 900 - (badgeScaledWidthPx || AUTHOR_FONT_SIZE) - 10));
+      console.log('[banner] badge placement:', { badgeX, badgeXClamped, badgeScaledWidthPx });
       filter += `;[${badgeIdx}:v]scale=-1:${AUTHOR_FONT_SIZE}:flags=lanczos,format=rgba[badge0]`;
       // Overlay badge LAST so it's always in the front layer.
-      filter += `;[top2][badge0]overlay=x=${badgeXExpr}:y=${AUTHOR_Y_EXPR}[top]`;
+      filter += `;[top2][badge0]overlay=x=${badgeXClamped}:y=${AUTHOR_Y_EXPR}[top]`;
     } else {
       filter += `;[top2]null[top]`;
     }
