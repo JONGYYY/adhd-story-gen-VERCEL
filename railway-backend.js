@@ -425,30 +425,135 @@ async function buildWordTimestampsFromAudio(audioPath, scriptText, fallbackDurat
       return buildWordTimestamps(fallbackDurationSec, scriptText);
     }
 
-    // Try to keep the ORIGINAL script words (so captions match your story) if it aligns well with transcription.
+    // Always try to display the ORIGINAL script words (so captions match your story),
+    // while using Whisper timings for alignment. This prevents "missing words" when Whisper
+    // drops tokens, and reduces drift by anchoring to matched words and interpolating the rest.
     const normalize = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
     const scriptWords = String(scriptText || '').split(/\s+/).filter(Boolean);
-    const transWords = transcribed.map((w) => w.text);
+    if (scriptWords.length === 0) return transcribed;
 
-    const minLen = Math.min(scriptWords.length, transWords.length);
-    if (minLen > 0 && scriptWords.length === transWords.length) {
-      let matches = 0;
-      for (let i = 0; i < minLen; i++) {
-        if (normalize(scriptWords[i]) === normalize(transWords[i])) matches++;
+    const scriptNorm = scriptWords.map(normalize);
+    const transNorm = transcribed.map((w) => normalize(w.text));
+
+    const LOOKAHEAD = Number(process.env.CAPTION_ALIGN_LOOKAHEAD || 8);
+    const mapIdx = new Array(scriptWords.length).fill(null); // script index -> transcribed index
+
+    let i = 0;
+    let j = 0;
+    while (i < scriptWords.length && j < transcribed.length) {
+      const a = scriptNorm[i];
+      const b = transNorm[j];
+      if (a && b && a === b) {
+        mapIdx[i] = j;
+        i++; j++;
+        continue;
       }
-      const ratio = matches / minLen;
-      if (ratio >= 0.7) {
-        // Use transcription timestamps but display the intended script tokens
-        return transcribed.map((t, i) => ({
-          text: scriptWords[i] || t.text,
-          start: t.start,
-          end: t.end
-        }));
+      // Look ahead in transcription for the current script token.
+      let foundJ = -1;
+      for (let k = 1; k <= LOOKAHEAD && (j + k) < transcribed.length; k++) {
+        if (a && transNorm[j + k] === a) { foundJ = j + k; break; }
       }
+      if (foundJ !== -1) {
+        j = foundJ;
+        mapIdx[i] = j;
+        i++; j++;
+        continue;
+      }
+      // Look ahead in script for the current transcription token (script has extra words).
+      let foundI = -1;
+      for (let k = 1; k <= LOOKAHEAD && (i + k) < scriptWords.length; k++) {
+        if (b && scriptNorm[i + k] === b) { foundI = i + k; break; }
+      }
+      if (foundI !== -1) {
+        i = foundI;
+        continue;
+      }
+      // Fallback: treat as substitution (keeps timing anchored).
+      mapIdx[i] = j;
+      i++; j++;
     }
 
-    // Otherwise, use transcription words as-is (best sync)
-    return transcribed;
+    // Compute a reasonable default duration for interpolated/missing tokens.
+    const durs = transcribed.map((t) => Math.max(0.01, (t.end - t.start))).filter((x) => isFinite(x));
+    durs.sort((a, b) => a - b);
+    const medianDur = durs.length ? durs[Math.floor(durs.length / 2)] : 0;
+    const fallbackDur = isFinite(medianDur) && medianDur > 0 ? medianDur : Math.max(0.06, (fallbackDurationSec || 0) / Math.max(1, scriptWords.length));
+
+    // Helper to find next mapped index >= start.
+    const nextMapped = (startIdx) => {
+      for (let k = startIdx; k < mapIdx.length; k++) if (mapIdx[k] !== null) return k;
+      return -1;
+    };
+
+    const out = new Array(scriptWords.length);
+    let prevMappedScript = -1;
+    let prevEnd = 0;
+
+    for (let sIdx = 0; sIdx < scriptWords.length; ) {
+      if (mapIdx[sIdx] !== null) {
+        const t = transcribed[mapIdx[sIdx]];
+        const start = Math.max(0, Number(t.start) || 0);
+        const end = Math.max(start + 0.01, Number(t.end) || start + fallbackDur);
+        out[sIdx] = { text: scriptWords[sIdx], start, end };
+        prevMappedScript = sIdx;
+        prevEnd = end;
+        sIdx++;
+        continue;
+      }
+
+      // Fill a run of unmapped script words until next mapped anchor.
+      const runStart = sIdx;
+      let runEnd = runStart;
+      while (runEnd < scriptWords.length && mapIdx[runEnd] === null) runEnd++;
+      const runCount = runEnd - runStart;
+
+      const nextScript = nextMapped(runEnd);
+      let nextStart = null;
+      if (nextScript !== -1) {
+        const t = transcribed[mapIdx[nextScript]];
+        nextStart = Math.max(0, Number(t.start) || 0);
+      }
+
+      if (nextStart !== null) {
+        // Distribute into the gap between prevEnd and nextStart.
+        const gapStart = Math.max(prevEnd, 0);
+        const gapEnd = Math.max(nextStart, gapStart);
+        const gap = gapEnd - gapStart;
+        const per = gap > 0 ? Math.max(0.01, gap / runCount) : fallbackDur;
+        let cur = gapStart;
+        for (let k = 0; k < runCount; k++) {
+          const st = cur;
+          const en = Math.min(gapEnd, st + per);
+          out[runStart + k] = { text: scriptWords[runStart + k], start: st, end: Math.max(st + 0.01, en) };
+          cur = en;
+        }
+        prevEnd = out[runEnd - 1].end;
+      } else {
+        // No next anchor: place after prevEnd using fallbackDur.
+        let cur = Math.max(prevEnd, 0);
+        for (let k = 0; k < runCount; k++) {
+          const st = cur;
+          const en = st + fallbackDur;
+          out[runStart + k] = { text: scriptWords[runStart + k], start: st, end: en };
+          cur = en;
+        }
+        prevEnd = out[runEnd - 1].end;
+      }
+
+      sIdx = runEnd;
+    }
+
+    const aligned = out.filter(Boolean);
+    if (process.env.CAPTION_DEBUG === '1') {
+      const mappedCount = mapIdx.filter((x) => x !== null).length;
+      console.log('[captions] alignment:', {
+        scriptWords: scriptWords.length,
+        transcribed: transcribed.length,
+        mapped: mappedCount,
+        lookahead: LOOKAHEAD
+      });
+    }
+    return aligned;
   } catch (e) {
     console.warn('[captions] OpenAI transcription failed; using heuristic:', e?.message || e);
     return buildWordTimestamps(fallbackDurationSec, scriptText);
@@ -510,7 +615,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   };
   // Ensure every word has a visible, non-zero duration after ASS centisecond rounding.
   // Also ensure monotonic non-overlapping times to avoid missed frames/words.
-  const minWordDurSec = Number(process.env.CAPTION_MIN_WORD_DUR || 0.06); // 60ms
+  const minWordDurSec = Number(process.env.CAPTION_MIN_WORD_DUR || 0.04); // ~1 frame at 30fps
   let cursorSec = Math.max(0, Number(offsetSec) || 0);
   for (const w of wordTimestamps || []) {
     const rawStart = (Number(w.start) || 0) + (Number(offsetSec) || 0);
