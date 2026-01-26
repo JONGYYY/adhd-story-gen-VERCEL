@@ -224,7 +224,7 @@ export default function Analytics() {
       trend: 'up' as const,
       icon: Eye,
       color: 'from-blue-500 to-cyan-500',
-      bgGlow: 'group-hover:shadow-blue-500/5',
+      bgGlow: '',
     },
     {
       name: 'Watch Time',
@@ -233,7 +233,7 @@ export default function Analytics() {
       trend: 'up' as const,
       icon: Clock,
       color: 'from-purple-500 to-pink-500',
-      bgGlow: 'group-hover:shadow-purple-500/5',
+      bgGlow: '',
     },
     {
       name: 'Engagement',
@@ -242,7 +242,7 @@ export default function Analytics() {
       trend: 'down' as const,
       icon: Heart,
       color: 'from-pink-500 to-rose-500',
-      bgGlow: 'group-hover:shadow-pink-500/5',
+      bgGlow: '',
     },
     {
       name: 'Followers',
@@ -251,7 +251,7 @@ export default function Analytics() {
       trend: 'up' as const,
       icon: Users,
       color: 'from-orange-500 to-amber-500',
-      bgGlow: 'group-hover:shadow-orange-500/5',
+      bgGlow: '',
     },
   ];
 
@@ -372,7 +372,7 @@ export default function Analytics() {
                   key={stat.name}
                   className={cn(
                     'group relative card-elevo p-6 transition-all duration-300',
-                    'hover:scale-105 hover:shadow-lg',
+                    'hover:scale-105 hover:shadow-md',
                     stat.bgGlow,
                     mounted ? 'animate-in fade-in slide-in-from-bottom-4' : 'opacity-0'
                   )}

@@ -64,7 +64,7 @@
   body {
     @apply text-foreground;
     /* Subtle gradient background instead of pure black */
-    background: linear-gradient(to bottom, #000000, #0a0a0a, #050505);
+    background: linear-gradient(to bottom, #000000, #1a1a1a 50%, #0d0d0d);
     background-attachment: fixed;
     font-feature-settings: "rlig" 1, "calt" 1;
     /* Smooth font rendering */
