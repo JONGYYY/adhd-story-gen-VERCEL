@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { ModeToggle } from '@/components/create/ModeToggle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { CAMPAIGN_TEMPLATES, getTemplateById } from '@/lib/campaigns/templates';
 import { 
   Sparkles, 
   FileText, 
@@ -19,7 +20,8 @@ import {
   Calendar,
   Zap,
   CheckCircle2,
-  Settings2
+  Settings2,
+  Wand2
 } from 'lucide-react';
 
 type Voice = {
@@ -46,10 +48,30 @@ export default function BatchCreate() {
   const [frequency, setFrequency] = useState<'daily' | 'twice-daily' | 'custom'>('daily');
   const [scheduleTime, setScheduleTime] = useState('09:00');
   const [autoPostToTikTok, setAutoPostToTikTok] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+
+  // Apply template when selected
+  const applyTemplate = (templateId: string) => {
+    const template = getTemplateById(templateId);
+    if (!template) return;
+
+    setSelectedTemplate(templateId);
+    setCampaignName(template.templateName);
+    setFrequency(template.frequency);
+    setScheduleTime(template.scheduleTime);
+    setNumVideos(template.videosPerBatch);
+    setSelectedSources(new Set(template.sources));
+    setSelectedSubreddits(new Set(template.subreddits));
+    setSelectedBackgrounds(new Set(template.backgrounds));
+    setSelectedVoices(new Set(template.voices));
+    setStoryLength(template.storyLength);
+    setShowRedditUI(template.showRedditUI);
+    setAutoPostToTikTok(template.autoPostToTikTok);
+  };
 
   const subredditCategories = {
     'Testing & Development': [
@@ -629,6 +651,51 @@ export default function BatchCreate() {
 
               {/* Auto-Pilot Tab */}
               <TabsContent value="autopilot" className="space-y-8">
+                {/* Templates Quick Start */}
+                <div className="card-elevo">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Wand2 className="w-6 h-6 text-primary" />
+                    <div>
+                      <h2 className="text-2xl font-bold">Quick Start Templates</h2>
+                      <p className="text-sm text-muted-foreground">Choose a preset or customize your own</p>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {CAMPAIGN_TEMPLATES.map((template) => (
+                      <button
+                        key={template.id}
+                        onClick={() => applyTemplate(template.id)}
+                        className={`relative p-6 rounded-2xl border-2 text-left transition-all ${
+                          selectedTemplate === template.id
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/30'
+                        }`}
+                      >
+                        <div className="text-3xl mb-3">{template.icon}</div>
+                        <h3 className="font-semibold mb-2">{template.templateName}</h3>
+                        <p className="text-sm text-muted-foreground mb-3">{template.description}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>🎬 {template.videosPerBatch} videos</span>
+                          <span>•</span>
+                          <span>📅 {template.frequency === 'daily' ? 'Daily' : 'Twice daily'}</span>
+                        </div>
+                        {selectedTemplate === template.id && (
+                          <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectedTemplate && (
+                    <div className="mt-4 p-4 rounded-xl bg-primary/10 border border-primary/20">
+                      <p className="text-sm text-muted-foreground">
+                        ✓ Template applied! You can customize the settings below or start the campaign now.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 {/* Campaign Name */}
                 <div className="card-elevo">
                   <h2 className="text-2xl font-bold mb-2">Campaign Name</h2>
@@ -897,8 +964,8 @@ export default function BatchCreate() {
                     <div>
                       <h2 className="text-2xl font-bold">Auto-Posting</h2>
                       <p className="text-sm text-muted-foreground">Automatically post to platforms</p>
-                    </div>
-                  </div>
+            </div>
+          </div>
 
                   <button
                     onClick={() => setAutoPostToTikTok(!autoPostToTikTok)}
@@ -912,20 +979,20 @@ export default function BatchCreate() {
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
                           📱
-                        </div>
-                        <div>
+              </div>
+              <div>
                           <h3 className="font-semibold mb-1">Auto-Post to TikTok</h3>
                           <p className="text-xs text-muted-foreground">Automatically upload videos to TikTok</p>
                         </div>
-                      </div>
+              </div>
                       <div className={`w-12 h-6 rounded-full transition-colors ${
                         autoPostToTikTok ? 'bg-primary' : 'bg-muted'
                       }`}>
                         <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
                           autoPostToTikTok ? 'translate-x-6' : 'translate-x-0.5'
                         } mt-0.5`} />
-                      </div>
-                    </div>
+              </div>
+            </div>
                   </button>
           </div>
 

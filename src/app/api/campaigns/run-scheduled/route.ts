@@ -16,6 +16,7 @@ import {
 } from '@/lib/campaigns/db';
 import { generateBatch, BatchGenerationConfig } from '@/lib/campaigns/batch-generator';
 import { postBatchToTikTok } from '@/lib/campaigns/tiktok-autopost';
+import { sendCampaignCompletionEmail, getUserEmail } from '@/lib/email/notifications';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -128,6 +129,24 @@ export async function POST(request: NextRequest) {
           totalVideosPosted: campaign.totalVideosPosted + (tiktokPostResults?.successCount || 0),
           failedGenerations: campaign.failedGenerations + result.failedVideos,
         });
+
+        // Send email notification
+        try {
+          const userEmail = await getUserEmail(campaign.userId);
+          if (userEmail) {
+            await sendCampaignCompletionEmail({
+              to: userEmail,
+              campaignName: campaign.name,
+              videosGenerated: result.videoIds.length,
+              videosFailed: result.failedVideos,
+              videosPosted: tiktokPostResults?.successCount || 0,
+              nextRunAt,
+            });
+            console.log(`[Campaign Scheduler] Email notification sent to ${userEmail}`);
+          }
+        } catch (emailError) {
+          console.error('[Campaign Scheduler] Failed to send email notification:', emailError);
+        }
 
         results.push({
           campaignId: campaign.id,

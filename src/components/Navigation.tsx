@@ -27,7 +27,7 @@ const navItems = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Create', href: '/create' },
   { label: 'Library', href: '/library' },
-  { label: 'Analytics', href: '/analytics' },
+  { label: 'Campaigns', href: '/campaigns' },
   { label: 'Settings', href: '/settings' },
 ];
 
