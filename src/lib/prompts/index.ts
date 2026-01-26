@@ -6,5 +6,6 @@ export * from './confession';
 export * from './nosleep';
 export * from './short-scary-stories';
 export * from './tales-from-your-server';
+export * from './tales-from-tech-support';
 export * from './tifu';
 export { TEST_PROMPTS } from './test'; 

@@ -33,6 +33,10 @@ import {
   talesFromYourServerPromptWithCliffhanger 
 } from '../prompts/tales-from-your-server';
 import { 
+  talesFromTechSupportPrompt, 
+  talesFromTechSupportPromptWithCliffhanger 
+} from '../prompts/tales-from-tech-support';
+import { 
   tifuPrompt, 
   tifuPromptWithCliffhanger 
 } from '../prompts/tifu';
@@ -40,39 +44,85 @@ import {
 // Map of subreddit prompts with type safety
 export const SUBREDDIT_PROMPTS: Record<string, { full: string; cliffhanger: string }> = {
   ...TEST_PROMPTS,
+  // AITA - accept both full name and abbreviation
   'r/AmItheAsshole': {
     full: aitaPrompt,
     cliffhanger: aitaPromptWithCliffhanger,
   },
+  'r/AITA': { // Alias
+    full: aitaPrompt,
+    cliffhanger: aitaPromptWithCliffhanger,
+  },
+  // ProRevenge
   'r/ProRevenge': {
     full: proRevengePrompt,
     cliffhanger: proRevengePromptWithCliffhanger,
   },
+  'r/prorevenge': { // Alias (lowercase)
+    full: proRevengePrompt,
+    cliffhanger: proRevengePromptWithCliffhanger,
+  },
+  // TrueOffMyChest
   'r/TrueOffMyChest': {
     full: trueOffMyChestPrompt,
     cliffhanger: trueOffMyChestPromptWithCliffhanger,
   },
+  'r/trueoffmychest': { // Alias (lowercase)
+    full: trueOffMyChestPrompt,
+    cliffhanger: trueOffMyChestPromptWithCliffhanger,
+  },
+  // Relationships - accept multiple variations
   'r/relationship_advice': {
     full: relationshipsPrompt,
     cliffhanger: relationshipsPromptWithCliffhanger,
   },
+  'r/relationships': { // Alias
+    full: relationshipsPrompt,
+    cliffhanger: relationshipsPromptWithCliffhanger,
+  },
+  // Confession
   'r/confession': {
     full: confessionPrompt,
     cliffhanger: confessionPromptWithCliffhanger,
   },
+  // NoSleep
   'r/nosleep': {
     full: nosleepPrompt,
     cliffhanger: nosleepPromptWithCliffhanger,
   },
+  // ShortScaryStories
   'r/shortscarystories': {
     full: shortScaryStoriesPrompt,
     cliffhanger: shortScaryStoriesPromptWithCliffhanger,
   },
+  'r/ShortScaryStories': { // Alias (proper case)
+    full: shortScaryStoriesPrompt,
+    cliffhanger: shortScaryStoriesPromptWithCliffhanger,
+  },
+  // TalesFromYourServer
   'r/TalesFromYourServer': {
     full: talesFromYourServerPrompt,
     cliffhanger: talesFromYourServerPromptWithCliffhanger,
   },
+  'r/talesfromyourserver': { // Alias (lowercase)
+    full: talesFromYourServerPrompt,
+    cliffhanger: talesFromYourServerPromptWithCliffhanger,
+  },
+  // TalesFromTechSupport
+  'r/TalesFromTechSupport': {
+    full: talesFromTechSupportPrompt,
+    cliffhanger: talesFromTechSupportPromptWithCliffhanger,
+  },
+  'r/talesfromtechsupport': { // Alias (lowercase)
+    full: talesFromTechSupportPrompt,
+    cliffhanger: talesFromTechSupportPromptWithCliffhanger,
+  },
+  // TIFU
   'r/tifu': {
+    full: tifuPrompt,
+    cliffhanger: tifuPromptWithCliffhanger,
+  },
+  'r/TIFU': { // Alias (uppercase)
     full: tifuPrompt,
     cliffhanger: tifuPromptWithCliffhanger,
   },
