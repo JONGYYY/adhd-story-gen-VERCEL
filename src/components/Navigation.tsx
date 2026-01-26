@@ -28,6 +28,7 @@ const navItems = [
   { label: 'Create', href: '/create' },
   { label: 'Library', href: '/library' },
   { label: 'Campaigns', href: '/campaigns' },
+  { label: 'Analytics', href: '/analytics' },
   { label: 'Settings', href: '/settings' },
 ];
 
