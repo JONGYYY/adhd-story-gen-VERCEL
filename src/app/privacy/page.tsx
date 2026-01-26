@@ -13,21 +13,22 @@ export default function Privacy() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="prose prose-invert max-w-none">
           <p className="text-lg text-gray-300">
-            Last updated: {new Date().toLocaleDateString()}
+            Last updated: January 26, 2026
           </p>
 
           <h2>1. Introduction</h2>
           <p>
-            This Privacy Policy explains how StoryGen AI ("we", "us", or "our") collects, uses, and protects your personal information when you use our service.
+            This Privacy Policy explains how StoryGen AI (“we”, “us”, or “our”) collects, uses, and shares information when you use our Service at{' '}
+            <a href="https://taleo.media" className="text-primary hover:text-primary-dark">taleo.media</a>.
           </p>
 
           <h2>2. Information We Collect</h2>
           <h3>2.1 Information You Provide</h3>
           <ul>
-            <li>Account information (name, email, password)</li>
-            <li>Profile information</li>
-            <li>Content you create or upload</li>
-            <li>Payment information</li>
+            <li><strong>Account information</strong> (e.g., email and authentication identifiers via Firebase)</li>
+            <li><strong>Profile information</strong> you choose to set (e.g., display name)</li>
+            <li><strong>Content</strong> you submit (story text, titles) and outputs you generate (videos, captions)</li>
+            <li><strong>Connected accounts</strong> information when you connect third-party platforms (e.g., TikTok username/profile identifiers)</li>
           </ul>
 
           <h3>2.2 Automatically Collected Information</h3>
@@ -43,7 +44,6 @@ export default function Privacy() {
           <p>We use your information to:</p>
           <ul>
             <li>Provide and improve our services</li>
-            <li>Process your payments</li>
             <li>Send you updates and communications</li>
             <li>Personalize your experience</li>
             <li>Analyze and optimize our service</li>
@@ -53,7 +53,9 @@ export default function Privacy() {
           <h2>4. Information Sharing</h2>
           <p>We may share your information with:</p>
           <ul>
-            <li>Service providers and partners</li>
+            <li><strong>Service providers</strong> we use to operate the Service (e.g., hosting, storage, analytics)</li>
+            <li><strong>AI/voice providers</strong> to generate requested outputs (e.g., voiceover, transcription/alignment)</li>
+            <li><strong>Platform APIs</strong> you connect (e.g., TikTok) when you authorize us to upload/post on your behalf</li>
             <li>Legal authorities when required</li>
             <li>Other users (only information you choose to make public)</li>
           </ul>
@@ -95,6 +97,8 @@ export default function Privacy() {
             <a href="mailto:privacy@storygen.ai" className="text-primary hover:text-primary-dark">
               privacy@storygen.ai
             </a>
+            {' '}or review our{' '}
+            <Link href="/terms" className="text-primary hover:text-primary-dark">Terms of Service</Link>.
           </p>
 
           <div className="mt-8 border-t border-gray-700 pt-8">
