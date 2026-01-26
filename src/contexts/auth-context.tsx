@@ -62,7 +62,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const forceRefresh = Boolean(opts?.forceRefresh);
       const throwOnFailure = Boolean(opts?.throwOnFailure);
       const st = sessionStateRef.current;
-      if (st.inFlight) return;
+      
+      // Wait if another creation is in flight (for explicit login flows)
+      if (st.inFlight) {
+        if (throwOnFailure) {
+          // For explicit logins, wait for the in-flight request to complete
+          console.log('Session creation already in flight, waiting...');
+          let attempts = 0;
+          while (st.inFlight && attempts < 50) { // Max 5 seconds
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+          }
+          if (st.inFlight) {
+            throw new Error('Session creation timed out');
+          }
+          // Check if the previous creation succeeded
+          return st.lastOkAt > 0;
+        }
+        // For background refreshes, just skip
+        return true;
+      }
+      
       // Throttle: avoid hammering /api/auth/session on every rerender/token change
       if (!forceRefresh && st.lastOkAt && Date.now() - st.lastOkAt < 10 * 60 * 1000) {
         return true;
@@ -130,12 +150,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
 
       if (user) {
-        const ok = await createSession(user);
-        // Only redirect if we're on an auth page
-        const path = window.location.pathname;
-        if (ok && path.startsWith('/auth/')) {
-          router.replace(getRedirectPath());
-        }
+        // Create session in background (will wait if explicit login is in progress)
+        await createSession(user);
+        // NOTE: We DON'T redirect here. The explicit login functions (signIn, signUp, signInWithGoogle)
+        // handle their own redirects after ensuring session is created with throwOnFailure.
+        // This avoids race conditions and duplicate redirects.
       }
 
       setLoading(false);
@@ -155,6 +174,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const result = await signInWithEmailAndPassword(auth, email, password);
     await createSession(result.user, { forceRefresh: true, throwOnFailure: true });
+    // Small delay to ensure cookie is set in browser before redirect
+    await new Promise(resolve => setTimeout(resolve, 100));
     router.replace(getRedirectPath());
   };
 
@@ -165,6 +186,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const result = await createUserWithEmailAndPassword(auth, email, password);
     await createSession(result.user, { forceRefresh: true, throwOnFailure: true });
+    // Small delay to ensure cookie is set in browser before redirect
+    await new Promise(resolve => setTimeout(resolve, 100));
     router.replace(getRedirectPath());
   };
 
@@ -176,6 +199,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     await createSession(result.user, { forceRefresh: true, throwOnFailure: true });
+    // Small delay to ensure cookie is set in browser before redirect
+    await new Promise(resolve => setTimeout(resolve, 100));
     router.replace(getRedirectPath());
   };
 
