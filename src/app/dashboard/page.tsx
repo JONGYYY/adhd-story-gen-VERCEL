@@ -52,7 +52,7 @@ export default function Dashboard() {
       trend: 'up' as const, 
       icon: Eye,
       color: 'from-blue-500 to-cyan-500',
-      bgGlow: '',
+      bgGlow: 'group-hover:shadow-blue-500/[0.02]',
     },
     { 
       name: 'Engagement Rate', 
@@ -61,7 +61,7 @@ export default function Dashboard() {
       trend: 'up' as const, 
       icon: Heart,
       color: 'from-pink-500 to-rose-500',
-      bgGlow: '',
+      bgGlow: 'group-hover:shadow-pink-500/[0.02]',
     },
     { 
       name: 'Videos Created', 
@@ -70,7 +70,7 @@ export default function Dashboard() {
       trend: 'up' as const, 
       icon: Video,
       color: 'from-purple-500 to-pink-500',
-      bgGlow: '',
+      bgGlow: 'group-hover:shadow-purple-500/[0.02]',
     },
     { 
       name: 'Watch Time', 
@@ -79,7 +79,7 @@ export default function Dashboard() {
       trend: 'up' as const, 
       icon: Clock,
       color: 'from-orange-500 to-amber-500',
-      bgGlow: '',
+      bgGlow: 'group-hover:shadow-orange-500/[0.02]',
     },
   ];
 
@@ -242,7 +242,7 @@ export default function Dashboard() {
                 >
                   {/* Gradient Glow */}
                   <div className={cn(
-                    'absolute inset-0 rounded-2xl bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10 blur-xl',
+                    'absolute inset-0 rounded-2xl bg-gradient-to-br opacity-0 group-hover:opacity-[0.03] transition-opacity duration-300 -z-10 blur-xl',
                     stat.color
                   )} />
 
