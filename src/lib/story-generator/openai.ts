@@ -1,10 +1,81 @@
 import OpenAI from 'openai';
 import { TEST_PROMPTS } from '../prompts/test';
+import { 
+  aitaPrompt, 
+  aitaPromptWithCliffhanger 
+} from '../prompts/aita';
+import { 
+  proRevengePrompt, 
+  proRevengePromptWithCliffhanger 
+} from '../prompts/pro-revenge';
+import { 
+  trueOffMyChestPrompt, 
+  trueOffMyChestPromptWithCliffhanger 
+} from '../prompts/true-off-my-chest';
+import { 
+  relationshipsPrompt, 
+  relationshipsPromptWithCliffhanger 
+} from '../prompts/relationships';
+import { 
+  confessionPrompt, 
+  confessionPromptWithCliffhanger 
+} from '../prompts/confession';
+import { 
+  nosleepPrompt, 
+  nosleepPromptWithCliffhanger 
+} from '../prompts/nosleep';
+import { 
+  shortScaryStoriesPrompt, 
+  shortScaryStoriesPromptWithCliffhanger 
+} from '../prompts/short-scary-stories';
+import { 
+  talesFromYourServerPrompt, 
+  talesFromYourServerPromptWithCliffhanger 
+} from '../prompts/tales-from-your-server';
+import { 
+  tifuPrompt, 
+  tifuPromptWithCliffhanger 
+} from '../prompts/tifu';
 
 // Map of subreddit prompts with type safety
 export const SUBREDDIT_PROMPTS: Record<string, { full: string; cliffhanger: string }> = {
   ...TEST_PROMPTS,
-  // Add other subreddit prompts here
+  'r/AmItheAsshole': {
+    full: aitaPrompt,
+    cliffhanger: aitaPromptWithCliffhanger,
+  },
+  'r/ProRevenge': {
+    full: proRevengePrompt,
+    cliffhanger: proRevengePromptWithCliffhanger,
+  },
+  'r/TrueOffMyChest': {
+    full: trueOffMyChestPrompt,
+    cliffhanger: trueOffMyChestPromptWithCliffhanger,
+  },
+  'r/relationship_advice': {
+    full: relationshipsPrompt,
+    cliffhanger: relationshipsPromptWithCliffhanger,
+  },
+  'r/confession': {
+    full: confessionPrompt,
+    cliffhanger: confessionPromptWithCliffhanger,
+  },
+  'r/nosleep': {
+    full: nosleepPrompt,
+    cliffhanger: nosleepPromptWithCliffhanger,
+  },
+  'r/shortscarystories': {
+    full: shortScaryStoriesPrompt,
+    cliffhanger: shortScaryStoriesPromptWithCliffhanger,
+  },
+  'r/TalesFromYourServer': {
+    full: talesFromYourServerPrompt,
+    cliffhanger: talesFromYourServerPromptWithCliffhanger,
+  },
+  'r/tifu': {
+    full: tifuPrompt,
+    cliffhanger: tifuPromptWithCliffhanger,
+  },
 };
 
 type StoryPrompt = {

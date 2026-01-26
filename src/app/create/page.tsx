@@ -38,9 +38,6 @@ export default function Create() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const subredditCategories = {
-    'Testing & Development': [
-      { name: 'r/test', description: 'Test option - Generates very short stories', icon: '🧪' },
-    ],
     'Drama & Relationships': [
       { name: 'r/AITA', description: 'Am I The Asshole - Moral dilemmas and conflicts', icon: '⚖️' },
       { name: 'r/relationships', description: 'Relationship advice and stories', icon: '❤️' },
