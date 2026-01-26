@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/layout/Footer';
+import { ModeToggle } from '@/components/create/ModeToggle';
 import { VideoOptions, VoiceOption, VideoBackground } from '@/lib/video-generator/types';
 import { Progress } from '@/components/ui/progress';
 import { Sparkles, FileText, Image, Mic, Play, Loader2, Check } from 'lucide-react';
@@ -398,7 +399,10 @@ export default function Create() {
   return (
     <main className="min-h-screen bg-background">
       <div className="section-py">
-        <div className="container-narrow">
+        <div className="container-creator">
+          {/* Mode Toggle */}
+          <ModeToggle currentMode="single" />
+
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">Create Your Video</h1>

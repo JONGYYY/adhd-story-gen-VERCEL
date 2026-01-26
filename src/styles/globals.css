@@ -126,6 +126,10 @@
   .container-wide {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
+
+  .container-creator {
+    @apply max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8;
+  }
   
   /* Section spacing */
   .section-py {
