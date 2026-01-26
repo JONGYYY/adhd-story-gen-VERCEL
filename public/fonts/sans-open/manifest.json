@@ -1,16 +1,23 @@
 {
   "files": [
+    "comfortaa-Comfortaa[wght].ttf",
     "dmsans-DMSans-Italic[opsz,wght].ttf",
-    "figtree-Figtree[wght].ttf",
+    "firasans-FiraSans-Regular.ttf",
     "inter-Inter-Italic[opsz,wght].ttf",
-    "manrope-Manrope[wght].ttf",
-    "montserrat-Montserrat[wght].ttf",
-    "notosans-NotoSans-Italic[wdth,wght].ttf",
-    "nunito-Nunito[wght].ttf",
+    "lato-Lato-Regular.ttf",
+    "montserrat-Montserrat-Italic[wght].ttf",
+    "mulish-Mulish-Italic[wght].ttf",
+    "nunito-Nunito-Italic[wght].ttf",
+    "nunitosans-NunitoSans-Italic[YTLC,opsz,wdth,wght].ttf",
+    "opensans-OpenSans-Italic[wdth,wght].ttf",
+    "oswald-Oswald[wght].ttf",
     "poppins-Poppins-Regular.ttf",
-    "raleway-Raleway[wght].ttf",
-    "rubik-Rubik[wght].ttf",
-    "sourcesans3-SourceSans3[wght].ttf",
-    "worksans-WorkSans[wght].ttf"
+    "ptsans-PT_Sans-Web-Regular.ttf",
+    "quicksand-Quicksand[wght].ttf",
+    "raleway-Raleway-Italic[wght].ttf",
+    "roboto-Roboto-Italic[wdth,wght].ttf",
+    "sourcesans3-SourceSans3-Italic[wght].ttf",
+    "varela-Varela-Regular.ttf",
+    "worksans-WorkSans-Italic[wght].ttf"
   ]
 }
