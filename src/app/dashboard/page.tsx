@@ -52,7 +52,7 @@ export default function Dashboard() {
       trend: 'up' as const, 
       icon: Eye,
       color: 'from-blue-500 to-cyan-500',
-      bgGlow: 'group-hover:shadow-blue-500/20',
+      bgGlow: 'group-hover:shadow-blue-500/5',
     },
     { 
       name: 'Engagement Rate', 
@@ -61,7 +61,7 @@ export default function Dashboard() {
       trend: 'up' as const, 
       icon: Heart,
       color: 'from-pink-500 to-rose-500',
-      bgGlow: 'group-hover:shadow-pink-500/20',
+      bgGlow: 'group-hover:shadow-pink-500/5',
     },
     { 
       name: 'Videos Created', 
@@ -70,7 +70,7 @@ export default function Dashboard() {
       trend: 'up' as const, 
       icon: Video,
       color: 'from-purple-500 to-pink-500',
-      bgGlow: 'group-hover:shadow-purple-500/20',
+      bgGlow: 'group-hover:shadow-purple-500/5',
     },
     { 
       name: 'Watch Time', 
@@ -79,7 +79,7 @@ export default function Dashboard() {
       trend: 'up' as const, 
       icon: Clock,
       color: 'from-orange-500 to-amber-500',
-      bgGlow: 'group-hover:shadow-orange-500/20',
+      bgGlow: 'group-hover:shadow-orange-500/5',
     },
   ];
 
@@ -169,10 +169,7 @@ export default function Dashboard() {
                 <span className="text-sm font-medium text-primary">Creator Dashboard</span>
               </div>
               <h1 className="text-4xl md:text-5xl font-bold mb-3">
-                {greeting},{' '}
-                <span className="text-gradient bg-gradient-to-r from-primary via-primary/80 to-primary/60">
-                  {user?.email?.split('@')[0] || 'Creator'}
-                </span>
+                {greeting}, {user?.email?.split('@')[0] || 'Creator'}
               </h1>
               <p className="text-muted-foreground text-lg mb-6">
                 Track your content performance and grow your audience
@@ -234,7 +231,7 @@ export default function Dashboard() {
                   key={stat.name}
                   className={cn(
                     'group relative card-elevo p-6 transition-all duration-300',
-                    'hover:scale-105 hover:shadow-2xl cursor-pointer',
+                    'hover:scale-105 hover:shadow-lg cursor-pointer',
                     stat.bgGlow,
                     mounted ? 'animate-in fade-in slide-in-from-bottom-4' : 'opacity-0'
                   )}

@@ -62,7 +62,10 @@
   }
   
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    /* Subtle gradient background instead of pure black */
+    background: linear-gradient(to bottom, #000000, #0a0a0a, #050505);
+    background-attachment: fixed;
     font-feature-settings: "rlig" 1, "calt" 1;
     /* Smooth font rendering */
     -webkit-font-smoothing: antialiased;
