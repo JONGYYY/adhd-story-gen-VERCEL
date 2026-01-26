@@ -9,10 +9,28 @@ import {
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { PageContainer } from '@/components/layout/page-container';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Eye, 
+  Heart, 
+  Clock, 
+  Users,
+  Target,
+  Zap,
+  Calendar,
+  Download,
+  BarChart3,
+  VideoIcon,
+  MessageCircle,
+  Share2
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 // Register Chart.js components
 ChartJS.register(
@@ -22,52 +40,20 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
-// Chart options
-const chartOptions = {
-  responsive: true,
-  interaction: {
-    mode: 'index' as const,
-    intersect: false,
-  },
-  plugins: {
-    legend: {
-      position: 'top' as const,
-    },
-    title: {
-      display: true,
-      text: 'Performance Overview',
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      grid: {
-        color: 'rgba(255, 255, 255, 0.1)',
-      },
-      ticks: {
-        color: 'rgba(255, 255, 255, 0.7)',
-      },
-    },
-    x: {
-      grid: {
-        color: 'rgba(255, 255, 255, 0.1)',
-      },
-      ticks: {
-        color: 'rgba(255, 255, 255, 0.7)',
-      },
-    },
-  },
-};
-
 export default function Analytics() {
-  const [dateRange, setDateRange] = useState<'7d' | '3w' | '3m'>('7d');
+  const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d'>('30d');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [showCustomRange, setShowCustomRange] = useState(false);
   const [chartData, setChartData] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const now = new Date();
@@ -77,11 +63,11 @@ export default function Analytics() {
       case '7d':
         start.setDate(now.getDate() - 7);
         break;
-      case '3w':
-        start.setDate(now.getDate() - 21);
+      case '30d':
+        start.setDate(now.getDate() - 30);
         break;
-      case '3m':
-        start.setMonth(now.getMonth() - 3);
+      case '90d':
+        start.setDate(now.getDate() - 90);
         break;
     }
     
@@ -114,21 +100,120 @@ export default function Analytics() {
         {
           label: 'Views',
           data: Array.from({ length: days }, () => Math.floor(Math.random() * 50000 + 10000)),
-          borderColor: 'rgb(75, 192, 192)',
-          backgroundColor: 'rgba(75, 192, 192, 0.5)',
+          borderColor: 'rgb(255, 107, 53)',
+          backgroundColor: 'rgba(255, 107, 53, 0.1)',
           tension: 0.4,
           fill: true,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointHoverBackgroundColor: 'rgb(255, 107, 53)',
+          pointHoverBorderColor: 'white',
+          pointHoverBorderWidth: 2,
         },
         {
-          label: 'Likes',
+          label: 'Engagement',
           data: Array.from({ length: days }, () => Math.floor(Math.random() * 5000 + 1000)),
-          borderColor: 'rgb(255, 99, 132)',
-          backgroundColor: 'rgba(255, 99, 132, 0.5)',
+          borderColor: 'rgb(99, 102, 241)',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
           tension: 0.4,
           fill: true,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointHoverBackgroundColor: 'rgb(99, 102, 241)',
+          pointHoverBorderColor: 'white',
+          pointHoverBorderWidth: 2,
         },
       ],
     };
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index' as const,
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top' as const,
+        labels: {
+          color: 'rgba(255, 255, 255, 0.8)',
+          padding: 20,
+          font: {
+            size: 13,
+            weight: '500',
+          },
+          usePointStyle: true,
+          pointStyle: 'circle',
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: 12,
+        titleColor: 'white',
+        bodyColor: 'rgba(255, 255, 255, 0.8)',
+        borderColor: 'rgba(255, 107, 53, 0.3)',
+        borderWidth: 1,
+        displayColors: true,
+        callbacks: {
+          label: function(context: any) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += new Intl.NumberFormat('en-US', {
+                notation: 'compact',
+                maximumFractionDigits: 1
+              }).format(context.parsed.y);
+            }
+            return label;
+          }
+        }
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: 'rgba(255, 255, 255, 0.05)',
+          drawBorder: false,
+        },
+        ticks: {
+          color: 'rgba(255, 255, 255, 0.5)',
+          font: {
+            size: 12,
+          },
+          callback: function(value: any) {
+            return new Intl.NumberFormat('en-US', {
+              notation: 'compact',
+              maximumFractionDigits: 1
+            }).format(value);
+          }
+        },
+        border: {
+          display: false,
+        },
+      },
+      x: {
+        grid: {
+          color: 'rgba(255, 255, 255, 0.05)',
+          drawBorder: false,
+        },
+        ticks: {
+          color: 'rgba(255, 255, 255, 0.5)',
+          font: {
+            size: 12,
+          },
+          maxRotation: 0,
+        },
+        border: {
+          display: false,
+        },
+      },
+    },
   };
 
   const stats = [
@@ -136,29 +221,37 @@ export default function Analytics() {
       name: 'Total Views',
       value: '2.4M',
       change: '+21.3%',
-      trend: 'up',
-      chart: [65, 59, 80, 81, 56, 55, 40],
+      trend: 'up' as const,
+      icon: Eye,
+      color: 'from-blue-500 to-cyan-500',
+      bgGlow: 'group-hover:shadow-blue-500/20',
     },
     {
       name: 'Watch Time',
       value: '82.5%',
       change: '+4.2%',
-      trend: 'up',
-      chart: [70, 75, 85, 80, 82, 83, 85],
+      trend: 'up' as const,
+      icon: Clock,
+      color: 'from-purple-500 to-pink-500',
+      bgGlow: 'group-hover:shadow-purple-500/20',
     },
     {
-      name: 'Engagement Rate',
+      name: 'Engagement',
       value: '12.3%',
       change: '-2.1%',
-      trend: 'down',
-      chart: [15, 14, 13, 12, 11, 12, 10],
+      trend: 'down' as const,
+      icon: Heart,
+      color: 'from-pink-500 to-rose-500',
+      bgGlow: 'group-hover:shadow-pink-500/20',
     },
     {
-      name: 'Followers Gained',
+      name: 'Followers',
       value: '15.2K',
       change: '+8.7%',
-      trend: 'up',
-      chart: [800, 1200, 1500, 1800, 2000, 2200, 2500],
+      trend: 'up' as const,
+      icon: Users,
+      color: 'from-orange-500 to-amber-500',
+      bgGlow: 'group-hover:shadow-orange-500/20',
     },
   ];
 
@@ -166,270 +259,397 @@ export default function Analytics() {
     {
       id: 1,
       title: 'AITA for not attending my sister\'s wedding?',
-      views: 4250,
+      views: 425000,
       likes: 42500,
-      comments: 120,
+      comments: 1200,
       shares: 3200,
-      platform: 'tiktok',
+      platform: 'TikTok',
       thumbnail: '/thumbnails/video1.jpg',
+      engagement: 11.2,
     },
     {
       id: 2,
-      title: 'The Mysterious Package',
-      views: 3150,
+      title: 'The Mysterious Package That Changed Everything',
+      views: 315000,
       likes: 42800,
       comments: 980,
       shares: 2800,
-      platform: 'youtube',
+      platform: 'TikTok',
       thumbnail: '/thumbnails/video2.jpg',
+      engagement: 14.6,
     },
   ];
 
   const insights = [
     {
-      icon: '📈',
+      icon: Target,
       title: 'Peak Performance Time',
-      description: 'Your content performs best when posted between 7-9 PM EST. Consider scheduling future posts during this window.'
+      description: 'Your content performs best between 7-9 PM EST. Schedule future posts during this window for maximum reach.',
+      action: 'Set Auto-Schedule',
+      color: 'from-blue-500/20 to-cyan-500/20',
+      iconColor: 'text-blue-400',
     },
     {
-      icon: '🎯',
+      icon: Zap,
       title: 'Content Theme Success',
-      description: 'Mystery and suspense stories are generating 2x more engagement than other categories.'
+      description: 'Mystery and suspense stories generate 2x more engagement than other categories.',
+      action: 'View Top Themes',
+      color: 'from-purple-500/20 to-pink-500/20',
+      iconColor: 'text-purple-400',
     },
     {
-      icon: '⚡',
+      icon: BarChart3,
       title: 'Viral Potential',
-      description: 'Videos with dramatic reveals in the first 3 seconds have 40% higher completion rates.'
-    }
+      description: 'Videos with dramatic reveals in the first 3 seconds have 40% higher completion rates.',
+      action: 'Learn More',
+      color: 'from-orange-500/20 to-amber-500/20',
+      iconColor: 'text-orange-400',
+    },
   ];
 
   return (
-    <PageContainer>
-      {/* Page Header */}
-      <div className="bg-gray-800 border-b border-gray-700">
-        <div className="px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-white">Analytics</h1>
-            <div className="flex items-center space-x-2 bg-gray-700 rounded-lg p-1">
-              {['7d', '3w', '3m'].map((period) => (
-                <button
-                  key={period}
-                  onClick={() => setDateRange(period as '7d' | '3w' | '3m')}
-                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                    dateRange === period
-                      ? 'bg-primary text-white'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  {period}
-                </button>
-              ))}
+    <main className="min-h-screen bg-background">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden border-b border-border/50 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="absolute inset-0 bg-grid-white/[0.02] pointer-events-none" />
+        
+        <div className="container-wide relative py-12">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-4">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">Analytics Dashboard</span>
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-3">
+                Performance{' '}
+                <span className="text-gradient bg-gradient-to-r from-primary via-primary/80 to-primary/60">
+                  Overview
+                </span>
+              </h1>
+              <p className="text-muted-foreground text-lg">
+                Track your content performance and audience insights
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Date Range Selector */}
+              <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-muted/50 border border-border/50">
+                {[
+                  { label: '7 Days', value: '7d' as const },
+                  { label: '30 Days', value: '30d' as const },
+                  { label: '90 Days', value: '90d' as const },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setDateRange(option.value)}
+                    className={cn(
+                      'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                      dateRange === option.value
+                        ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Export Button */}
+              <Button variant="outline" className="gap-2 hidden sm:flex">
+                <Download className="w-4 h-4" />
+                Export
+              </Button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
-        {/* Overview Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat) => (
-            <div key={stat.name} className="card">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-400">{stat.name}</h3>
-                  <p className="text-2xl font-semibold text-white mt-1">
-                    {stat.value}
+      <div className="section-py">
+        <div className="container-wide space-y-12">
+          {/* KPI Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {stats.map((stat, i) => {
+              const Icon = stat.icon;
+              return (
+                <div
+                  key={stat.name}
+                  className={cn(
+                    'group relative card-elevo p-6 transition-all duration-300',
+                    'hover:scale-105 hover:shadow-2xl',
+                    stat.bgGlow,
+                    mounted ? 'animate-in fade-in slide-in-from-bottom-4' : 'opacity-0'
+                  )}
+                  style={{
+                    animationDelay: mounted ? `${i * 100}ms` : '0ms',
+                    animationFillMode: 'forwards'
+                  }}
+                >
+                  {/* Gradient Border Effect */}
+                  <div className={cn(
+                    'absolute inset-0 rounded-2xl bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10 blur-xl',
+                    stat.color
+                  )} />
+
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={cn(
+                      'p-3 rounded-xl bg-gradient-to-br',
+                      stat.color,
+                      'shadow-lg'
+                    )}>
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+
+                    <div className={cn(
+                      'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold',
+                      stat.trend === 'up'
+                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    )}>
+                      {stat.trend === 'up' ? (
+                        <TrendingUp className="w-3 h-3" />
+                      ) : (
+                        <TrendingDown className="w-3 h-3" />
+                      )}
+                      {stat.change}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-muted-foreground font-medium mb-1">
+                      {stat.name}
+                    </p>
+                    <p className="text-3xl font-bold tracking-tight">
+                      {stat.value}
+                    </p>
+                  </div>
+
+                  {/* Mini Sparkline Effect */}
+                  <div className="mt-4 h-12 flex items-end gap-1 opacity-30 group-hover:opacity-50 transition-opacity">
+                    {[40, 60, 45, 70, 55, 80, 65, 90].map((height, i) => (
+                      <div
+                        key={i}
+                        className={cn('flex-1 rounded-t bg-gradient-to-t', stat.color)}
+                        style={{ height: `${height}%` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Performance Chart - Spans 2 columns */}
+            <div className="lg:col-span-2 space-y-8">
+              {/* Chart Card */}
+              <div className="card-elevo p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-1">Performance Trends</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Views and engagement over time
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {startDate} - {endDate}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="h-[400px] w-full">
+                  {chartData && <Line options={chartOptions} data={chartData} />}
+                </div>
+              </div>
+
+              {/* Top Performing Videos */}
+              <div className="card-elevo p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-1">Top Performing Videos</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Your best content this period
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
+                    View All
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  {topVideos.map((video) => (
+                    <div
+                      key={video.id}
+                      className="group relative p-4 rounded-xl bg-muted/30 border border-border/50 hover:border-primary/30 hover:bg-muted/50 transition-all duration-300"
+                    >
+                      <div className="flex gap-4">
+                        {/* Thumbnail */}
+                        <div className="relative w-32 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 flex-shrink-0">
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <VideoIcon className="w-8 h-8 text-primary/50" />
+                          </div>
+                          <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-black/60 backdrop-blur-sm text-xs font-medium">
+                            {video.platform}
+                          </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+                            {video.title}
+                          </h3>
+                          
+                          <div className="grid grid-cols-4 gap-4">
+                            <div>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                                <Eye className="w-3 h-3" />
+                                Views
+                              </div>
+                              <p className="text-sm font-semibold">
+                                {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(video.views)}
+                              </p>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                                <Heart className="w-3 h-3" />
+                                Likes
+                              </div>
+                              <p className="text-sm font-semibold">
+                                {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(video.likes)}
+                              </p>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                                <MessageCircle className="w-3 h-3" />
+                                Comments
+                              </div>
+                              <p className="text-sm font-semibold">
+                                {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(video.comments)}
+                              </p>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                                <Share2 className="w-3 h-3" />
+                                Shares
+                              </div>
+                              <p className="text-sm font-semibold">
+                                {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(video.shares)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Engagement Badge */}
+                        <div className="flex flex-col items-end justify-center">
+                          <div className="text-xs text-muted-foreground mb-1">Engagement</div>
+                          <div className="text-2xl font-bold text-primary">
+                            {video.engagement}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="space-y-8">
+              {/* Key Insights */}
+              <div className="card-elevo p-6">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold mb-1">Key Insights</h2>
+                  <p className="text-sm text-muted-foreground">
+                    AI-powered recommendations
                   </p>
                 </div>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                    stat.trend === 'up'
-                      ? 'bg-green-500/10 text-green-400'
-                      : 'bg-red-500/10 text-red-400'
-                  }`}
-                >
-                  {stat.change}
-                </span>
-              </div>
-              <div className="h-12">
-                {/* Placeholder for mini chart */}
-                <div className="w-full h-full bg-gray-800/50 rounded-lg"></div>
-              </div>
-            </div>
-          ))}
-        </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Performance Graph */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="card">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Performance</h2>
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowCustomRange(!showCustomRange)}
-                      className="px-4 py-2 bg-gray-800 rounded-lg text-sm font-medium flex items-center"
-                    >
-                      {startDate} - {endDate}
-                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    {showCustomRange && (
-                      <div className="absolute top-full mt-2 w-64 bg-gray-800 rounded-lg shadow-lg p-4 z-10">
-                        <div className="space-y-2 mb-4">
-                          <button
-                            onClick={() => {
-                              setDateRange('7d');
-                              setShowCustomRange(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 rounded-lg ${
-                              dateRange === '7d' ? 'bg-primary/20 text-primary' : 'hover:bg-gray-700'
-                            }`}
-                          >
-                            Last 7 Days
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDateRange('3w');
-                              setShowCustomRange(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 rounded-lg ${
-                              dateRange === '3w' ? 'bg-primary/20 text-primary' : 'hover:bg-gray-700'
-                            }`}
-                          >
-                            Last 3 Weeks
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDateRange('3m');
-                              setShowCustomRange(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 rounded-lg ${
-                              dateRange === '3m' ? 'bg-primary/20 text-primary' : 'hover:bg-gray-700'
-                            }`}
-                          >
-                            Last 3 Months
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Start Date</label>
-                            <input
-                              type="date"
-                              value={startDate}
-                              onChange={(e) => setStartDate(e.target.value)}
-                              className="w-full bg-gray-700 rounded-lg px-3 py-2"
-                            />
+                <div className="space-y-4">
+                  {insights.map((insight, i) => {
+                    const Icon = insight.icon;
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          'relative p-4 rounded-xl border border-border/50 bg-gradient-to-br',
+                          insight.color,
+                          'hover:scale-105 transition-transform duration-300'
+                        )}
+                      >
+                        <div className="flex gap-3 mb-3">
+                          <div className={cn(
+                            'p-2 rounded-lg bg-background/50 backdrop-blur-sm',
+                            insight.iconColor
+                          )}>
+                            <Icon className="w-4 h-4" />
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-1">End Date</label>
-                            <input
-                              type="date"
-                              value={endDate}
-                              onChange={(e) => setEndDate(e.target.value)}
-                              className="w-full bg-gray-700 rounded-lg px-3 py-2"
-                            />
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-sm mb-1">
+                              {insight.title}
+                            </h3>
                           </div>
                         </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {insight.description}
+                        </p>
+                        <Button size="sm" variant="ghost" className="w-full text-xs h-8 hover:bg-background/50">
+                          {insight.action}
+                        </Button>
                       </div>
-                    )}
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="h-[400px]">
-                {chartData && <Line options={chartOptions} data={chartData} />}
-              </div>
-            </div>
 
-            {/* Top Performing Content */}
-            <div className="card">
-              <h2 className="text-xl font-semibold mb-6">Top Performing Videos</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                {topVideos.map((video) => (
-                  <div key={video.id} className="group">
-                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-800/50">
-                      <img
-                        src={video.thumbnail}
-                        alt={video.title}
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      />
-                    </div>
-                    <div className="mt-4">
-                      <h3 className="font-medium text-white line-clamp-1">
-                        {video.title}
-                      </h3>
-                      <div className="mt-2 grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-400">Views</p>
-                          <p className="text-white font-medium">
-                            {new Intl.NumberFormat('en-US', {
-                              notation: 'compact',
-                            }).format(video.views)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-400">Engagement</p>
-                          <p className="text-white font-medium">
-                            {((video.likes + video.comments + video.shares) /
-                              video.views *
-                              100).toFixed(1)}%
-                          </p>
-                        </div>
+              {/* Audience Demographics */}
+              <div className="card-elevo p-6">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold mb-1">Audience</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Age distribution
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {[
+                    { age: '18-24', percent: 45, color: 'bg-blue-500' },
+                    { age: '25-34', percent: 30, color: 'bg-purple-500' },
+                    { age: '35-44', percent: 15, color: 'bg-pink-500' },
+                    { age: '45+', percent: 10, color: 'bg-orange-500' },
+                  ].map((demo, i) => (
+                    <div key={demo.age}>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="font-medium">Age {demo.age}</span>
+                        <span className="text-muted-foreground">{demo.percent}%</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            'h-full rounded-full transition-all duration-1000 ease-out',
+                            demo.color
+                          )}
+                          style={{
+                            width: mounted ? `${demo.percent}%` : '0%',
+                            transitionDelay: `${i * 100}ms`
+                          }}
+                        />
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+                  ))}
+                </div>
 
-          {/* Insights & Recommendations */}
-          <div className="space-y-8">
-            <div className="card">
-              <h2 className="text-xl font-semibold mb-6">Key Insights</h2>
-              <div className="space-y-4">
-                {insights.map((insight, index) => (
-                  <div key={index} className="p-4 bg-gray-800 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">{insight.icon}</span>
-                      <span className="font-medium">{insight.title}</span>
+                {/* Total Audience */}
+                <div className="mt-6 pt-6 border-t border-border/50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Total Reach</p>
+                      <p className="text-2xl font-bold">524.8K</p>
                     </div>
-                    <p className="text-sm text-gray-400">{insight.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="card">
-              <h2 className="text-xl font-semibold mb-6">Audience Demographics</h2>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Age 18-24</span>
-                    <span>45%</span>
-                  </div>
-                  <div className="h-2 bg-gray-700 rounded-full">
-                    <div className="h-2 w-[45%] bg-primary rounded-full"></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Age 25-34</span>
-                    <span>30%</span>
-                  </div>
-                  <div className="h-2 bg-gray-700 rounded-full">
-                    <div className="h-2 w-[30%] bg-primary rounded-full"></div>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Age 35-44</span>
-                    <span>15%</span>
-                  </div>
-                  <div className="h-2 bg-gray-700 rounded-full">
-                    <div className="h-2 w-[15%] bg-primary rounded-full"></div>
+                    <div className="p-3 rounded-xl bg-primary/10">
+                      <Users className="w-6 h-6 text-primary" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -437,6 +657,6 @@ export default function Analytics() {
           </div>
         </div>
       </div>
-    </PageContainer>
+    </main>
   );
-} 
+}
