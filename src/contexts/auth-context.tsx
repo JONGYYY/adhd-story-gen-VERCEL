@@ -172,11 +172,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!auth) {
       throw new Error('Firebase auth is not initialized');
     }
+    console.log('[signIn] Starting email/password sign-in...');
     const result = await signInWithEmailAndPassword(auth, email, password);
+    console.log('[signIn] Sign-in completed, user:', result.user.email);
+    
     await createSession(result.user, { forceRefresh: true, throwOnFailure: true });
+    console.log('[signIn] Session created successfully');
+    
     // Small delay to ensure cookie is set in browser before redirect
     await new Promise(resolve => setTimeout(resolve, 100));
-    router.replace(getRedirectPath());
+    
+    const redirectPath = getRedirectPath();
+    console.log('[signIn] Redirecting to:', redirectPath);
+    router.replace(redirectPath);
   };
 
   const signUp = async (email: string, password: string) => {
@@ -184,11 +192,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!auth) {
       throw new Error('Firebase auth is not initialized');
     }
+    console.log('[signUp] Starting sign-up...');
     const result = await createUserWithEmailAndPassword(auth, email, password);
+    console.log('[signUp] Sign-up completed, user:', result.user.email);
+    
     await createSession(result.user, { forceRefresh: true, throwOnFailure: true });
+    console.log('[signUp] Session created successfully');
+    
     // Small delay to ensure cookie is set in browser before redirect
     await new Promise(resolve => setTimeout(resolve, 100));
-    router.replace(getRedirectPath());
+    
+    const redirectPath = getRedirectPath();
+    console.log('[signUp] Redirecting to:', redirectPath);
+    router.replace(redirectPath);
   };
 
   const signInWithGoogle = async () => {
@@ -196,12 +212,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!auth) {
       throw new Error('Firebase auth is not initialized');
     }
+    console.log('[signInWithGoogle] Starting Google sign-in...');
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
+    console.log('[signInWithGoogle] Popup completed, user:', result.user.email);
+    
     await createSession(result.user, { forceRefresh: true, throwOnFailure: true });
+    console.log('[signInWithGoogle] Session created successfully');
+    
     // Small delay to ensure cookie is set in browser before redirect
     await new Promise(resolve => setTimeout(resolve, 100));
-    router.replace(getRedirectPath());
+    
+    const redirectPath = getRedirectPath();
+    console.log('[signInWithGoogle] Redirecting to:', redirectPath);
+    router.replace(redirectPath);
   };
 
   const logout = async () => {
