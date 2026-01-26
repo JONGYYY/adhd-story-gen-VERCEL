@@ -37,7 +37,7 @@ export async function sendCampaignCompletionEmail(
         'Authorization': `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || 'StoryGen AI <notifications@taleo.media>',
+        from: process.env.EMAIL_FROM || 'Taleo Shorts AI <notifications@taleo.media>',
         to: data.to,
         subject: `✅ Campaign Complete: ${data.campaignName}`,
         html: `

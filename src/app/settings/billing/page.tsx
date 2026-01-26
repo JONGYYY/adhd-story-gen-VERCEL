@@ -10,7 +10,7 @@ const plans = [
   {
     name: 'Free',
     price: '$0',
-    description: 'Perfect for trying out StoryGen AI',
+    description: 'Perfect for trying out Taleo Shorts AI',
     features: [
       '5 videos per month',
       'Basic AI story generation',
@@ -70,7 +70,7 @@ export default function BillingPage() {
     try {
       if (planName === 'Enterprise') {
         // Redirect to contact sales page or open email client
-        window.location.href = `mailto:sales@storygen.ai?subject=Enterprise Plan Inquiry&body=Hi, I'm interested in the Enterprise plan.%0D%0A%0D%0AEmail: ${user.email}`;
+        window.location.href = `mailto:sales@taleo.media?subject=Enterprise Plan Inquiry&body=Hi, I'm interested in the Enterprise plan.%0D%0A%0D%0AEmail: ${user.email}`;
         return;
       }
 

@@ -18,7 +18,7 @@ export default function Privacy() {
 
           <h2>1. Introduction</h2>
           <p>
-            This Privacy Policy explains how StoryGen AI (“we”, “us”, or “our”) collects, uses, and shares information when you use our Service at{' '}
+            This Privacy Policy explains how Taleo Shorts AI (“we”, “us”, or “our”) collects, uses, and shares information when you use our Service at{' '}
             <a href="https://taleo.media" className="text-primary hover:text-primary-dark">taleo.media</a>.
           </p>
 
@@ -94,8 +94,8 @@ export default function Privacy() {
           <p>
             For questions about this Privacy Policy, please contact us at:
             <br />
-            <a href="mailto:privacy@storygen.ai" className="text-primary hover:text-primary-dark">
-              privacy@storygen.ai
+            <a href="mailto:privacy@taleo.media" className="text-primary hover:text-primary-dark">
+              privacy@taleo.media
             </a>
             {' '}or review our{' '}
             <Link href="/terms" className="text-primary hover:text-primary-dark">Terms of Service</Link>.
@@ -103,7 +103,7 @@ export default function Privacy() {
 
           <div className="mt-8 border-t border-gray-700 pt-8">
             <p className="text-gray-400">
-              By using StoryGen AI, you agree to the collection and use of information in accordance with this Privacy Policy.
+              By using Taleo Shorts AI, you agree to the collection and use of information in accordance with this Privacy Policy.
             </p>
           </div>
         </div>

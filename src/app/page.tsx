@@ -293,7 +293,7 @@ export default function LandingPage() {
               <Zap className="w-4 h-4 text-primary" />
               <span>Comparison</span>
             </div>
-            <h2 className="mb-4">Why Choose StoryGen Over Manual Creation</h2>
+            <h2 className="mb-4">Why Choose Taleo Shorts Over Manual Creation</h2>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
@@ -324,13 +324,13 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            {/* StoryGen */}
+            {/* Taleo Shorts */}
             <div className="card-elevo border-primary/30">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
                   <span className="text-white font-bold text-sm">S</span>
                 </div>
-                <h3 className="text-2xl font-bold">StoryGen AI</h3>
+                <h3 className="text-2xl font-bold">Taleo Shorts AI</h3>
               </div>
               <ul className="space-y-4">
                 <li className="flex items-start gap-3">
@@ -510,7 +510,7 @@ export default function LandingPage() {
             Ready to Scale Your Content Creation?
           </h2>
           <p className="text-xl text-muted-foreground mb-8">
-            Join thousands of creators who are growing their channels with StoryGen AI.
+            Join thousands of creators who are growing their channels with Taleo Shorts AI.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/auth/signup" className="btn-orange">

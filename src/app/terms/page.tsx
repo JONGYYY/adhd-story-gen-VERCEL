@@ -17,7 +17,7 @@ export default function Terms() {
           </p>
 
           <p>
-            These Terms of Service (“Terms”) govern your access to and use of StoryGen AI (the “Service”), available at{' '}
+            These Terms of Service (“Terms”) govern your access to and use of Taleo Shorts AI (the “Service”), available at{' '}
             <a href="https://taleo.media" className="text-primary hover:text-primary-dark">taleo.media</a>. By using the Service, you agree to these Terms.
           </p>
 
@@ -29,7 +29,7 @@ export default function Terms() {
 
           <h2>2. The Service</h2>
           <p>
-            StoryGen AI helps you generate short-form videos from story text, including voiceover generation, background video composition, and optional
+            Taleo Shorts AI helps you generate short-form videos from story text, including voiceover generation, background video composition, and optional
             posting to connected social media accounts (e.g., TikTok) at your direction.
           </p>
 
@@ -122,7 +122,7 @@ export default function Terms() {
 
           <h2>12. Indemnity</h2>
           <p>
-            You agree to indemnify and hold harmless StoryGen AI from claims arising out of Your Content, your use of the Service, or your violation of these Terms
+            You agree to indemnify and hold harmless Taleo Shorts AI from claims arising out of Your Content, your use of the Service, or your violation of these Terms
             or third-party rights.
           </p>
 
@@ -134,7 +134,7 @@ export default function Terms() {
           <h2>14. Contact</h2>
           <p>
             Questions about these Terms? Contact us at{' '}
-            <a href="mailto:support@storygen.ai" className="text-primary hover:text-primary-dark">support@storygen.ai</a>.
+            <a href="mailto:support@taleo.media" className="text-primary hover:text-primary-dark">support@taleo.media</a>.
             {' '}Also see our{' '}
             <Link href="/privacy" className="text-primary hover:text-primary-dark">Privacy Policy</Link>.
           </p>

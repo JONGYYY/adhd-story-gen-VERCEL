@@ -38,7 +38,7 @@ export default function ForgotPassword() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block">
-            <h1 className="text-3xl font-bold gradient-text">StoryGen AI</h1>
+            <h1 className="text-3xl font-bold gradient-text">Taleo Shorts AI</h1>
           </Link>
           <p className="mt-3 text-gray-400">
             Reset your password

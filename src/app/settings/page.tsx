@@ -156,14 +156,14 @@ export default function SettingsPage() {
               <div className="card-elevo">
                 <h2 className="text-2xl font-bold mb-2">Appearance</h2>
                 <p className="text-sm text-muted-foreground mb-6">
-                  Customize how StoryGen AI looks on your device
+                  Customize how Taleo Shorts AI looks on your device
                 </p>
                 
                 <div className="space-y-4">
                   <div>
                     <Label className="text-sm font-medium mb-3 block">Theme</Label>
                     <p className="text-sm text-muted-foreground mb-4">
-                      StoryGen AI uses a dark theme for optimal viewing experience
+                      Taleo Shorts AI uses a dark theme for optimal viewing experience
                     </p>
                   </div>
 

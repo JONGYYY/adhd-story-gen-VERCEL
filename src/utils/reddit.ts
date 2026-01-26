@@ -13,7 +13,7 @@ export enum StoryCategory {
 
 // Reddit API configuration
 const reddit = new snoowrap({
-  userAgent: 'StoryGen AI v1.0',
+  userAgent: 'Taleo Shorts AI v1.0',
   clientId: process.env.REDDIT_CLIENT_ID,
   clientSecret: process.env.REDDIT_CLIENT_SECRET,
   refreshToken: process.env.REDDIT_REFRESH_TOKEN

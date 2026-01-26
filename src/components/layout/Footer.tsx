@@ -13,7 +13,7 @@ export function Footer() {
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
                 <span className="text-white font-bold text-lg">S</span>
               </div>
-              <span className="font-bold text-xl">StoryGen AI</span>
+              <span className="font-bold text-xl">Taleo Shorts AI</span>
             </Link>
             <p className="text-sm text-muted-foreground">
               AI-powered story generation platform that helps creators scale their content production.
@@ -85,7 +85,7 @@ export function Footer() {
         {/* Bottom */}
         <div className="pt-8 border-t border-border/50 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} StoryGen AI. All rights reserved.
+            © {new Date().getFullYear()} Taleo Shorts AI. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
             <Link href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">

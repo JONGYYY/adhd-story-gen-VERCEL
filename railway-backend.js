@@ -251,8 +251,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL;
 app.get('/', (req, res) => {
   res.status(200).send(
     FRONTEND_URL
-      ? `StoryGen worker is running. Visit frontend at ${FRONTEND_URL}. Endpoints: /generate-video, /api/health.`
-      : 'StoryGen worker is running. Endpoints: /generate-video, /api/health.'
+      ? `Taleo Shorts AI worker is running. Visit frontend at ${FRONTEND_URL}. Endpoints: /generate-video, /api/health.`
+      : 'Taleo Shorts AI worker is running. Endpoints: /generate-video, /api/health.'
   );
 });
 

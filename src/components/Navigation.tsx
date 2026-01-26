@@ -104,7 +104,7 @@ export function Navigation() {
               >
                 <SheetHeader>
                   <SheetTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                    StoryGen AI
+                    Taleo Shorts AI
                   </SheetTitle>
                 </SheetHeader>
                 <nav className="flex flex-col gap-2 mt-8">
@@ -178,7 +178,7 @@ export function Navigation() {
                 "font-bold text-xl hidden sm:inline-block",
                 "group-hover:text-primary transition-colors duration-300"
               )}>
-                StoryGen AI
+                Taleo Shorts AI
               </span>
             </Link>
           </div>

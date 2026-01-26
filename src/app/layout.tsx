@@ -19,21 +19,21 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'StoryGen AI - Generate Viral Stories with AI',
+  title: 'Taleo Shorts AI - Generate Viral Stories with AI',
   description: 'Transform trending Reddit stories or generate original content into engaging short-form videos. Perfect for content creators looking to scale their production.',
   keywords: ['AI story generation', 'viral content', 'short-form videos', 'content creation', 'Reddit stories'],
-  authors: [{ name: 'StoryGen AI Team' }],
+  authors: [{ name: 'Taleo Shorts AI Team' }],
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://storygen.ai',
-    title: 'StoryGen AI - Generate Viral Stories with AI',
+    url: 'https://taleo.media',
+    title: 'Taleo Shorts AI - Generate Viral Stories with AI',
     description: 'Transform trending Reddit stories or generate original content into engaging short-form videos.',
-    siteName: 'StoryGen AI',
+    siteName: 'Taleo Shorts AI',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'StoryGen AI - Generate Viral Stories with AI',
+    title: 'Taleo Shorts AI - Generate Viral Stories with AI',
     description: 'Transform trending Reddit stories or generate original content into engaging short-form videos.',
     creator: '@storygen_ai',
   },
