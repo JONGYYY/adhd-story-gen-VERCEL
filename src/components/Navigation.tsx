@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,260 +13,165 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from '@/components/ui/navigation-menu';
-import { useAuth } from '@/contexts/auth-context';
-import { LogOut, Settings, User, Menu, X, Zap } from 'lucide-react';
-import { cn } from './utils';
-import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { useAuth } from '@/contexts/auth-context';
+import { Menu } from 'lucide-react';
+import { cn } from './utils';
 
 export function Navigation() {
   const [isOpen, setIsOpen] = React.useState(false);
   const router = useRouter();
   const { user, loading, logout } = useAuth();
 
-  // Avoid flashing signed-out CTAs while auth is still loading
   const isLoggedIn = !!user;
   const userEmail = user?.email;
 
   const handleLogout = async () => {
     try {
       await logout();
-      router.push('/auth/login');
+      router.push('/');
     } catch (error) {
       console.error('Failed to logout:', error);
     }
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="mr-2 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 lg:hidden">
-              <svg
-                strokeWidth="1.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-              >
-                <path
-                  d="M3 5H11"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M3 12H16"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M3 19H21"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span className="sr-only">Toggle Menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[300px] sm:w-[400px] p-0">
-            <SheetHeader className="p-6 border-b">
-              <SheetTitle>StoryGen AI</SheetTitle>
-              <SheetDescription>
-                AI-powered story generation platform
-              </SheetDescription>
-            </SheetHeader>
-            <nav className="flex flex-col space-y-1">
-              {isLoggedIn ? (
-                <>
-                  <Link
-                    href="/dashboard"
-                    className="px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                  <Link
-                    href="/analytics"
-                    className="px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Analytics
-                  </Link>
-                  <Link
-                    href="/library"
-                    className="px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Content Library
-                  </Link>
-                  <Link
-                    href="/schedule"
-                    className="px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Schedule
-                  </Link>
-                  <Link
-                    href="/create"
-                    className="px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Create Video
-                  </Link>
-                  <Link
-                    href="/create/batch"
-                    className="px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Batch Creation
-                  </Link>
-                  <Link
-                    href="/settings"
-                    className="px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Settings
-                  </Link>
-                  <button
-                    onClick={() => {
-                      setIsOpen(false);
-                      handleLogout();
-                    }}
-                    className="px-6 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors text-left"
-                  >
-                    Sign Out
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href="/auth/login"
-                    className="px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/auth/signup"
-                    className="px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Get Started
-                  </Link>
-                </>
-              )}
+    <header className="sticky top-0 z-50 w-full border-b border-border/50 backdrop-blur-elevo bg-background/80">
+      <div className="container-wide">
+        <div className="flex h-16 items-center justify-between">
+          {/* Mobile Menu */}
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild className="lg:hidden">
+              <Button variant="ghost" size="icon" className="mr-2">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[300px] bg-background">
+              <SheetHeader>
+                <SheetTitle className="text-2xl font-bold">StoryGen AI</SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col gap-4 mt-8">
+                {isLoggedIn ? (
+                  <>
+                    <Link
+                      href="/dashboard"
+                      className="text-sm font-medium hover:text-primary transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                    <Link
+                      href="/create"
+                      className="text-sm font-medium hover:text-primary transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Create
+                    </Link>
+                    <Link
+                      href="/library"
+                      className="text-sm font-medium hover:text-primary transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Library
+                    </Link>
+                    <Link
+                      href="/analytics"
+                      className="text-sm font-medium hover:text-primary transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Analytics
+                    </Link>
+                    <Link
+                      href="/settings"
+                      className="text-sm font-medium hover:text-primary transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Settings
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setIsOpen(false);
+                        handleLogout();
+                      }}
+                      className="text-sm font-medium text-red-500 hover:text-red-400 transition-colors text-left"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/auth/login"
+                      className="text-sm font-medium hover:text-primary transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/auth/signup"
+                      className="btn-orange"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Get Started
+                    </Link>
+                  </>
+                )}
+              </nav>
+            </SheetContent>
+          </Sheet>
+
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <span className="text-white font-bold text-sm">S</span>
+            </div>
+            <span className="font-bold text-xl hidden sm:inline-block">StoryGen AI</span>
+          </Link>
+
+          {/* Desktop Navigation */}
+          {isLoggedIn && (
+            <nav className="hidden lg:flex items-center gap-8">
+              <Link href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
+                Dashboard
+              </Link>
+              <Link href="/create" className="text-sm font-medium hover:text-primary transition-colors">
+                Create
+              </Link>
+              <Link href="/library" className="text-sm font-medium hover:text-primary transition-colors">
+                Library
+              </Link>
+              <Link href="/analytics" className="text-sm font-medium hover:text-primary transition-colors">
+                Analytics
+              </Link>
+              <Link href="/settings" className="text-sm font-medium hover:text-primary transition-colors">
+                Settings
+              </Link>
             </nav>
-          </SheetContent>
-        </Sheet>
+          )}
 
-        <Link
-          href="/"
-          className="mr-6 flex items-center space-x-2"
-        >
-          <span className="font-bold inline-block text-xl">StoryGen AI</span>
-        </Link>
-
-        {isLoggedIn && (
-          <NavigationMenu className="hidden lg:flex">
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                {/* Make "Dashboard" clickable (the trigger looked like a link but only opened a menu). */}
-                <NavigationMenuLink asChild>
-                  <Link href="/dashboard" className={navigationMenuTriggerStyle()}>
-                    Dashboard
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <NavigationMenuTrigger>Create</NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-popover rounded-lg border shadow-lg">
-                    <ListItem href="/create" title="Create Video">
-                      Create AI-generated or Reddit-based videos
-                    </ListItem>
-                    <ListItem href="/create/test" title="Test Generator">
-                      Simple test video generator
-                    </ListItem>
-                    <ListItem href="/create/batch" title="Batch Creation">
-                      Generate multiple videos at once
-                    </ListItem>
-                    <ListItem href="/library" title="Content Library">
-                      Manage your stories and videos
-                    </ListItem>
-                  </ul>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <NavigationMenuTrigger>Manage</NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] bg-popover rounded-lg border shadow-lg">
-                    <ListItem href="/analytics" title="Analytics">
-                      Track your content performance
-                    </ListItem>
-                    <ListItem href="/library" title="Content Library">
-                      Manage your stories and videos
-                    </ListItem>
-                    <ListItem href="/schedule" title="Schedule">
-                      Plan your content calendar
-                    </ListItem>
-                    <ListItem href="/settings" title="Settings">
-                      Account and platform settings
-                    </ListItem>
-                  </ul>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild>
-                  <Link href="/settings" className={navigationMenuTriggerStyle()}>
-                    Settings
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-        )}
-
-        <div className="flex-1 flex justify-end space-x-4">
-          <nav className="flex items-center space-x-2">
+          {/* Right side CTAs */}
+          <div className="flex items-center gap-4">
             {!loading && isLoggedIn ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <div className="flex h-full w-full items-center justify-center rounded-full bg-muted">
-                      <span className="text-sm font-medium">
+                  <Button variant="ghost" className="rounded-full h-10 w-10 p-0">
+                    <div className="flex h-full w-full items-center justify-center rounded-full bg-primary">
+                      <span className="text-sm font-bold text-white">
                         {userEmail ? userEmail[0].toUpperCase() : 'U'}
                       </span>
                     </div>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">User</p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {userEmail}
-                      </p>
+                <DropdownMenuContent align="end" className="w-56 bg-card border-border">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col gap-1">
+                      <p className="text-sm font-medium">Account</p>
+                      <p className="text-xs text-muted-foreground">{userEmail}</p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -278,55 +182,26 @@ export function Navigation() {
                     <Link href="/settings/billing">Billing</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-red-500 focus:text-red-500"
-                    onClick={handleLogout}
-                  >
+                  <DropdownMenuItem className="text-red-500" onClick={handleLogout}>
                     Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : loading ? (
-              <div className="text-sm text-muted-foreground">Loading...</div>
+              <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
             ) : (
               <>
-                <Button variant="ghost" asChild>
+                <Button variant="ghost" asChild className="hidden sm:inline-flex">
                   <Link href="/auth/login">Sign in</Link>
                 </Button>
-                <Button asChild>
-                  <Link href="/auth/signup">Get Started</Link>
-                </Button>
+                <Link href="/auth/signup" className="btn-orange text-sm px-6 py-2">
+                  Get Started
+                </Link>
               </>
             )}
-          </nav>
+          </div>
         </div>
       </div>
     </header>
   );
 }
-
-const ListItem = React.forwardRef<
-  React.ElementRef<'a'>,
-  React.ComponentPropsWithoutRef<'a'> & { title: string }
->(({ className, title, children, ...props }, ref) => {
-  return (
-    <li>
-      <NavigationMenuLink asChild>
-        <a
-          ref={ref}
-          className={cn(
-            'block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground',
-            className
-          )}
-          {...props}
-        >
-          <div className="text-sm font-medium leading-none">{title}</div>
-          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-            {children}
-          </p>
-        </a>
-      </NavigationMenuLink>
-    </li>
-  );
-});
-ListItem.displayName = 'ListItem'; 

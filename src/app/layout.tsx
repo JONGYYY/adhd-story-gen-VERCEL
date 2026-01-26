@@ -51,7 +51,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="dark">
       <head>
         <meta
           name="tiktok-developers-site-verification"
@@ -65,33 +65,19 @@ export default function RootLayout({
       <body className={GeistSans.className}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
-          <ClientOnlyWithSuspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+          <ClientOnlyWithSuspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-background">
+              <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            </div>
+          }>
             <AuthProvider>
-              <div className="relative min-h-screen flex flex-col">
+              <div className="relative min-h-screen flex flex-col bg-background">
                 <Navigation />
                 <main className="flex-1">{children}</main>
-                <footer className="w-full border-t py-6 md:py-0">
-                  <div className="container flex flex-col items-center justify-between gap-4 md:h-16 md:flex-row">
-                    <p className="text-sm text-muted-foreground">
-                      © {new Date().getFullYear()} StoryGen AI. All rights reserved.
-                    </p>
-                    <nav className="flex items-center gap-4 text-sm">
-                      <a href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
-                        Privacy
-                      </a>
-                      <a href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">
-                        Terms
-                      </a>
-                      <a href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
-                        Contact
-                      </a>
-                    </nav>
-                  </div>
-                </footer>
               </div>
             </AuthProvider>
           </ClientOnlyWithSuspense>

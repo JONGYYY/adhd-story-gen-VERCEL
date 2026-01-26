@@ -1,87 +1,215 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
- 
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
+    /* Elevo-inspired design system */
+    --background: 0 0% 0%; /* Pure black */
+    --foreground: 0 0% 100%; /* White text */
+    --card: 0 0% 5%; /* Very dark gray for cards */
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 15 100% 61%; /* Orange accent (#FF7847) */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 15 100% 61%; /* Orange */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 15%; /* Subtle border */
+    --input: 0 0% 15%;
+    --ring: 15 100% 61%;
+    --radius: 1rem; /* More rounded */
+    
+    /* Custom orange shades */
+    --orange-500: 15 100% 61%;
+    --orange-600: 15 100% 55%;
+    --orange-700: 15 100% 50%;
   }
- 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+  
+  /* Force dark mode always (Elevo style) */
+  .light {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 5%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 15 100% 61%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 15 100% 61%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 15 100% 61%;
   }
 }
- 
+
 @layer base {
   * {
     @apply border-border;
   }
+  
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Smooth font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Typography scale - Elevo uses large, bold headlines */
+  h1 {
+    @apply text-5xl md:text-7xl font-bold tracking-tight;
+  }
+  
+  h2 {
+    @apply text-4xl md:text-5xl font-bold tracking-tight;
+  }
+  
+  h3 {
+    @apply text-2xl md:text-3xl font-bold;
+  }
+  
+  h4 {
+    @apply text-xl md:text-2xl font-semibold;
   }
 }
 
-/* Custom styles for the landing page */
-.hero-gradient {
-  background: radial-gradient(circle at top center, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0) 100%);
+@layer components {
+  /* Section badge (like Elevo's "About Us", "Works", etc.) */
+  .section-badge {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted text-sm font-medium border border-border;
+  }
+  
+  /* Orange button (primary CTA) */
+  .btn-orange {
+    @apply inline-flex items-center justify-center px-8 py-4 text-base font-semibold rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-all duration-200 shadow-lg hover:shadow-xl;
+  }
+  
+  /* Secondary button (outlined) */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-8 py-4 text-base font-semibold rounded-full border-2 border-white/20 text-white hover:bg-white/5 transition-all duration-200;
+  }
+  
+  /* Elevo-style card */
+  .card-elevo {
+    @apply p-8 rounded-3xl bg-card border border-border hover:border-primary/30 transition-all duration-300;
+  }
+  
+  /* Feature card with icon */
+  .feature-card {
+    @apply card-elevo flex flex-col gap-4;
+  }
+  
+  /* Gradient text (orange gradient) */
+  .text-gradient-orange {
+    @apply bg-gradient-to-r from-primary via-orange-400 to-orange-300 bg-clip-text text-transparent;
+  }
+  
+  /* Container max-widths matching Elevo */
+  .container-narrow {
+    @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .container-wide {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Section spacing */
+  .section-py {
+    @apply py-20 md:py-32;
+  }
+  
+  /* Number badge (like Elevo's step numbers) */
+  .number-badge {
+    @apply inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary text-primary-foreground font-bold text-lg;
+  }
+  
+  /* Comparison checkmark */
+  .check-icon {
+    @apply inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white;
+  }
+  
+  /* Input field styling */
+  .input-elevo {
+    @apply w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all;
+  }
+  
+  /* Pricing card */
+  .pricing-card {
+    @apply card-elevo flex flex-col justify-between h-full;
+  }
+  
+  /* Animated gradient border (subtle) */
+  .gradient-border {
+    @apply relative before:absolute before:inset-0 before:rounded-3xl before:p-[1px] before:bg-gradient-to-r before:from-primary/30 before:via-primary/50 before:to-primary/30 before:animate-pulse;
+  }
 }
 
-.text-gradient {
-  background: linear-gradient(to right, #7c3aed, #2563eb);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+@layer utilities {
+  /* Smooth scroll */
+  .smooth-scroll {
+    scroll-behavior: smooth;
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* Blur backdrop */
+  .backdrop-blur-elevo {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
 }
 
-.feature-card {
-  @apply p-6 rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md;
+/* Custom animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
 }
 
-.nav-link {
-  @apply text-sm font-medium text-muted-foreground transition-colors hover:text-primary;
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.btn-primary {
-  @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 h-10 py-2 px-4;
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }
 
-.btn-secondary {
-  @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background border border-input hover:bg-accent hover:text-accent-foreground h-10 py-2 px-4;
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+/* Smooth transitions for all interactive elements */
+button, a, input, textarea, select {
+  @apply transition-all duration-200;
 }

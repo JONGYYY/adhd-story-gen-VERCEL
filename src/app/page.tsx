@@ -1,246 +1,543 @@
 'use client';
 
-// Force Vercel deployment - Updated 2025-08-13 20:45 UTC
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
+import { Footer } from '@/components/layout/Footer';
+import { Zap, Video, TrendingUp, Clock, Check, X } from 'lucide-react';
 
 export default function LandingPage() {
-  const [videoCount] = useState(1234); // This would be fetched from an API in production
-  const [showDemo, setShowDemo] = useState(false);
   const { user } = useAuth();
+  const [showDemo, setShowDemo] = useState(false);
 
   return (
-    <main className="min-h-screen bg-gray-900">
+    <main className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="relative h-screen flex items-center">
-        <div className="absolute inset-0 z-0">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover opacity-20"
-          >
-            <source src="/demo-background.mp4" type="video/mp4" />
-          </video>
-          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/50 to-gray-900" />
-        </div>
-
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-4xl">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              Create Viral Content with{' '}
-              <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                AI
-              </span>
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-400 mb-8">
-              Generate engaging stories and videos automatically. Save time and grow your audience faster.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" asChild>
-                <Link href={user ? "/create" : "/auth/signup"}>Get Started Free</Link>
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => setShowDemo(true)}>
-                Watch Demo
-              </Button>
-            </div>
-            <p className="mt-4 text-sm text-gray-500">
-              No credit card required • Free plan available
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Everything You Need to Create Viral Content
-            </h2>
-            <p className="text-xl text-gray-400">
-              Powerful features to help you create, schedule, and manage your content
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="card p-6 hover:border-primary/50 transition-colors">
-              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                🤖 AI Story Generation
-              </h3>
-              <p className="text-gray-400">
-                Generate unique, engaging stories using our advanced AI. Perfect for any niche or topic.
-              </p>
-            </div>
-            <div className="card p-6 hover:border-primary/50 transition-colors">
-              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                🎥 Automated Video Creation
-              </h3>
-              <p className="text-gray-400">
-                Turn stories into professional videos with AI narration, music, and visuals.
-              </p>
-            </div>
-            <div className="card p-6 hover:border-primary/50 transition-colors">
-              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                📊 Analytics & Insights
-              </h3>
-              <p className="text-gray-400">
-                Track performance and optimize your content strategy with detailed analytics.
-              </p>
+      <section className="section-py relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent opacity-50" />
+        
+        <div className="container-narrow relative z-10">
+          {/* Badge */}
+          <div className="flex justify-center mb-8">
+            <div className="section-badge animate-fade-in-up">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-primary" />
+                <span>Proudly Serving 1,200+ Creators</span>
+              </div>
             </div>
           </div>
+
+          {/* Headline */}
+          <h1 className="text-center mb-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+            Turn Stories Into Viral Short-Form Content
+          </h1>
+
+          {/* Subheadline */}
+          <p className="text-center text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+            AI-powered video generation that transforms Reddit stories or creates original content into engaging TikTok-ready videos in minutes.
+          </p>
+
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
+            <Link href={user ? "/create" : "/auth/signup"} className="btn-orange">
+              Start Your Free Trial
+            </Link>
+            <button onClick={() => setShowDemo(true)} className="btn-secondary">
+              Watch Demo
+            </button>
+          </div>
+
+          <p className="text-center text-sm text-muted-foreground animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+            ⚡ Trusted by 1500+ creators worldwide
+          </p>
         </div>
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-gradient-to-b from-gray-800/50 to-transparent">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8 text-center">
+      <section className="section-py bg-gradient-to-b from-muted/20 to-transparent">
+        <div className="container-wide">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-4xl font-bold mb-2">{videoCount.toLocaleString()}</div>
-              <div className="text-gray-400">Videos Generated</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">150+</div>
+              <div className="text-muted-foreground">Videos Generated Daily</div>
             </div>
             <div>
-              <div className="text-4xl font-bold mb-2">10M+</div>
-              <div className="text-gray-400">Views Generated</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">0+</div>
+              <div className="text-muted-foreground">Years of Experience</div>
             </div>
             <div>
-              <div className="text-4xl font-bold mb-2">98%</div>
-              <div className="text-gray-400">Customer Satisfaction</div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">85+</div>
+              <div className="text-muted-foreground">Satisfied Creators</div>
+            </div>
+            <div>
+              <div className="text-4xl md:text-5xl font-bold mb-2">5+</div>
+              <div className="text-muted-foreground">Platform Integrations</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Use Cases Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-              AI That Writes, Designs, and Posts for You
-            </h2>
-            <div className="grid md:grid-cols-2 gap-8 mb-12">
-              <div className="card p-6 hover:border-primary/50 transition-colors">
-                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  🔁 Use Trending Stories
-                </h3>
-                <p className="text-gray-400 mb-4">
-                  Source viral content from r/AITA, r/TrueOffMyChest, and more. Our AI picks the most engaging stories.
-                </p>
-                <Button variant="secondary" className="w-full" asChild>
-                  <Link href={user ? "/create" : "/auth/signup"}>Try Reddit Mode</Link>
-                </Button>
+      {/* About / Value Prop */}
+      <section className="section-py">
+        <div className="container-wide">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="section-badge mb-6">
+                <Zap className="w-4 h-4 text-primary" />
+                <span>About Us</span>
               </div>
-              <div className="card p-6 hover:border-primary/50 transition-colors">
-                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  ✨ Generate New Stories
-                </h3>
-                <p className="text-gray-400 mb-4">
-                  Create unique, viral-worthy stories from scratch using our advanced AI.
-                </p>
-                <Button variant="secondary" className="w-full" asChild>
-                  <Link href={user ? "/create" : "/auth/signup"}>Try AI Mode</Link>
-                </Button>
+              <h2 className="mb-6">
+                Automate Your Content Creation Workflow
+              </h2>
+              <p className="text-lg text-muted-foreground mb-8">
+                We help content creators scale their production by automating the entire video creation process—from story generation to final export. Focus on growing your audience while we handle the heavy lifting.
+              </p>
+
+              <div className="grid grid-cols-2 gap-8">
+                <div>
+                  <div className="text-3xl font-bold mb-2">150+</div>
+                  <div className="text-sm text-muted-foreground">Projects Completed</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold mb-2">15+</div>
+                  <div className="text-sm text-muted-foreground">AI Models Used</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold mb-2">100+</div>
+                  <div className="text-sm text-muted-foreground">Satisfied Clients</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold mb-2">20+</div>
+                  <div className="text-sm text-muted-foreground">Features</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="aspect-square rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 p-8 flex items-center justify-center border border-border">
+                <div className="text-center">
+                  <Video className="w-24 h-24 text-primary mx-auto mb-4" />
+                  <p className="text-lg font-semibold">AI-Powered Video Generation</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-b from-gray-800/50 to-transparent">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">
-              Ready to Create Viral Content?
-            </h2>
-            <p className="text-xl text-gray-400 mb-8">
-              Join thousands of creators who are growing their audience with StoryGen AI.
+      {/* How It Works */}
+      <section className="section-py bg-gradient-to-b from-muted/20 to-transparent">
+        <div className="container-wide">
+          <div className="text-center mb-16">
+            <div className="section-badge mb-6 inline-flex">
+              <Zap className="w-4 h-4 text-primary" />
+              <span>How it works</span>
+            </div>
+            <h2 className="mb-4">How Our Process Works</h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Step 1 */}
+            <div className="card-elevo text-center">
+              <div className="number-badge mx-auto mb-6">1</div>
+              <h3 className="text-xl font-bold mb-4">Choose Your Story</h3>
+              <p className="text-muted-foreground">
+                Select from trending Reddit stories or generate original AI content tailored to your niche.
+              </p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="card-elevo text-center">
+              <div className="number-badge mx-auto mb-6">2</div>
+              <h3 className="text-xl font-bold mb-4">Customize & Generate</h3>
+              <p className="text-muted-foreground">
+                Pick your voice, background, and style. Our AI handles the rest—voice-over, captions, everything.
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="card-elevo text-center">
+              <div className="number-badge mx-auto mb-6">3</div>
+              <h3 className="text-xl font-bold mb-4">Export & Post</h3>
+              <p className="text-muted-foreground">
+                Download your video or schedule it to post directly to TikTok, Instagram, and YouTube Shorts.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features / Workflow */}
+      <section className="section-py">
+        <div className="container-wide">
+          <h2 className="text-center mb-4">Efficient Progress, Exceptional Results</h2>
+          <p className="text-center text-lg text-muted-foreground mb-16 max-w-3xl mx-auto">
+            Our streamlined process ensures every stage of your project is delivered with precision, speed, and quality.
+          </p>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Feature 1 */}
+            <div className="card-elevo">
+              <div className="flex items-start gap-4">
+                <div className="check-icon flex-shrink-0">
+                  <Check className="w-3 h-3" />
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Story Generation & Research</h4>
+                  <p className="text-sm text-muted-foreground">
+                    In-depth analysis of trending content to understand what resonates with your audience.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="card-elevo">
+              <div className="flex items-start gap-4">
+                <div className="check-icon flex-shrink-0">
+                  <Check className="w-3 h-3" />
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">AI Voice-Over Creation</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Natural-sounding voice generation with 30+ voice options for perfect narration.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="card-elevo">
+              <div className="flex items-start gap-4">
+                <div className="check-icon flex-shrink-0">
+                  <Check className="w-3 h-3" />
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Auto Caption Sync</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Perfectly timed captions that keep viewers engaged throughout the entire video.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature 4 */}
+            <div className="card-elevo">
+              <div className="flex items-start gap-4">
+                <div className="check-icon flex-shrink-0">
+                  <Check className="w-3 h-3" />
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Platform Optimization</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Videos optimized for TikTok, Instagram Reels, and YouTube Shorts with proper formatting.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Expertise / Services */}
+      <section className="section-py bg-gradient-to-b from-muted/20 to-transparent">
+        <div className="container-wide">
+          <div className="text-center mb-16">
+            <div className="section-badge mb-6 inline-flex">
+              <Zap className="w-4 h-4 text-primary" />
+              <span>Services</span>
+            </div>
+            <h2 className="mb-4">Expertise That Drives Success</h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="card-elevo">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                <Video className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">AI Story Generation</h3>
+              <p className="text-muted-foreground mb-4">
+                Generate unique, engaging stories using advanced AI that understands what makes content go viral.
+              </p>
+            </div>
+
+            <div className="card-elevo">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                <TrendingUp className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Reddit Story Sourcing</h3>
+              <p className="text-muted-foreground mb-4">
+                Tap into trending Reddit stories from r/AITA, r/TrueOffMyChest, and more—properly attributed and formatted.
+              </p>
+            </div>
+
+            <div className="card-elevo">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                <Clock className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Batch Video Creation</h3>
+              <p className="text-muted-foreground mb-4">
+                Generate multiple videos at once to keep your content calendar full without the manual work.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison */}
+      <section className="section-py">
+        <div className="container-wide">
+          <div className="text-center mb-16">
+            <div className="section-badge mb-6 inline-flex">
+              <Zap className="w-4 h-4 text-primary" />
+              <span>Comparison</span>
+            </div>
+            <h2 className="mb-4">Why Choose StoryGen Over Manual Creation</h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* Manual Creation */}
+            <div className="card-elevo">
+              <h3 className="text-2xl font-bold mb-6">Manual Creation</h3>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-muted-foreground">Hours of scripting and editing per video</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-muted-foreground">Expensive voice-over talent required</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-muted-foreground">Manual caption timing and syncing</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-muted-foreground">Inconsistent output quality</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-muted-foreground">Limited scalability</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* StoryGen */}
+            <div className="card-elevo border-primary/30">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">S</span>
+                </div>
+                <h3 className="text-2xl font-bold">StoryGen AI</h3>
+              </div>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <div className="check-icon flex-shrink-0">
+                    <Check className="w-3 h-3" />
+                  </div>
+                  <span className="text-muted-foreground">Generate videos in minutes, not hours</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="check-icon flex-shrink-0">
+                    <Check className="w-3 h-3" />
+                  </div>
+                  <span className="text-muted-foreground">Professional AI voices included</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="check-icon flex-shrink-0">
+                    <Check className="w-3 h-3" />
+                  </div>
+                  <span className="text-muted-foreground">Auto-synced captions with perfect timing</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="check-icon flex-shrink-0">
+                    <Check className="w-3 h-3" />
+                  </div>
+                  <span className="text-muted-foreground">Consistent, professional quality every time</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="check-icon flex-shrink-0">
+                    <Check className="w-3 h-3" />
+                  </div>
+                  <span className="text-muted-foreground">Scale to dozens of videos per day</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="section-py bg-gradient-to-b from-muted/20 to-transparent">
+        <div className="container-wide">
+          <div className="text-center mb-16">
+            <div className="section-badge mb-6 inline-flex">
+              <Zap className="w-4 h-4 text-primary" />
+              <span>Pricing</span>
+            </div>
+            <h2 className="mb-4">Flexible Plans for Every Creator</h2>
+            <p className="text-lg text-muted-foreground">
+              Whether you're just starting out or scaling your content empire, we have a plan that fits.
             </p>
-            <Button size="lg" asChild>
-              <Link href={user ? "/create" : "/auth/signup"}>Get Started Free</Link>
-            </Button>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {/* Starter */}
+            <div className="pricing-card">
+              <div className="mb-6">
+                <div className="text-sm font-semibold text-muted-foreground mb-2">Starter</div>
+                <div className="text-4xl font-bold mb-2">$29<span className="text-lg text-muted-foreground">/mo</span></div>
+                <div className="text-sm text-muted-foreground">Great for beginners</div>
+              </div>
+              
+              <Link href="/auth/signup" className="btn-secondary w-full mb-6 block text-center">
+                Get Started
+              </Link>
+
+              <ul className="space-y-3">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">10 videos per month</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">AI story generation</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">5 AI voices</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">720p resolution</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Pro (Popular) */}
+            <div className="pricing-card border-primary/50 relative overflow-hidden">
+              <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-primary text-xs font-semibold">
+                Popular
+              </div>
+              
+              <div className="mb-6">
+                <div className="text-sm font-semibold text-muted-foreground mb-2">Pro</div>
+                <div className="text-4xl font-bold mb-2">$79<span className="text-lg text-muted-foreground">/mo</span></div>
+                <div className="text-sm text-muted-foreground">Best for growing channels</div>
+              </div>
+              
+              <Link href="/auth/signup" className="btn-orange w-full mb-6 block text-center">
+                Get Started
+              </Link>
+
+              <ul className="space-y-3">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">50 videos per month</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">AI + Reddit stories</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">30+ AI voices</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">1080p resolution</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">Batch generation</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">Priority support</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Enterprise */}
+            <div className="pricing-card">
+              <div className="mb-6">
+                <div className="text-sm font-semibold text-muted-foreground mb-2">Enterprise</div>
+                <div className="text-4xl font-bold mb-2">Custom</div>
+                <div className="text-sm text-muted-foreground">For agencies & teams</div>
+              </div>
+              
+              <Link href="/contact" className="btn-secondary w-full mb-6 block text-center">
+                Contact Sales
+              </Link>
+
+              <ul className="space-y-3">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">Unlimited videos</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">All features included</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">Custom voice cloning</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">White-label options</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">Dedicated account manager</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm">Custom integrations</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="section-py">
+        <div className="container-narrow text-center">
+          <h2 className="mb-6">
+            Ready to Scale Your Content Creation?
+          </h2>
+          <p className="text-xl text-muted-foreground mb-8">
+            Join thousands of creators who are growing their channels with StoryGen AI.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/auth/signup" className="btn-orange">
+              Start Creating Now
+            </Link>
+            <Link href="/contact" className="btn-secondary">
+              Schedule a Demo
+            </Link>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-20 border-t border-gray-800">
-        <div className="container mx-auto px-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid md:grid-cols-4 gap-8">
-              <div>
-                <h3 className="font-bold text-xl mb-4">StoryGen AI</h3>
-                <p className="text-gray-400 text-sm">Made by creators, for creators.</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-4">Product</h4>
-                <ul className="space-y-2">
-                  <li><Link href="/features" className="text-gray-400 hover:text-white">Features</Link></li>
-                  <li><Link href="/pricing" className="text-gray-400 hover:text-white">Pricing</Link></li>
-                  <li><Link href="/roadmap" className="text-gray-400 hover:text-white">Roadmap</Link></li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-4">Company</h4>
-                <ul className="space-y-2">
-                  <li><Link href="/about" className="text-gray-400 hover:text-white">About</Link></li>
-                  <li><Link href="/blog" className="text-gray-400 hover:text-white">Blog</Link></li>
-                  <li><Link href="/careers" className="text-gray-400 hover:text-white">Careers</Link></li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-4">Legal</h4>
-                <ul className="space-y-2">
-                  <li><Link href="/privacy" className="text-gray-400 hover:text-white">Privacy</Link></li>
-                  <li><Link href="/terms" className="text-gray-400 hover:text-white">Terms</Link></li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      {/* Sticky CTA */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-gray-900 to-gray-900/80 p-4 backdrop-blur-sm border-t border-gray-800 lg:hidden">
-        <div className="container mx-auto">
-          <Button className="w-full" size="lg" asChild>
-            <Link href={user ? "/create" : "/auth/signup"}>Get Started Free</Link>
-          </Button>
-        </div>
-      </div>
+      <Footer />
 
       {/* Demo Modal */}
       {showDemo && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-lg max-w-4xl w-full relative">
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setShowDemo(false)}>
+          <div className="bg-card rounded-3xl max-w-4xl w-full relative border border-border" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setShowDemo(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+              className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:opacity-80 transition-opacity"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              <X className="w-5 h-5" />
             </button>
-            <div className="aspect-video rounded-lg overflow-hidden">
-              <video
-                controls
-                className="w-full h-full"
-              >
+            <div className="aspect-video rounded-3xl overflow-hidden bg-muted">
+              <video controls className="w-full h-full">
                 <source src="/demo.mp4" type="video/mp4" />
               </video>
             </div>
@@ -250,26 +547,3 @@ export default function LandingPage() {
     </main>
   );
 }
-
-const faqs = [
-  {
-    question: "Will I get flagged for reuse?",
-    answer: "No - our AI generates unique content and variations to avoid duplicate content flags."
-  },
-  {
-    question: "How original are the stories?",
-    answer: "100% original when using AI generation, or properly attributed when sourcing from Reddit with our built-in compliance tools."
-  },
-  {
-    question: "Can I customize voices and fonts?",
-    answer: "Yes! Choose from 30+ AI voices and customize all visual elements including fonts, colors, and animations."
-  },
-  {
-    question: "Does this work for brands?",
-    answer: "Absolutely! Many brands use our platform to create engaging short-form content that resonates with their audience."
-  },
-  {
-    question: "Is it hard to use?",
-    answer: "Not at all! Our intuitive interface lets you generate videos in just a few clicks. No technical skills required."
-  }
-];
