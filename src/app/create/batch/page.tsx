@@ -200,15 +200,79 @@ export default function BatchCreate() {
   };
 
   const handleGenerateBatch = async () => {
-    // TODO: Implement batch generation logic
-    console.log('Generating batch...', {
-      mode: batchMode,
-      numVideos,
-      sources: Array.from(selectedSources),
-      subreddits: Array.from(selectedSubreddits),
-      backgrounds: Array.from(selectedBackgrounds),
-      voices: Array.from(selectedVoices),
-    });
+    setError(null);
+    setIsGenerating(true);
+    setProgress(0);
+
+    try {
+      if (batchMode === 'manual') {
+        // Manual batch generation
+        const response = await fetch('/api/batch/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            videosPerBatch: numVideos,
+            sources: Array.from(selectedSources),
+            subreddits: Array.from(selectedSubreddits),
+            backgrounds: Array.from(selectedBackgrounds),
+            voices: Array.from(selectedVoices),
+            storyLength,
+            showRedditUI,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to generate batch');
+        }
+
+        // Redirect to library or show success
+        alert(`Successfully started batch generation! ${data.videoIds.length} videos queued.`);
+        window.location.href = '/library';
+
+      } else {
+        // Auto-pilot campaign creation
+        const response = await fetch('/api/campaigns', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: campaignName,
+            frequency,
+            scheduleTime,
+            videosPerBatch: numVideos,
+            sources: Array.from(selectedSources),
+            subreddits: Array.from(selectedSubreddits),
+            backgrounds: Array.from(selectedBackgrounds),
+            voices: Array.from(selectedVoices),
+            storyLength,
+            showRedditUI,
+            autoPostToTikTok,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to create campaign');
+        }
+
+        // Show success and redirect
+        const nextRun = new Date(data.nextRunAt);
+        alert(`Auto-pilot campaign created! First batch will run at ${nextRun.toLocaleString()}`);
+        window.location.href = '/dashboard';
+      }
+    } catch (error) {
+      console.error('Failed to start batch:', error);
+      setError(error instanceof Error ? error.message : 'Failed to start batch generation');
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -294,14 +358,14 @@ export default function BatchCreate() {
                     <p className="text-xs text-muted-foreground text-center">
                       Estimated time: {Math.round(numVideos * 2)}-{Math.round(numVideos * 3)} minutes
                     </p>
-                  </div>
-                </div>
+        </div>
+      </div>
 
                 {/* Story Sources & Subreddits - Combined */}
                 <div className="card-elevo">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="number-badge">1</div>
-                    <div>
+          <div>
                       <h2 className="text-2xl font-bold">Content Selection</h2>
                       <p className="text-sm text-muted-foreground">Choose story sources and topics (Select multiple to rotate)</p>
                     </div>
@@ -311,11 +375,11 @@ export default function BatchCreate() {
                   <div className="mb-6">
                     <label className="block text-sm font-medium mb-3">Story Sources</label>
                     <div className="grid md:grid-cols-2 gap-4">
-                      <button
+              <button
                         onClick={() => toggleSource('ai')}
                         className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
                           selectedSources.has('ai')
-                            ? 'border-primary bg-primary/5'
+                    ? 'border-primary bg-primary/5'
                             : 'border-border hover:border-primary/30'
                         }`}
                       >
@@ -327,9 +391,9 @@ export default function BatchCreate() {
                         {selectedSources.has('ai') && (
                           <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
                         )}
-                      </button>
+              </button>
 
-                      <button
+              <button
                         onClick={() => toggleSource('reddit')}
                         className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
                           selectedSources.has('reddit')
@@ -455,7 +519,7 @@ export default function BatchCreate() {
                         onClick={() => toggleVoice(voice.id)}
                         className={`relative p-5 rounded-2xl border-2 text-left transition-all group ${
                           selectedVoices.has(voice.id)
-                            ? 'border-primary bg-primary/5'
+                    ? 'border-primary bg-primary/5'
                             : 'border-border hover:border-primary/30'
                         }`}
                       >
@@ -565,20 +629,321 @@ export default function BatchCreate() {
 
               {/* Auto-Pilot Tab */}
               <TabsContent value="autopilot" className="space-y-8">
-                <div className="card-elevo text-center py-12">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center mx-auto mb-6">
-                    <Zap className="w-10 h-10 text-yellow-400" />
+                {/* Campaign Name */}
+                <div className="card-elevo">
+                  <h2 className="text-2xl font-bold mb-2">Campaign Name</h2>
+                  <p className="text-sm text-muted-foreground mb-6">Give your auto-pilot campaign a memorable name</p>
+                  
+                  <input
+                    type="text"
+                    value={campaignName}
+                    onChange={(e) => setCampaignName(e.target.value)}
+                    placeholder="e.g., Daily Horror Mix"
+                    className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border focus:border-primary focus:outline-none transition-colors"
+                  />
+                </div>
+
+                {/* Scheduling */}
+                <div className="card-elevo">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="number-badge">1</div>
+                    <div>
+                      <h2 className="text-2xl font-bold">Schedule & Frequency</h2>
+                      <p className="text-sm text-muted-foreground">When and how often to generate videos</p>
+                    </div>
                   </div>
-                  <h2 className="text-3xl font-bold mb-3">Auto-Pilot Coming Soon</h2>
-                  <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-                    Set up automated video generation campaigns with smart scheduling, 
-                    automatic TikTok posting, and intelligent content rotation.
-                  </p>
-                  <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-muted/30 border border-border">
-                    <Calendar className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium">Available with Pro Plan</span>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Frequency */}
+                    <div>
+                      <label className="block text-sm font-medium mb-3">Frequency</label>
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => setFrequency('daily')}
+                          className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                            frequency === 'daily'
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-5 h-5" />
+                            <div>
+                              <h4 className="font-semibold">Daily</h4>
+                              <p className="text-xs text-muted-foreground">Once per day</p>
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => setFrequency('twice-daily')}
+                          className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                            frequency === 'twice-daily'
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-5 h-5" />
+                            <div>
+                              <h4 className="font-semibold">Twice Daily</h4>
+                              <p className="text-xs text-muted-foreground">12 hours apart</p>
+                            </div>
+                          </div>
+              </button>
+            </div>
+          </div>
+
+                    {/* Time */}
+            <div>
+                      <label className="block text-sm font-medium mb-3">Time</label>
+                      <input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border focus:border-primary focus:outline-none transition-colors"
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {frequency === 'twice-daily' 
+                          ? 'First run time (second run will be 12 hours later)'
+                          : 'Daily run time'
+                        }
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Batch Size */}
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium mb-3">Videos per batch</label>
+              <input
+                type="range"
+                min="1"
+                      max="10"
+                value={numVideos}
+                onChange={(e) => setNumVideos(parseInt(e.target.value))}
+                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-sm text-muted-foreground">1 video</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold text-primary">{numVideos}</span>
+                        <span className="text-muted-foreground">videos</span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">10 videos</span>
+                    </div>
                   </div>
                 </div>
+
+                {/* Content Selection (same as manual) */}
+                <div className="card-elevo">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="number-badge">2</div>
+                    <div>
+                      <h2 className="text-2xl font-bold">Content Rotation</h2>
+                      <p className="text-sm text-muted-foreground">Select multiple options for variety</p>
+              </div>
+            </div>
+
+          {/* Story Sources */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium mb-3">Story Sources</label>
+                    <div className="grid md:grid-cols-2 gap-4">
+              <button
+                onClick={() => toggleSource('ai')}
+                        className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
+                  selectedSources.has('ai')
+                    ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/30'
+                        }`}
+                      >
+                        <Sparkles className="w-8 h-8 mb-3 text-primary" />
+                        <h3 className="font-semibold mb-2">AI Generation</h3>
+                        <p className="text-sm text-muted-foreground">Create unique stories</p>
+                        {selectedSources.has('ai') && (
+                          <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                        )}
+              </button>
+
+              <button
+                onClick={() => toggleSource('reddit')}
+                        className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
+                  selectedSources.has('reddit')
+                    ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/30'
+                        }`}
+                      >
+                        <div className="w-8 h-8 mb-3 flex items-center justify-center text-2xl">📱</div>
+                        <h3 className="font-semibold mb-2">Reddit Stories</h3>
+                        <p className="text-sm text-muted-foreground">Trending content</p>
+                        {selectedSources.has('reddit') && (
+                          <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                        )}
+              </button>
+            </div>
+          </div>
+
+                  {/* Subreddits */}
+                  {(selectedSources.has('ai') || selectedSources.has('reddit')) && (
+            <div>
+                      <label className="block text-sm font-medium mb-3">Subreddits</label>
+                      <div className="space-y-4">
+                        {Object.entries(subredditCategories).map(([category, subs]) => (
+                          <div key={category}>
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-2">{category}</h4>
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                              {subs.map((sub) => (
+                  <button
+                    key={sub.name}
+                    onClick={() => toggleSubreddit(sub.name)}
+                                  className={`p-3 rounded-xl border text-left transition-all relative ${
+                      selectedSubreddits.has(sub.name)
+                        ? 'border-primary bg-primary/5'
+                                      : 'border-border hover:border-primary/30'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg">{sub.icon}</span>
+                                    <span className="text-sm font-medium">{sub.name}</span>
+                                  </div>
+                                  {selectedSubreddits.has(sub.name) && (
+                                    <CheckCircle2 className="absolute top-2 right-2 w-4 h-4 text-primary" />
+                                  )}
+                  </button>
+                              ))}
+                            </div>
+                          </div>
+                ))}
+              </div>
+            </div>
+          )}
+                </div>
+
+                {/* Backgrounds & Voices (combined) */}
+                <div className="card-elevo">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="number-badge">3</div>
+                    <div>
+                      <h2 className="text-2xl font-bold">Media Selection</h2>
+                      <p className="text-sm text-muted-foreground">Backgrounds and voices</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+          {/* Backgrounds */}
+          <div>
+                      <label className="block text-sm font-medium mb-3">Backgrounds</label>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {backgrounds.map((bg) => (
+                <button
+                  key={bg.id}
+                  onClick={() => toggleBackground(bg.id)}
+                            className={`relative group rounded-2xl overflow-hidden border-2 transition-all ${
+                    selectedBackgrounds.has(bg.id)
+                                ? 'border-primary ring-2 ring-primary/20'
+                                : 'border-border hover:border-primary/30'
+                            }`}
+                          >
+                            <div className="aspect-video relative">
+                              <img src={bg.thumbnail} alt={bg.name} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                              <div className="absolute bottom-0 left-0 right-0 p-3">
+                                <h4 className="font-semibold text-white text-sm">{bg.name}</h4>
+                              </div>
+                              {selectedBackgrounds.has(bg.id) && (
+                                <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                                  <Check className="w-4 h-4 text-white" />
+                                </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Voices */}
+          <div>
+                      <label className="block text-sm font-medium mb-3">Voices</label>
+                      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {voices.map((voice) => (
+                          <button
+                  key={voice.id}
+                            onClick={() => toggleVoice(voice.id)}
+                            className={`relative p-5 rounded-2xl border-2 text-left transition-all ${
+                    selectedVoices.has(voice.id)
+                      ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/30'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Mic className="w-5 h-5 text-primary" />
+                              </div>
+                              {selectedVoices.has(voice.id) && (
+                                <CheckCircle2 className="w-5 h-5 text-primary" />
+                              )}
+                            </div>
+                            <h3 className="font-semibold mb-1">{voice.name}</h3>
+                            <p className="text-xs text-muted-foreground">{voice.description}</p>
+                    </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Auto-Posting Options */}
+                <div className="card-elevo">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="number-badge">4</div>
+                    <div>
+                      <h2 className="text-2xl font-bold">Auto-Posting</h2>
+                      <p className="text-sm text-muted-foreground">Automatically post to platforms</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setAutoPostToTikTok(!autoPostToTikTok)}
+                    className={`w-full p-6 rounded-2xl border-2 text-left transition-all ${
+                      autoPostToTikTok
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
+                          📱
+                        </div>
+                        <div>
+                          <h3 className="font-semibold mb-1">Auto-Post to TikTok</h3>
+                          <p className="text-xs text-muted-foreground">Automatically upload videos to TikTok</p>
+                        </div>
+                      </div>
+                      <div className={`w-12 h-6 rounded-full transition-colors ${
+                        autoPostToTikTok ? 'bg-primary' : 'bg-muted'
+                      }`}>
+                        <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
+                          autoPostToTikTok ? 'translate-x-6' : 'translate-x-0.5'
+                        } mt-0.5`} />
+                      </div>
+                    </div>
+                  </button>
+          </div>
+
+                {/* Start Campaign Button */}
+                <Button 
+                  onClick={handleGenerateBatch}
+                  className="w-full py-8 text-lg font-semibold btn-orange"
+                  disabled={
+                    !campaignName.trim() ||
+                    selectedSources.size === 0 ||
+                    selectedSubreddits.size === 0 ||
+                    selectedBackgrounds.size === 0 ||
+                    selectedVoices.size === 0
+                  }
+                >
+                  <Zap className="w-5 h-5 mr-2" />
+                  Start Auto-Pilot Campaign
+          </Button>
               </TabsContent>
             </Tabs>
           )}
@@ -588,4 +953,4 @@ export default function BatchCreate() {
       <Footer />
     </main>
   );
-}
+} 

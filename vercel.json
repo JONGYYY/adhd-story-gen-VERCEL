@@ -1,19 +1,8 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "installCommand": "npm install",
-  "framework": "nextjs",
-  "functions": {
-    "src/app/api/**/*.ts": {
-      "maxDuration": 30
+  "crons": [
+    {
+      "path": "/api/campaigns/run-scheduled",
+      "schedule": "*/5 * * * *"
     }
-  },
-  "env": {
-    "NEXT_TELEMETRY_DISABLED": "1"
-  },
-  "build": {
-    "env": {
-      "NODE_OPTIONS": "--max-old-space-size=4096"
-    }
-  }
-} 
+  ]
+}

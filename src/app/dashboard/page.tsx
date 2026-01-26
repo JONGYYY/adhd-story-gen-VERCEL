@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Footer } from '@/components/layout/Footer';
 import { PlatformVideos } from '@/components/dashboard/platform-videos';
+import { ActiveCampaigns } from '@/components/dashboard/active-campaigns';
 import { SocialPlatform } from '@/lib/social-media/types';
 import { Video, TrendingUp, Eye, Clock, Plus, Zap, ChevronDown, Grid3x3, Sparkles } from 'lucide-react';
 import {
@@ -153,6 +154,11 @@ export default function Dashboard() {
             {platforms.map((platform) => (
               <PlatformVideos key={platform} platform={platform} />
             ))}
+          </div>
+
+          {/* Active Campaigns */}
+          <div className="mb-12">
+            <ActiveCampaigns />
           </div>
 
           {/* Trending Stories */}
