@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,16 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signInWithGoogle } = useAuth();
+  const router = useRouter();
+  const { user, loading: authLoading, signIn, signInWithGoogle } = useAuth();
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
+      console.log('[Login] User already logged in, redirecting to /create');
+      router.replace('/create');
+    }
+  }, [user, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,11 +47,29 @@ export default function Login() {
 
     try {
       await signInWithGoogle();
+      // Success - signInWithGoogle will handle the redirect
+      console.log('[Login] Google sign-in successful');
     } catch (error: any) {
+      console.error('[Login] Google sign-in failed:', error);
       setError(error.message || 'Failed to sign in with Google');
-      setLoading(false);
+    } finally {
+      // Only reset loading if we're still on this page (error case)
+      // If redirect happened, this component will unmount
+      setTimeout(() => setLoading(false), 100);
     }
   };
+
+  // Show loading state while checking auth
+  if (authLoading || (!authLoading && user)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4">
