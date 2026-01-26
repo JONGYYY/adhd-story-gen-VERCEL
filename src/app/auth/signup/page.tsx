@@ -24,8 +24,15 @@ export default function SignUp() {
   // Auto-redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      console.log('[SignUp] User already logged in, redirecting to /create');
+      console.log('[SignUp] User detected, authLoading=false, redirecting to /create');
+      // Try Next.js router first
       router.replace('/create');
+      // Fallback to hard redirect after a short delay if Next.js router fails
+      const fallbackTimer = setTimeout(() => {
+        console.log('[SignUp] Fallback redirect executing');
+        window.location.href = '/create';
+      }, 500);
+      return () => clearTimeout(fallbackTimer);
     }
   }, [user, authLoading, router]);
 
@@ -71,13 +78,26 @@ export default function SignUp() {
     }
   };
 
-  // Show loading state while checking auth
-  if (authLoading || (!authLoading && user)) {
+  // Show loading state ONLY while auth is initializing
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user exists and authLoading is false, show redirecting message
+  // The useEffect above will handle the actual redirect
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Redirecting to dashboard...</p>
         </div>
       </div>
     );
