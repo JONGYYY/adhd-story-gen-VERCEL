@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { PageContainer } from '@/components/layout/page-container';
+import { Footer } from '@/components/layout/Footer';
 import { SocialPlatform } from '@/lib/social-media/types';
-import { useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
+import { Grid3x3, List, Eye, Heart, Plus } from 'lucide-react';
 
 interface PlatformStatus {
   platform: SocialPlatform;
@@ -91,186 +90,225 @@ export default function Library() {
   );
 
   return (
-    <PageContainer>
-      {/* Page Header */}
-      <div className="bg-gray-800 border-b border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-white">Content Library</h1>
-            <Button asChild>
-              <Link href="/create">Create New Video</Link>
-            </Button>
+    <main className="min-h-screen bg-background">
+      <div className="section-py">
+        <div className="container-wide">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-12">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-2">Content Library</h1>
+              <p className="text-muted-foreground">Manage and track your published videos</p>
+            </div>
+            <Link href="/create" className="btn-orange hidden md:inline-flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              Create Video
+            </Link>
           </div>
-        </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Platform Filters and View Toggle */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setSelectedPlatform('all')}
-              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                selectedPlatform === 'all'
-                  ? 'bg-primary/20 text-primary'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
-              }`}
-            >
-              All Platforms
-            </button>
-            {platforms.map((platform) => {
-              const status = platformStatuses.find(s => s.platform === platform);
-              return (
-                <button
-                  key={platform}
-                  onClick={() => setSelectedPlatform(platform)}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                    selectedPlatform === platform
-                      ? 'bg-primary/20 text-primary'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-700'
+          {/* Filters & View Toggle */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setSelectedPlatform('all')}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  selectedPlatform === 'all'
+                    ? 'bg-primary text-white'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                All Platforms
+              </button>
+              {platforms.map((platform) => {
+                const status = platformStatuses.find(s => s.platform === platform);
+                return (
+                  <button
+                    key={platform}
+                    onClick={() => setSelectedPlatform(platform)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      selectedPlatform === platform
+                        ? 'bg-primary text-white'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    <span className="capitalize">{platform}</span>
+                    {status?.isConnected && (
+                      <span className="ml-1 opacity-60">
+                        (@{status.username})
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-xl transition-all ${
+                  viewMode === 'grid'
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                <Grid3x3 className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-xl transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                <List className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Platform Connection Status */}
+          <div className="grid md:grid-cols-2 gap-4 mb-8">
+            {platformStatuses
+              .filter(status => selectedPlatform === 'all' || status.platform === selectedPlatform)
+              .map(status => (
+                <div
+                  key={status.platform}
+                  className={`p-6 rounded-2xl border ${
+                    status.isConnected
+                      ? 'bg-green-500/5 border-green-500/20'
+                      : 'bg-yellow-500/5 border-yellow-500/20'
                   }`}
                 >
-                  <span className="capitalize">{platform}</span>
-                  {status?.isConnected && (
-                    <span className="ml-2 text-xs text-gray-400">
-                      (@{status.username})
-                    </span>
+                  {status.isConnected ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold capitalize">
+                            {status.platform}
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs font-medium">
+                            Connected
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          @{status.username}
+                        </p>
+                      </div>
+                      <Link
+                        href="/settings/social-media"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Manage →
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold capitalize">
+                            {status.platform}
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 text-xs font-medium">
+                            Not Connected
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Connect to see your videos
+                        </p>
+                      </div>
+                      <Link
+                        href="/settings/social-media"
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Connect →
+                      </Link>
+                    </div>
                   )}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg transition-colors ${
-                viewMode === 'grid'
-                  ? 'bg-primary/20 text-primary'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
-              }`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-primary/20 text-primary'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
-              }`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Platform Connection Status */}
-        <div className="mb-8 space-y-4">
-          {platformStatuses
-            .filter(status => selectedPlatform === 'all' || status.platform === selectedPlatform)
-            .map(status => (
-              <div
-                key={status.platform}
-                className={`p-4 rounded-lg ${
-                  status.isConnected ? 'bg-green-500/10' : 'bg-yellow-500/10'
-                }`}
-              >
-                {status.isConnected ? (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-white font-medium capitalize">
-                        {status.platform} Connected
-                      </h3>
-                      <p className="text-sm text-gray-400">
-                        Connected as @{status.username}
-                      </p>
-                    </div>
-                    <Link
-                      href="/settings/social-media"
-                      className="text-sm text-primary hover:text-primary/90"
-                    >
-                      Manage Connection →
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-white font-medium capitalize">
-                        {status.platform} Not Connected
-                      </h3>
-                      <p className="text-sm text-gray-400">
-                        Connect your account to see your {status.platform} videos
-                      </p>
-                    </div>
-                    <Link
-                      href="/settings/social-media"
-                      className="text-sm text-primary hover:text-primary/90"
-                    >
-                      Connect Account →
-                    </Link>
-                  </div>
-                )}
-              </div>
-            ))}
-        </div>
-
-        {/* Content Grid/List */}
-        {isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="text-gray-400 mt-4">Loading your content...</p>
-          </div>
-        ) : (
-          <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-            {filteredContent.map((item) => (
-              <div
-                key={item.id}
-                className={`bg-gray-800 rounded-lg overflow-hidden ${
-                  viewMode === 'list' ? 'flex' : ''
-                }`}
-              >
-                <div className={`${viewMode === 'list' ? 'w-48 flex-shrink-0' : ''}`}>
-                  <img
-                    src={item.thumbnail}
-                    alt={item.title}
-                    className="w-full h-32 object-cover"
-                  />
                 </div>
-                <div className="p-4 flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      item.platform === 'youtube' ? 'bg-red-500/20 text-red-400' :
-                      item.platform === 'tiktok' ? 'bg-pink-500/20 text-pink-400' :
-                      'bg-purple-500/20 text-purple-400'
-                    }`}>
-                      {item.platform}
-                    </span>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      item.status === 'published' ? 'bg-green-500/20 text-green-400' :
-                      'bg-yellow-500/20 text-yellow-400'
-                    }`}>
-                      {item.status}
-                    </span>
-                  </div>
-                  <h3 className="text-white font-medium mb-2 line-clamp-2">{item.title}</h3>
-                  <div className="flex items-center justify-between text-sm text-gray-400">
-                    <div className="flex items-center space-x-4">
-                      <span>{item.views.toLocaleString()} views</span>
-                      <span>{item.likes.toLocaleString()} likes</span>
+              ))}
+          </div>
+
+          {/* Content */}
+          {isLoading ? (
+            <div className="text-center py-20">
+              <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading your content...</p>
+            </div>
+          ) : filteredContent.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                <Plus className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">No videos yet</h3>
+              <p className="text-muted-foreground mb-6">Create your first video to get started</p>
+              <Link href="/create" className="btn-orange inline-flex">
+                Create Video
+              </Link>
+            </div>
+          ) : (
+            <div className={
+              viewMode === 'grid'
+                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+                : 'space-y-4'
+            }>
+              {filteredContent.map((item) => (
+                <div
+                  key={item.id}
+                  className={`card-elevo overflow-hidden hover:border-primary/30 transition-all cursor-pointer ${
+                    viewMode === 'list' ? 'flex' : ''
+                  }`}
+                >
+                  <div className={`bg-muted ${viewMode === 'list' ? 'w-48 flex-shrink-0' : 'aspect-[9/16]'}`}>
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="w-16 h-16 rounded-2xl bg-card flex items-center justify-center">
+                        <Eye className="w-8 h-8 text-muted-foreground" />
+                      </div>
                     </div>
-                    <span>{new Date(item.date).toLocaleDateString()}</span>
+                  </div>
+                  <div className="p-6 flex-1">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${
+                        item.platform === 'youtube' ? 'bg-red-500/10 text-red-400' :
+                        item.platform === 'tiktok' ? 'bg-pink-500/10 text-pink-400' :
+                        'bg-purple-500/10 text-purple-400'
+                      }`}>
+                        {item.platform}
+                      </span>
+                      <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${
+                        item.status === 'published' ? 'bg-green-500/10 text-green-400' :
+                        'bg-yellow-500/10 text-yellow-400'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold mb-3 line-clamp-2">{item.title}</h3>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-4 h-4" />
+                          <span>{(item.views / 1000).toFixed(0)}K</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Heart className="w-4 h-4" />
+                          <span>{(item.likes / 1000).toFixed(1)}K</span>
+                        </div>
+                      </div>
+                      <span>{new Date(item.date).toLocaleDateString()}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+
+          {/* Mobile CTA */}
+          <Link href="/create" className="btn-orange w-full mt-8 md:hidden flex items-center justify-center gap-2">
+            <Plus className="w-5 h-5" />
+            Create Video
+          </Link>
+        </div>
       </div>
-    </PageContainer>
+
+      <Footer />
+    </main>
   );
-} 
+}
