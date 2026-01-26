@@ -77,7 +77,7 @@ export default function RootLayout({
             <AuthProvider>
               <div className="relative min-h-screen flex flex-col bg-background">
                 <Navigation />
-                <main className="flex-1">{children}</main>
+                <main className="flex-1 pt-16">{children}</main>
               </div>
             </AuthProvider>
           </ClientOnlyWithSuspense>
