@@ -10,14 +10,11 @@ import { SocialPlatform } from '@/lib/social-media/types';
 import { 
   Video, 
   TrendingUp, 
-  Eye, 
   Clock, 
   Plus, 
   Zap, 
   Sparkles,
   Grid3x3,
-  Heart,
-  Users,
   ChevronRight,
   TrendingDown,
   PlayCircle,
@@ -181,21 +178,21 @@ export default function Dashboard() {
                   <Video className="w-4 h-4 text-primary" />
                   <span className="text-sm">
                     <span className="font-bold text-foreground">24</span>
-                    <span className="text-muted-foreground ml-1">Videos</span>
+                    <span className="text-muted-foreground ml-1">Videos Created</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
-                  <Eye className="w-4 h-4 text-primary" />
+                  <Zap className="w-4 h-4 text-primary" />
                   <span className="text-sm">
-                    <span className="font-bold text-foreground">450K</span>
-                    <span className="text-muted-foreground ml-1">Views</span>
+                    <span className="font-bold text-foreground">2</span>
+                    <span className="text-muted-foreground ml-1">Active Campaigns</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
                   <TrendingUp className="w-4 h-4 text-green-400" />
                   <span className="text-sm">
-                    <span className="font-bold text-green-400">+12.3%</span>
-                    <span className="text-muted-foreground ml-1">Growth</span>
+                    <span className="font-bold text-green-400">95%</span>
+                    <span className="text-muted-foreground ml-1">Upload Success</span>
                   </span>
                 </div>
               </div>

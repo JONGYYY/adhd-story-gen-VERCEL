@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Footer } from '@/components/layout/Footer';
 import { SocialPlatform } from '@/lib/social-media/types';
 import { useAuth } from '@/contexts/auth-context';
-import { Grid3x3, List, Eye, Heart, Plus } from 'lucide-react';
+import { Grid3x3, List, Clock, Plus } from 'lucide-react';
 
 interface PlatformStatus {
   platform: SocialPlatform;
