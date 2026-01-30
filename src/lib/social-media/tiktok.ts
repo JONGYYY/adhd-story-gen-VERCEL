@@ -64,7 +64,7 @@ export class TikTokAPI {
     const state = generateRandomString(32);
     const redirectUri = opts?.redirectUri || TIKTOK_OAUTH_CONFIG.redirectUri;
     const scope =
-      opts?.scope || 'user.info.basic,user.info.profile,video.upload,video.publish';
+      opts?.scope || 'user.info.basic,user.info.profile,user.info.stats,video.upload,video.publish';
     // PKCE
     const codeVerifier = TikTokAPI.base64Url(crypto.randomBytes(32));
     const codeChallenge = TikTokAPI.sha256Base64Url(codeVerifier);
@@ -221,6 +221,58 @@ export class TikTokAPI {
       return data.data.user;
     } catch (error) {
       console.error('Error getting user info:', error);
+      throw error;
+    }
+  }
+
+  async getUserStats(accessToken: string) {
+    console.log('Getting user stats...');
+    
+    // In test mode, return mock user stats
+    if (TEST_MODE) {
+      console.log('TikTok TEST MODE: Returning mock user stats');
+      return {
+        follower_count: 15200,
+        following_count: 340,
+        likes_count: 125000,
+        video_count: 24
+      };
+    }
+    
+    try {
+      // TikTok v2 requires a `fields` parameter for user stats
+      const fields = [
+        'follower_count',
+        'following_count',
+        'likes_count',
+        'video_count',
+      ].join(',');
+      const statsUrl = `https://open.tiktokapis.com/v2/user/info/?fields=${encodeURIComponent(fields)}`;
+      console.log('User stats endpoint:', statsUrl);
+
+      const response = await fetch(statsUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      const data = await response.json();
+      console.log('User stats response status:', response.status);
+
+      if (!response.ok) {
+        console.error('User stats error response:', data);
+        throw new Error(`TikTok API error: ${data.error?.message || data.message || 'Failed to get user stats'}`);
+      }
+
+      if (!data.data?.user) {
+        console.error('Invalid user stats response:', data);
+        throw new Error('TikTok API returned invalid stats response');
+      }
+
+      console.log('Successfully obtained user stats');
+      return data.data.user;
+    } catch (error) {
+      console.error('Error getting user stats:', error);
       throw error;
     }
   }

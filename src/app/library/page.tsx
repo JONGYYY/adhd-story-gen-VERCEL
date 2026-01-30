@@ -67,21 +67,19 @@ export default function Library() {
       id: 1,
       title: 'AITA for not attending my sister\'s wedding?',
       thumbnail: '/thumbnails/video1.jpg',
-      views: 125000,
-      likes: 12500,
       platform: 'tiktok' as SocialPlatform,
       status: 'published',
       date: '2024-03-15',
+      duration: '1:45',
     },
     {
       id: 2,
       title: 'The Mysterious Package That Arrived at 3 AM',
       thumbnail: '/thumbnails/video2.jpg',
-      views: 75000,
-      likes: 8200,
       platform: 'youtube' as SocialPlatform,
       status: 'published',
       date: '2024-03-16',
+      duration: '2:30',
     },
   ];
 
@@ -103,132 +101,132 @@ export default function Library() {
               <Plus className="w-5 h-5" />
               Create Video
             </Link>
-          </div>
+      </div>
 
           {/* Filters & View Toggle */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setSelectedPlatform('all')}
+            <button
+              onClick={() => setSelectedPlatform('all')}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  selectedPlatform === 'all'
+                selectedPlatform === 'all'
                     ? 'bg-primary text-white'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
-              >
-                All Platforms
-              </button>
-              {platforms.map((platform) => {
-                const status = platformStatuses.find(s => s.platform === platform);
-                return (
-                  <button
-                    key={platform}
-                    onClick={() => setSelectedPlatform(platform)}
+              }`}
+            >
+              All Platforms
+            </button>
+            {platforms.map((platform) => {
+              const status = platformStatuses.find(s => s.platform === platform);
+              return (
+                <button
+                  key={platform}
+                  onClick={() => setSelectedPlatform(platform)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      selectedPlatform === platform
+                    selectedPlatform === platform
                         ? 'bg-primary text-white'
                         : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    <span className="capitalize">{platform}</span>
-                    {status?.isConnected && (
+                  }`}
+                >
+                  <span className="capitalize">{platform}</span>
+                  {status?.isConnected && (
                       <span className="ml-1 opacity-60">
-                        (@{status.username})
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-xl transition-all ${
-                  viewMode === 'grid'
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
-              >
-                <Grid3x3 className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-xl transition-all ${
-                  viewMode === 'list'
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
-              >
-                <List className="w-5 h-5" />
-              </button>
-            </div>
+                      (@{status.username})
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Platform Connection Status */}
+            <div className="flex items-center gap-2">
+            <button
+              onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-xl transition-all ${
+                viewMode === 'grid'
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+                <Grid3x3 className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+                className={`p-2 rounded-xl transition-all ${
+                viewMode === 'list'
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+                <List className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Platform Connection Status */}
           <div className="grid md:grid-cols-2 gap-4 mb-8">
-            {platformStatuses
-              .filter(status => selectedPlatform === 'all' || status.platform === selectedPlatform)
-              .map(status => (
-                <div
-                  key={status.platform}
+          {platformStatuses
+            .filter(status => selectedPlatform === 'all' || status.platform === selectedPlatform)
+            .map(status => (
+              <div
+                key={status.platform}
                   className={`p-6 rounded-2xl border ${
                     status.isConnected
                       ? 'bg-green-500/5 border-green-500/20'
                       : 'bg-yellow-500/5 border-yellow-500/20'
-                  }`}
-                >
-                  {status.isConnected ? (
-                    <div className="flex items-center justify-between">
-                      <div>
+                }`}
+              >
+                {status.isConnected ? (
+                  <div className="flex items-center justify-between">
+                    <div>
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold capitalize">
                             {status.platform}
-                          </h3>
+                      </h3>
                           <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs font-medium">
                             Connected
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground">
                           @{status.username}
-                        </p>
-                      </div>
-                      <Link
-                        href="/settings/social-media"
-                        className="text-sm text-primary hover:underline"
-                      >
-                        Manage →
-                      </Link>
+                      </p>
                     </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <Link
+                      href="/settings/social-media"
+                        className="text-sm text-primary hover:underline"
+                    >
+                        Manage →
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold capitalize">
                             {status.platform}
-                          </h3>
+                      </h3>
                           <span className="px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 text-xs font-medium">
                             Not Connected
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground">
                           Connect to see your videos
-                        </p>
-                      </div>
-                      <Link
-                        href="/settings/social-media"
-                        className="text-sm text-primary hover:underline"
-                      >
-                        Connect →
-                      </Link>
+                      </p>
                     </div>
-                  )}
-                </div>
-              ))}
-          </div>
+                    <Link
+                      href="/settings/social-media"
+                        className="text-sm text-primary hover:underline"
+                    >
+                        Connect →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            ))}
+        </div>
 
           {/* Content */}
-          {isLoading ? (
+        {isLoading ? (
             <div className="text-center py-20">
               <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto mb-4" />
               <p className="text-muted-foreground">Loading your content...</p>
@@ -243,62 +241,58 @@ export default function Library() {
               <Link href="/create" className="btn-orange inline-flex">
                 Create Video
               </Link>
-            </div>
-          ) : (
+          </div>
+        ) : (
             <div className={
               viewMode === 'grid'
                 ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
                 : 'space-y-4'
             }>
-              {filteredContent.map((item) => (
-                <div
-                  key={item.id}
+            {filteredContent.map((item) => (
+              <div
+                key={item.id}
                   className={`card-elevo overflow-hidden hover:border-primary/30 transition-all cursor-pointer ${
-                    viewMode === 'list' ? 'flex' : ''
-                  }`}
-                >
+                  viewMode === 'list' ? 'flex' : ''
+                }`}
+              >
                   <div className={`bg-muted ${viewMode === 'list' ? 'w-48 flex-shrink-0' : 'aspect-[9/16]'}`}>
                     <div className="w-full h-full flex items-center justify-center">
                       <div className="w-16 h-16 rounded-2xl bg-card flex items-center justify-center">
                         <Eye className="w-8 h-8 text-muted-foreground" />
                       </div>
                     </div>
-                  </div>
+                </div>
                   <div className="p-6 flex-1">
                     <div className="flex items-center gap-2 mb-3">
                       <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${
                         item.platform === 'youtube' ? 'bg-red-500/10 text-red-400' :
                         item.platform === 'tiktok' ? 'bg-pink-500/10 text-pink-400' :
                         'bg-purple-500/10 text-purple-400'
-                      }`}>
-                        {item.platform}
-                      </span>
+                    }`}>
+                      {item.platform}
+                    </span>
                       <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${
                         item.status === 'published' ? 'bg-green-500/10 text-green-400' :
                         'bg-yellow-500/10 text-yellow-400'
-                      }`}>
-                        {item.status}
-                      </span>
-                    </div>
+                    }`}>
+                      {item.status}
+                    </span>
+                  </div>
                     <h3 className="font-semibold mb-3 line-clamp-2">{item.title}</h3>
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1">
-                          <Eye className="w-4 h-4" />
-                          <span>{(item.views / 1000).toFixed(0)}K</span>
+                          <Clock className="w-4 h-4" />
+                          <span>{item.duration || 'N/A'}</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Heart className="w-4 h-4" />
-                          <span>{(item.likes / 1000).toFixed(1)}K</span>
-                        </div>
-                      </div>
-                      <span>{new Date(item.date).toLocaleDateString()}</span>
                     </div>
+                    <span>{new Date(item.date).toLocaleDateString()}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
+        )}
 
           {/* Mobile CTA */}
           <Link href="/create" className="btn-orange w-full mt-8 md:hidden flex items-center justify-center gap-2">
@@ -311,4 +305,4 @@ export default function Library() {
       <Footer />
     </main>
   );
-}
+} 

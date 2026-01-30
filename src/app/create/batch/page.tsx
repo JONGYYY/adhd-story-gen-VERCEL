@@ -400,8 +400,8 @@ export default function BatchCreate() {
                           selectedSources.has('ai')
                     ? 'border-primary bg-primary/5'
                             : 'border-border hover:border-primary/30'
-                        }`}
-                      >
+                }`}
+              >
                         <Sparkles className="w-8 h-8 mb-3 text-primary" />
                         <h3 className="font-semibold mb-2">AI Generation</h3>
                         <p className="text-sm text-muted-foreground">
@@ -594,8 +594,8 @@ export default function BatchCreate() {
                             storyLength === 'Full Story Length'
                               ? 'border-primary bg-primary/5'
                               : 'border-border hover:border-primary/30'
-                          }`}
-                        >
+                }`}
+              >
                           <h4 className="font-semibold mb-1">Full Story</h4>
                           <p className="text-xs text-muted-foreground">Complete narrative</p>
                         </button>
@@ -785,7 +785,7 @@ export default function BatchCreate() {
                 value={numVideos}
                 onChange={(e) => setNumVideos(parseInt(e.target.value))}
                       className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                    />
+              />
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-sm text-muted-foreground">1 video</span>
                       <div className="flex items-center gap-2">
@@ -817,8 +817,8 @@ export default function BatchCreate() {
                   selectedSources.has('ai')
                     ? 'border-primary bg-primary/5'
                             : 'border-border hover:border-primary/30'
-                        }`}
-                      >
+                }`}
+              >
                         <Sparkles className="w-8 h-8 mb-3 text-primary" />
                         <h3 className="font-semibold mb-2">AI Generation</h3>
                         <p className="text-sm text-muted-foreground">Create unique stories</p>
@@ -833,8 +833,8 @@ export default function BatchCreate() {
                   selectedSources.has('reddit')
                     ? 'border-primary bg-primary/5'
                             : 'border-border hover:border-primary/30'
-                        }`}
-                      >
+                }`}
+              >
                         <div className="w-8 h-8 mb-3 flex items-center justify-center text-2xl">📱</div>
                         <h3 className="font-semibold mb-2">Reddit Stories</h3>
                         <p className="text-sm text-muted-foreground">Trending content</p>
@@ -862,8 +862,8 @@ export default function BatchCreate() {
                       selectedSubreddits.has(sub.name)
                         ? 'border-primary bg-primary/5'
                                       : 'border-border hover:border-primary/30'
-                                  }`}
-                                >
+                    }`}
+                  >
                                   <div className="flex items-center gap-2">
                                     <span className="text-lg">{sub.icon}</span>
                                     <span className="text-sm font-medium">{sub.name}</span>
@@ -904,8 +904,8 @@ export default function BatchCreate() {
                     selectedBackgrounds.has(bg.id)
                                 ? 'border-primary ring-2 ring-primary/20'
                                 : 'border-border hover:border-primary/30'
-                            }`}
-                          >
+                  }`}
+                >
                             <div className="aspect-video relative">
                               <img src={bg.thumbnail} alt={bg.name} className="w-full h-full object-cover" />
                               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -935,8 +935,8 @@ export default function BatchCreate() {
                     selectedVoices.has(voice.id)
                       ? 'border-primary bg-primary/5'
                                 : 'border-border hover:border-primary/30'
-                            }`}
-                          >
+                  }`}
+                >
                             <div className="flex items-start justify-between mb-3">
                               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                                 <Mic className="w-5 h-5 text-primary" />
