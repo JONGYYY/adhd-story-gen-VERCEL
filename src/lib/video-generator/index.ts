@@ -43,7 +43,6 @@ export async function generateVideo(options: VideoOptions, videoId: string): Pro
   } else {
     story = await generateStory({
       subreddit: options.subreddit,
-      isCliffhanger: options.isCliffhanger,
       narratorGender: options.voice.gender,
     });
   }

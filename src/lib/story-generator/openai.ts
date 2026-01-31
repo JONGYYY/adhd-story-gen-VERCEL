@@ -1,136 +1,51 @@
 import OpenAI from 'openai';
 import { TEST_PROMPTS } from '../prompts/test';
-import { 
-  aitaPrompt, 
-  aitaPromptWithCliffhanger 
-} from '../prompts/aita';
-import { 
-  proRevengePrompt, 
-  proRevengePromptWithCliffhanger 
-} from '../prompts/pro-revenge';
-import { 
-  trueOffMyChestPrompt, 
-  trueOffMyChestPromptWithCliffhanger 
-} from '../prompts/true-off-my-chest';
-import { 
-  relationshipsPrompt, 
-  relationshipsPromptWithCliffhanger 
-} from '../prompts/relationships';
-import { 
-  confessionPrompt, 
-  confessionPromptWithCliffhanger 
-} from '../prompts/confession';
-import { 
-  nosleepPrompt, 
-  nosleepPromptWithCliffhanger 
-} from '../prompts/nosleep';
-import { 
-  shortScaryStoriesPrompt, 
-  shortScaryStoriesPromptWithCliffhanger 
-} from '../prompts/short-scary-stories';
-import { 
-  talesFromYourServerPrompt, 
-  talesFromYourServerPromptWithCliffhanger 
-} from '../prompts/tales-from-your-server';
-import { 
-  talesFromTechSupportPrompt, 
-  talesFromTechSupportPromptWithCliffhanger 
-} from '../prompts/tales-from-tech-support';
-import { 
-  tifuPrompt, 
-  tifuPromptWithCliffhanger 
-} from '../prompts/tifu';
+import { aitaPrompt } from '../prompts/aita';
+import { proRevengePrompt } from '../prompts/pro-revenge';
+import { trueOffMyChestPrompt } from '../prompts/true-off-my-chest';
+import { relationshipsPrompt } from '../prompts/relationships';
+import { confessionPrompt } from '../prompts/confession';
+import { nosleepPrompt } from '../prompts/nosleep';
+import { shortScaryStoriesPrompt } from '../prompts/short-scary-stories';
+import { talesFromYourServerPrompt } from '../prompts/tales-from-your-server';
+import { talesFromTechSupportPrompt } from '../prompts/tales-from-tech-support';
+import { tifuPrompt } from '../prompts/tifu';
 
 // Map of subreddit prompts with type safety
-export const SUBREDDIT_PROMPTS: Record<string, { full: string; cliffhanger: string }> = {
+export const SUBREDDIT_PROMPTS: Record<string, string> = {
   ...TEST_PROMPTS,
   // AITA - accept both full name and abbreviation
-  'r/AmItheAsshole': {
-    full: aitaPrompt,
-    cliffhanger: aitaPromptWithCliffhanger,
-  },
-  'r/AITA': { // Alias
-    full: aitaPrompt,
-    cliffhanger: aitaPromptWithCliffhanger,
-  },
+  'r/AmItheAsshole': aitaPrompt,
+  'r/AITA': aitaPrompt, // Alias
   // ProRevenge
-  'r/ProRevenge': {
-    full: proRevengePrompt,
-    cliffhanger: proRevengePromptWithCliffhanger,
-  },
-  'r/prorevenge': { // Alias (lowercase)
-    full: proRevengePrompt,
-    cliffhanger: proRevengePromptWithCliffhanger,
-  },
+  'r/ProRevenge': proRevengePrompt,
+  'r/prorevenge': proRevengePrompt, // Alias (lowercase)
   // TrueOffMyChest
-  'r/TrueOffMyChest': {
-    full: trueOffMyChestPrompt,
-    cliffhanger: trueOffMyChestPromptWithCliffhanger,
-  },
-  'r/trueoffmychest': { // Alias (lowercase)
-    full: trueOffMyChestPrompt,
-    cliffhanger: trueOffMyChestPromptWithCliffhanger,
-  },
+  'r/TrueOffMyChest': trueOffMyChestPrompt,
+  'r/trueoffmychest': trueOffMyChestPrompt, // Alias (lowercase)
   // Relationships - accept multiple variations
-  'r/relationship_advice': {
-    full: relationshipsPrompt,
-    cliffhanger: relationshipsPromptWithCliffhanger,
-  },
-  'r/relationships': { // Alias
-    full: relationshipsPrompt,
-    cliffhanger: relationshipsPromptWithCliffhanger,
-  },
+  'r/relationship_advice': relationshipsPrompt,
+  'r/relationships': relationshipsPrompt, // Alias
   // Confession
-  'r/confession': {
-    full: confessionPrompt,
-    cliffhanger: confessionPromptWithCliffhanger,
-  },
+  'r/confession': confessionPrompt,
   // NoSleep
-  'r/nosleep': {
-    full: nosleepPrompt,
-    cliffhanger: nosleepPromptWithCliffhanger,
-  },
+  'r/nosleep': nosleepPrompt,
   // ShortScaryStories
-  'r/shortscarystories': {
-    full: shortScaryStoriesPrompt,
-    cliffhanger: shortScaryStoriesPromptWithCliffhanger,
-  },
-  'r/ShortScaryStories': { // Alias (proper case)
-    full: shortScaryStoriesPrompt,
-    cliffhanger: shortScaryStoriesPromptWithCliffhanger,
-  },
+  'r/shortscarystories': shortScaryStoriesPrompt,
+  'r/ShortScaryStories': shortScaryStoriesPrompt, // Alias (proper case)
   // TalesFromYourServer
-  'r/TalesFromYourServer': {
-    full: talesFromYourServerPrompt,
-    cliffhanger: talesFromYourServerPromptWithCliffhanger,
-  },
-  'r/talesfromyourserver': { // Alias (lowercase)
-    full: talesFromYourServerPrompt,
-    cliffhanger: talesFromYourServerPromptWithCliffhanger,
-  },
+  'r/TalesFromYourServer': talesFromYourServerPrompt,
+  'r/talesfromyourserver': talesFromYourServerPrompt, // Alias (lowercase)
   // TalesFromTechSupport
-  'r/TalesFromTechSupport': {
-    full: talesFromTechSupportPrompt,
-    cliffhanger: talesFromTechSupportPromptWithCliffhanger,
-  },
-  'r/talesfromtechsupport': { // Alias (lowercase)
-    full: talesFromTechSupportPrompt,
-    cliffhanger: talesFromTechSupportPromptWithCliffhanger,
-  },
+  'r/TalesFromTechSupport': talesFromTechSupportPrompt,
+  'r/talesfromtechsupport': talesFromTechSupportPrompt, // Alias (lowercase)
   // TIFU
-  'r/tifu': {
-    full: tifuPrompt,
-    cliffhanger: tifuPromptWithCliffhanger,
-  },
-  'r/TIFU': { // Alias (uppercase)
-    full: tifuPrompt,
-    cliffhanger: tifuPromptWithCliffhanger,
-  },
+  'r/tifu': tifuPrompt,
+  'r/TIFU': tifuPrompt, // Alias (uppercase)
 };
 
 type StoryPrompt = {
   subreddit: string;
-  isCliffhanger: boolean;
   narratorGender: 'male' | 'female';
 };
 
@@ -146,26 +61,26 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export async function generateStory({ subreddit, isCliffhanger, narratorGender }: StoryPrompt, retryCount = 0): Promise<SubredditStory> {
+export async function generateStory({ subreddit, narratorGender }: StoryPrompt, retryCount = 0): Promise<SubredditStory> {
   const maxRetries = 3;
-  console.log('Generating story with params:', JSON.stringify({ subreddit, isCliffhanger, narratorGender, retryCount }, null, 2));
+  console.log('Generating story with params:', JSON.stringify({ subreddit, narratorGender, retryCount }, null, 2));
   
   if (retryCount > maxRetries) {
     console.error('Max retries exceeded for story generation');
     throw new Error('Failed to generate valid story after maximum retries');
   }
   
-  const promptTemplate = SUBREDDIT_PROMPTS[subreddit]?.[isCliffhanger ? 'cliffhanger' : 'full'];
+  const promptTemplate = SUBREDDIT_PROMPTS[subreddit];
   console.log('Found prompt template:', promptTemplate ? 'yes' : 'no');
   console.log('Available subreddits:', Object.keys(SUBREDDIT_PROMPTS));
   
   if (!promptTemplate) {
-    console.error('No prompt template found for:', { subreddit, isCliffhanger, availableSubreddits: Object.keys(SUBREDDIT_PROMPTS) });
+    console.error('No prompt template found for:', { subreddit, availableSubreddits: Object.keys(SUBREDDIT_PROMPTS) });
     throw new Error(`No prompt template found for subreddit: ${subreddit}`);
   }
 
   try {
-    console.log(`Generating ${isCliffhanger ? 'cliffhanger' : 'full'} story for ${subreddit} (attempt ${retryCount + 1})`);
+    console.log(`Generating story for ${subreddit} (attempt ${retryCount + 1})`);
     console.log('Using prompt template:', promptTemplate);
     
     const completion = await openai.chat.completions.create({
@@ -173,9 +88,7 @@ export async function generateStory({ subreddit, isCliffhanger, narratorGender }
       messages: [
         {
           role: 'system',
-          content: `You are a creative writer who specializes in generating engaging Reddit stories. Follow the prompt exactly as given, including all formatting requirements. Write in a style that would be natural for a ${narratorGender} narrator to tell.${
-            isCliffhanger ? '\n\nIMPORTANT: This is a cliffhanger story. You MUST include a [BREAK] tag at a suspenseful moment, roughly 1-2 minutes into the story when read aloud.' : ''
-          }`,
+          content: `You are a creative writer who specializes in generating engaging Reddit stories. Follow the prompt exactly as given, including all formatting requirements. Write in a style that would be natural for a ${narratorGender} narrator to tell.`,
         },
         {
           role: 'user',
@@ -245,27 +158,6 @@ export async function generateStory({ subreddit, isCliffhanger, narratorGender }
     if (subreddit === 'r/ProRevenge' && !story.startingQuestion) {
       console.error('ProRevenge story missing starting question:', JSON.stringify(story, null, 2));
       throw new Error('ProRevenge story must include a starting question');
-    }
-
-    // Ensure story has proper structure for cliffhangers
-    if (isCliffhanger && !story.story.includes('[BREAK]')) {
-      console.log(`Cliffhanger story missing [BREAK] tag, retrying (attempt ${retryCount + 1}/${maxRetries + 1})...`);
-      if (retryCount < maxRetries) {
-        return generateStory({ subreddit, isCliffhanger, narratorGender }, retryCount + 1);
-      } else {
-        console.error('Failed to generate cliffhanger story with [BREAK] tag after max retries');
-        // Add [BREAK] manually as fallback
-        const sentences = story.story.split('. ');
-        if (sentences.length > 1) {
-          const midPoint = Math.floor(sentences.length / 2);
-          sentences.splice(midPoint, 0, '[BREAK]');
-          story.story = sentences.join('. ').replace('. [BREAK]. ', '. [BREAK] ');
-          console.log('Added [BREAK] tag manually at midpoint');
-        } else {
-          story.story = story.story + ' [BREAK] What happens next?';
-          console.log('Added [BREAK] tag at end as fallback');
-        }
-      }
     }
 
     console.log('Successfully generated and validated story:', JSON.stringify(story, null, 2));

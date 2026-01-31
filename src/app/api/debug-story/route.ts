@@ -8,7 +8,6 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const subreddit: string = body?.subreddit || 'r/test';
-    const isCliffhanger: boolean = Boolean(body?.isCliffhanger);
     const narratorGender: 'male' | 'female' = (body?.narratorGender === 'female' ? 'female' : 'male');
 
     if (!process.env.OPENAI_API_KEY) {
@@ -18,7 +17,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const story = await generateStory({ subreddit, isCliffhanger, narratorGender });
+    const story = await generateStory({ subreddit, narratorGender });
     return NextResponse.json({ success: true, story });
   } catch (err: any) {
     return NextResponse.json(
@@ -32,7 +31,6 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const subreddit = searchParams.get('subreddit') || 'r/test';
-    const isCliffhanger = searchParams.get('isCliffhanger') === 'true';
     const narratorGender = (searchParams.get('narratorGender') === 'female' ? 'female' : 'male') as 'male' | 'female';
 
     if (!process.env.OPENAI_API_KEY) {
@@ -42,7 +40,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const story = await generateStory({ subreddit, isCliffhanger, narratorGender });
+    const story = await generateStory({ subreddit, narratorGender });
     return NextResponse.json({ success: true, story });
   } catch (err: any) {
     return NextResponse.json(

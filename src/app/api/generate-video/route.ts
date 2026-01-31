@@ -119,7 +119,6 @@ export async function POST(request: NextRequest) {
       }
       const storyParams = {
         subreddit,
-        isCliffhanger: options.isCliffhanger,
         narratorGender: options.voice.gender,
       };
       console.log('Generating story with params:', JSON.stringify(storyParams, null, 2));
