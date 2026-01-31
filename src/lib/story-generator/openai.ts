@@ -83,12 +83,25 @@ export async function generateStory({ subreddit, narratorGender }: StoryPrompt, 
     console.log(`Generating story for ${subreddit} (attempt ${retryCount + 1})`);
     console.log('Using prompt template:', promptTemplate);
     
+    // Check if this subreddit requires special fields
+    const requiresStartingQuestion = ['r/ProRevenge', 'r/prorevenge', 'r/TrueOffMyChest', 'r/trueoffmychest'].includes(subreddit);
+    
+    const systemMessage = `You are a creative writer who specializes in generating engaging Reddit stories. 
+
+CRITICAL FORMATTING REQUIREMENTS:
+- Follow the prompt EXACTLY as given
+- Include ALL required fields in the exact format specified
+${requiresStartingQuestion ? '- This subreddit REQUIRES a "StartingQuestion:" field - DO NOT omit it' : ''}
+- Write in a natural style for a ${narratorGender} narrator
+
+Double-check your output includes all required fields before responding.`;
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
         {
           role: 'system',
-          content: `You are a creative writer who specializes in generating engaging Reddit stories. Follow the prompt exactly as given, including all formatting requirements. Write in a style that would be natural for a ${narratorGender} narrator to tell.`,
+          content: systemMessage,
         },
         {
           role: 'user',
@@ -155,9 +168,20 @@ export async function generateStory({ subreddit, narratorGender }: StoryPrompt, 
     }
 
     // Some subreddits require starting questions
-    if (subreddit === 'r/ProRevenge' && !story.startingQuestion) {
-      console.error('ProRevenge story missing starting question:', JSON.stringify(story, null, 2));
-      throw new Error('ProRevenge story must include a starting question');
+    const requiresStartingQuestion = [
+      'r/ProRevenge',
+      'r/prorevenge',
+      'r/TrueOffMyChest',
+      'r/trueoffmychest'
+    ];
+    
+    if (requiresStartingQuestion.includes(subreddit) && !story.startingQuestion) {
+      console.error(`${subreddit} story missing starting question:`, JSON.stringify(story, null, 2));
+      console.error('Retrying story generation...');
+      if (retryCount < maxRetries) {
+        return generateStory({ subreddit, narratorGender }, retryCount + 1);
+      }
+      throw new Error(`${subreddit} story must include a starting question. Please try again.`);
     }
 
     console.log('Successfully generated and validated story:', JSON.stringify(story, null, 2));
