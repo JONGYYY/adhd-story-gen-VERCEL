@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Footer } from '@/components/layout/Footer';
 import { SocialPlatform } from '@/lib/social-media/types';
 import { useAuth } from '@/contexts/auth-context';
-import { Grid3x3, List, Clock, Plus } from 'lucide-react';
+import { Grid3x3, List, Clock, Plus, Video } from 'lucide-react';
 
 interface PlatformStatus {
   platform: SocialPlatform;
@@ -258,7 +258,7 @@ export default function Library() {
                   <div className={`bg-muted ${viewMode === 'list' ? 'w-48 flex-shrink-0' : 'aspect-[9/16]'}`}>
                     <div className="w-full h-full flex items-center justify-center">
                       <div className="w-16 h-16 rounded-2xl bg-card flex items-center justify-center">
-                        <Eye className="w-8 h-8 text-muted-foreground" />
+                        <Video className="w-8 h-8 text-muted-foreground" />
                       </div>
                     </div>
                 </div>

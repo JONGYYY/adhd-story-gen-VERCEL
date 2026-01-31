@@ -5,12 +5,9 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { 
-  Eye, 
-  Heart, 
   ExternalLink, 
   Youtube, 
   Video as VideoIcon,
-  TrendingUp,
   Clock,
   ChevronRight 
 } from 'lucide-react';
@@ -21,10 +18,9 @@ interface PlatformVideo {
   id: string;
   title: string;
   thumbnail: string;
-  views: number;
-  likes: number;
   url: string;
   date: string;
+  duration: string;
 }
 
 interface PlatformVideosProps {
@@ -61,19 +57,17 @@ export function PlatformVideos({ platform }: PlatformVideosProps) {
               id: '1',
               title: 'AITA for not attending my sister\'s wedding after she uninvited my partner?',
               thumbnail: '/thumbnails/video1.jpg',
-              views: 125000,
-              likes: 12500,
               url: '#',
               date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+              duration: '0:45',
             },
             {
               id: '2',
               title: 'The mysterious package that showed up at my door changed everything',
               thumbnail: '/thumbnails/video2.jpg',
-              views: 98000,
-              likes: 8900,
               url: '#',
               date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+              duration: '0:45',
             },
           ]);
         }
@@ -215,7 +209,6 @@ export function PlatformVideos({ platform }: PlatformVideosProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {videos.map((video) => {
             const daysAgo = Math.floor((Date.now() - new Date(video.date).getTime()) / (1000 * 60 * 60 * 24));
-            const engagementRate = ((video.likes / video.views) * 100).toFixed(1);
             
             return (
               <a
@@ -241,7 +234,7 @@ export function PlatformVideos({ platform }: PlatformVideosProps) {
 
                     {/* Duration badge */}
                     <div className="absolute bottom-3 right-3 px-2 py-1 rounded-md bg-black/80 backdrop-blur-sm text-xs font-medium text-white">
-                      0:45
+                      {video.duration}
                     </div>
                   </div>
 
@@ -251,38 +244,9 @@ export function PlatformVideos({ platform }: PlatformVideosProps) {
                       {video.title}
                     </h3>
                     
-                    {/* Stats Grid */}
-                    <div className="grid grid-cols-3 gap-3 text-sm">
-                      <div>
-                        <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                          <Eye className="w-3 h-3" />
-                          <span className="text-xs">Views</span>
-                        </div>
-                        <p className="font-semibold">
-                          {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(video.views)}
-                        </p>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                          <Heart className="w-3 h-3" />
-                          <span className="text-xs">Likes</span>
-                        </div>
-                        <p className="font-semibold">
-                          {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(video.likes)}
-                        </p>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                          <TrendingUp className="w-3 h-3" />
-                          <span className="text-xs">Eng.</span>
-                        </div>
-                        <p className="font-semibold text-green-400">{engagementRate}%</p>
-                      </div>
-                    </div>
-
                     {/* Date */}
-                    <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3" />
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4" />
                       {daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`}
                     </div>
                   </div>
