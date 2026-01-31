@@ -83,15 +83,22 @@ export async function generateStory({ subreddit, narratorGender }: StoryPrompt, 
     console.log(`Generating story for ${subreddit} (attempt ${retryCount + 1})`);
     console.log('Using prompt template:', promptTemplate);
     
-    // Check if this subreddit requires special fields
-    const requiresStartingQuestion = ['r/ProRevenge', 'r/prorevenge', 'r/TrueOffMyChest', 'r/trueoffmychest'].includes(subreddit);
+    // Define subreddits that require special fields
+    const subredditsRequiringStartingQuestion = [
+      'r/ProRevenge',
+      'r/prorevenge',
+      'r/TrueOffMyChest',
+      'r/trueoffmychest'
+    ];
+    
+    const needsStartingQuestion = subredditsRequiringStartingQuestion.includes(subreddit);
     
     const systemMessage = `You are a creative writer who specializes in generating engaging Reddit stories. 
 
 CRITICAL FORMATTING REQUIREMENTS:
 - Follow the prompt EXACTLY as given
 - Include ALL required fields in the exact format specified
-${requiresStartingQuestion ? '- This subreddit REQUIRES a "StartingQuestion:" field - DO NOT omit it' : ''}
+${needsStartingQuestion ? '- This subreddit REQUIRES a "StartingQuestion:" field - DO NOT omit it' : ''}
 - Write in a natural style for a ${narratorGender} narrator
 
 Double-check your output includes all required fields before responding.`;
@@ -167,15 +174,8 @@ Double-check your output includes all required fields before responding.`;
       }
     }
 
-    // Some subreddits require starting questions
-    const requiresStartingQuestion = [
-      'r/ProRevenge',
-      'r/prorevenge',
-      'r/TrueOffMyChest',
-      'r/trueoffmychest'
-    ];
-    
-    if (requiresStartingQuestion.includes(subreddit) && !story.startingQuestion) {
+    // Validate starting question for subreddits that require it
+    if (needsStartingQuestion && !story.startingQuestion) {
       console.error(`${subreddit} story missing starting question:`, JSON.stringify(story, null, 2));
       console.error('Retrying story generation...');
       if (retryCount < maxRetries) {
