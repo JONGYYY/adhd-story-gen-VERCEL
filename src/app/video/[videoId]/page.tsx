@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { PageContainer } from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
+import { TikTokUploadModal } from '@/components/tiktok/TikTokUploadModal';
 
 type VideoStatus = {
   status: 'generating' | 'ready' | 'failed';
@@ -20,6 +21,7 @@ export default function VideoPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const checkStatusTimeoutRef = useRef<NodeJS.Timeout>();
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -121,7 +123,7 @@ export default function VideoPage() {
     }
   };
 
-  const handleTikTokUpload = async () => {
+  const handleTikTokUpload = async (data: { caption: string; hashtags: string[]; privacyLevel: 'PUBLIC' | 'SELF_ONLY' }) => {
     if (!videoStatus.videoUrl) return;
     
     setIsUploading(true);
@@ -136,8 +138,8 @@ export default function VideoPage() {
       // Create form data
       const formData = new FormData();
       formData.append('video', videoBlob, `video_${videoId}.mp4`);
-      formData.append('title', `Story Video #${videoId}`);
-      formData.append('privacy_level', 'SELF_ONLY'); // Start with private for safety
+      formData.append('title', data.caption);
+      formData.append('privacy_level', data.privacyLevel);
       
       // Upload to TikTok
       const uploadResponse = await fetch('/api/social-media/tiktok/upload', {
@@ -155,10 +157,15 @@ export default function VideoPage() {
         throw new Error(result.error || 'Upload failed');
       }
       
-      // Show success message (Sandbox uploads land in TikTok Inbox as a draft, not always in Drafts immediately)
-      alert(
-        'Upload sent to TikTok! In Sandbox mode, the video appears in your TikTok Inbox as a draft (may take 1–5 minutes).'
-      );
+      // Close modal and show success message
+      setShowUploadModal(false);
+      
+      // Show appropriate success message based on privacy level
+      const message = data.privacyLevel === 'PUBLIC' 
+        ? 'Video uploaded to TikTok as PUBLIC! It should appear on your profile shortly.' 
+        : 'Video uploaded to TikTok as PRIVATE. You can change the privacy settings in TikTok.';
+      
+      alert(message);
       
     } catch (error) {
       console.error('TikTok upload error:', error);
@@ -170,6 +177,13 @@ export default function VideoPage() {
 
   return (
     <PageContainer>
+      <TikTokUploadModal
+        open={showUploadModal}
+        onOpenChange={setShowUploadModal}
+        onUpload={handleTikTokUpload}
+        isUploading={isUploading}
+      />
+      
       <div className="bg-gray-800 border-b border-gray-700 w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <h1 className="text-2xl font-bold text-white">Your Video</h1>
@@ -236,7 +250,7 @@ export default function VideoPage() {
                     Download Video
                   </Button>
                   <Button
-                    onClick={handleTikTokUpload}
+                    onClick={() => setShowUploadModal(true)}
                     className="px-6"
                     disabled={!!videoError || isUploading}
                   >

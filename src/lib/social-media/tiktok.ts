@@ -300,10 +300,21 @@ export class TikTokAPI {
       console.log('Initializing video upload...');
       
       // 1. Initialize upload
-      // TikTok Content Posting API (Sandbox): upload into the user's Inbox as a draft.
-      // Docs: POST /v2/post/publish/inbox/video/init/
+      // TikTok Content Posting API:
+      // - Production endpoint: POST /v2/post/publish/video/init/ (for PUBLIC videos)
+      // - Sandbox/Inbox endpoint: POST /v2/post/publish/inbox/video/init/ (for drafts/private)
+      // Note: Using the production endpoint for PUBLIC uploads, sandbox for SELF_ONLY
       const videoSize = videoData.video_file.length;
-      const initResponse = await fetch('https://open.tiktokapis.com/v2/post/publish/inbox/video/init/', {
+      const privacyLevel = videoData.privacy_level || 'PUBLIC';
+      
+      // Use production endpoint for PUBLIC, sandbox/inbox for SELF_ONLY
+      const initEndpoint = privacyLevel === 'PUBLIC' 
+        ? 'https://open.tiktokapis.com/v2/post/publish/video/init/'
+        : 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/';
+      
+      console.log(`Using ${privacyLevel === 'PUBLIC' ? 'PRODUCTION' : 'SANDBOX/INBOX'} endpoint for ${privacyLevel} video`);
+      
+      const initResponse = await fetch(initEndpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -312,7 +323,13 @@ export class TikTokAPI {
         body: JSON.stringify({
           post_info: {
             title: videoData.title,
-            privacy_level: videoData.privacy_level || 'SELF_ONLY',
+            privacy_level: privacyLevel,
+            ...(privacyLevel === 'PUBLIC' && {
+              disable_duet: false,
+              disable_comment: false,
+              disable_stitch: false,
+              video_cover_timestamp_ms: 1000,
+            }),
           },
           source_info: {
             source: 'FILE_UPLOAD',
@@ -367,11 +384,13 @@ export class TikTokAPI {
         throw new Error(`Failed to upload video: ${uploadBody}`);
       }
 
-      // In Sandbox mode, uploads go to TikTok Inbox as a draft. TikTok may take time to process.
-      console.log('Video uploaded successfully (inbox draft flow)', {
+      // Log success based on privacy level
+      const uploadMode = privacyLevel === 'PUBLIC' ? 'public post' : 'inbox draft';
+      console.log(`Video uploaded successfully (${uploadMode})`, {
         publish_id,
         upload_id,
         video_id,
+        privacy_level: privacyLevel,
         uploadResponseStatus: uploadResponse.status,
       });
       return {
