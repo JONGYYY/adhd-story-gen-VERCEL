@@ -950,7 +950,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   //
   // We prefer open-licensed bundled fonts first (so it "just works"), then any optional licensed font files.
   const bannerFontCandidates = [
-    // Preferred (bundled, open-licensed)
+    // Preferred: Lilita One (Round Bold) - User selected
+    path.join(__dirname, 'public', 'fonts', 'cartoon', 'lilitaone-LilitaOne-Regular.ttf'),
+    // Fallbacks (bundled, open-licensed)
     path.join(__dirname, 'public', 'fonts', 'sans-open', 'poppins-Poppins-Regular.ttf'),
     path.join(__dirname, 'public', 'fonts', 'GillSans.ttf'),
     path.join(__dirname, 'public', 'fonts', 'GillSans.otf'),
