@@ -100,6 +100,58 @@ async function createRoundedWhiteBox(width, height, radius, outputPath) {
   }
 }
 
+/**
+ * Create a white rounded rectangle background with optional shadow using ImageMagick
+ * @param {number} width - Width in pixels
+ * @param {number} height - Height in pixels
+ * @param {number} radius - Corner radius in pixels
+ * @param {string} outputPath - Path where PNG should be saved
+ * @param {boolean} withShadow - Whether to add a shadow
+ * @returns {Promise<boolean>} - True if successful, false otherwise
+ */
+async function createRoundedBackground(width, height, radius, outputPath, withShadow = true) {
+  try {
+    const { execFileSync } = require('child_process');
+    
+    if (withShadow) {
+      // Create rounded rectangle with drop shadow
+      // Shadow parameters: offset (10,10), blur (15), opacity (50%)
+      execFileSync('convert', [
+        '-size', `${width + 40}x${height + 40}`, // Extra space for shadow
+        'xc:none',
+        '-fill', 'white',
+        '-draw', `roundrectangle 20,20 ${width + 19},${height + 19} ${radius},${radius}`,
+        '(',
+        '+clone',
+        '-background', 'black',
+        '-shadow', '50x15+10+10', // opacity x blur + x-offset + y-offset
+        ')',
+        '+swap',
+        '-background', 'none',
+        '-layers', 'merge',
+        '+repage',
+        outputPath
+      ], { stdio: 'pipe' });
+      console.log(`[imagemagick] Created rounded background with shadow: ${width}x${height} @ ${outputPath}`);
+    } else {
+      // Create rounded rectangle without shadow
+      execFileSync('convert', [
+        '-size', `${width}x${height}`,
+        'xc:none',
+        '-fill', 'white',
+        '-draw', `roundrectangle 0,0 ${width-1},${height-1} ${radius},${radius}`,
+        outputPath
+      ], { stdio: 'pipe' });
+      console.log(`[imagemagick] Created rounded background: ${width}x${height} @ ${outputPath}`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('[imagemagick] Failed to create rounded background:', error.message);
+    return false;
+  }
+}
+
 async function generateFontsPreviewMp4({ outPath, match, limit = 180, perFontSeconds = 0.35, fps = 30 } = {}, jobId) {
   const { spawn } = require('child_process');
   const tmpDir = path.join(__dirname, 'tmp');
@@ -1146,24 +1198,44 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const whiteBoxIdx = wantWhiteBox ? idx++ : -1;
   const openingIdx = openingBuf ? idx++ : -1;
   const storyIdx = storyBuf ? idx++ : -1;
+  // Calculate total banner height for the background rounded rectangle
+  // Top banner scaled height: 280 * (900/1680) = ~150px
+  // Bottom banner scaled height: 162 * (900/1676) = ~87px
+  // White box: wrapped.boxHeight (dynamic)
+  const topBannerScaledHeight = hasTopBanner ? Math.round(280 * (900 / 1680)) : 0;
+  const bottomBannerScaledHeight = hasBottomBanner ? Math.round(162 * (900 / 1676)) : 0;
+  const totalBannerHeight = topBannerScaledHeight + (wantWhiteBox ? wrapped.boxHeight : 0) + bottomBannerScaledHeight;
+  const backgroundHeight = totalBannerHeight + 60; // +30px top, +30px bottom
+  
+  console.log('[banner] Dimensions:', {
+    topScaled: topBannerScaledHeight,
+    whiteBox: wrapped.boxHeight,
+    bottomScaled: bottomBannerScaledHeight,
+    totalBanner: totalBannerHeight,
+    background: backgroundHeight
+  });
+  
+  // Create rounded background rectangle (35px corners, with shadow)
+  let hasRoundedBackground = false;
+  const backgroundIdx = idx;
+  if (wantWhiteBox) {
+    const roundedBgPath = path.join(tmpDir, `rounded_bg_${videoId}.png`);
+    const bgCreated = await createRoundedBackground(900, backgroundHeight, 35, roundedBgPath, true);
+    if (bgCreated && fs.existsSync(roundedBgPath)) {
+      args.push('-loop', '1', '-t', openingDur.toFixed(2), '-i', roundedBgPath);
+      hasRoundedBackground = true;
+      idx++;
+      console.log('[banner] Using rounded background (35px corners with shadow)');
+    }
+  }
+  
   if (hasTopBanner) args.push('-i', bannerTopPath);
   if (hasBottomBanner) args.push('-i', bannerBottomPath);
   if (hasBadge) args.push('-i', badgePath);
   if (wantWhiteBox) {
-    // Try to create a rounded white box PNG using ImageMagick
-    const roundedBoxPath = path.join(tmpDir, `white_box_${videoId}.png`);
-    const cornerRadius = 20; // 20px rounded corners
-    const created = await createRoundedWhiteBox(900, wrapped.boxHeight, cornerRadius, roundedBoxPath);
-    
-    if (created && fs.existsSync(roundedBoxPath)) {
-      // Use the rounded PNG with loop to match duration
-      args.push('-loop', '1', '-t', openingDur.toFixed(2), '-i', roundedBoxPath);
-      console.log('[banner] Using rounded white box (20px corners)');
-    } else {
-      // Fallback to non-rounded white box (FFmpeg color filter)
-      args.push('-f', 'lavfi', '-i', `color=c=white:s=900x${wrapped.boxHeight}:d=${openingDur.toFixed(2)}`);
-      console.log('[banner] Using non-rounded white box (ImageMagick unavailable)');
-    }
+    // Use sharp-cornered white box (no rounded corners)
+    args.push('-f', 'lavfi', '-i', `color=c=white:s=900x${wrapped.boxHeight}:d=${openingDur.toFixed(2)}`);
+    console.log('[banner] Using sharp-cornered white box');
   }
   if (openingBuf) args.push('-i', openingAudio);
   if (storyBuf) args.push('-i', storyAudio);
@@ -1208,34 +1280,42 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
       filter += `;[wb${i}]${drawLineA}[wb${i}a];[wb${i}a]${drawLineB}[wb${i + 1}]`;
     }
   }
+  // Stack top + white + bottom banners first
+  let bannerStackName = '';
   if (hasTopBanner && wantWhiteBox && hasBottomBanner) {
     const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
-    filter += `;[top][${wbOut}]vstack=inputs=2[tw];[tw][bot]vstack=inputs=2[banner]`;
-    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
-    current = 'v_banner';
+    filter += `;[top][${wbOut}]vstack=inputs=2[tw];[tw][bot]vstack=inputs=2[banner_stack]`;
+    bannerStackName = 'banner_stack';
   } else if (hasTopBanner && wantWhiteBox) {
     const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
-    filter += `;[top][${wbOut}]vstack=inputs=2[banner]`;
-    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
-    current = 'v_banner';
+    filter += `;[top][${wbOut}]vstack=inputs=2[banner_stack]`;
+    bannerStackName = 'banner_stack';
   } else if (wantWhiteBox && hasBottomBanner) {
     const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
-    filter += `;[${wbOut}][bot]vstack=inputs=2[banner]`;
-    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
-    current = 'v_banner';
+    filter += `;[${wbOut}][bot]vstack=inputs=2[banner_stack]`;
+    bannerStackName = 'banner_stack';
   } else if (hasTopBanner && hasBottomBanner) {
-    filter += `;[top][bot]vstack=inputs=2[banner]`;
-    filter += `;[${current}][banner]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
-    current = 'v_banner';
+    filter += `;[top][bot]vstack=inputs=2[banner_stack]`;
+    bannerStackName = 'banner_stack';
   } else if (hasTopBanner) {
-    filter += `;[${current}][top]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
-    current = 'v_banner';
+    bannerStackName = 'top';
   } else if (hasBottomBanner) {
-    filter += `;[${current}][bot]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
-    current = 'v_banner';
+    bannerStackName = 'bot';
   } else if (wantWhiteBox) {
     const wbOut = `wb${((wrapped.lines && wrapped.lines.length) ? wrapped.lines.slice(0, 6).length : 1)}`;
-    filter += `;[${current}][${wbOut}]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
+    bannerStackName = wbOut;
+  }
+  
+  // If we have rounded background, overlay it first, then overlay banners on top centered within it
+  if (hasRoundedBackground && bannerStackName) {
+    // Overlay background centered on video
+    filter += `;[${current}][${backgroundIdx}:v]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_bg]`;
+    // Overlay banner stack centered on video (banners will be centered within background because background extends 30px on all sides)
+    filter += `;[v_bg][${bannerStackName}]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
+    current = 'v_banner';
+  } else if (bannerStackName) {
+    // No background, just overlay banner stack
+    filter += `;[${current}][${bannerStackName}]overlay=(main_w-w)/2:(main_h-h)/2:enable=${betweenEnable(0, openingDur)}[v_banner]`;
     current = 'v_banner';
   }
 
