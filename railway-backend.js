@@ -70,6 +70,36 @@ function escapeDrawtext(s) {
     .replace(/\r?\n/g, ' ');
 }
 
+/**
+ * Create a white box PNG with rounded corners using ImageMagick
+ * @param {number} width - Width in pixels
+ * @param {number} height - Height in pixels
+ * @param {number} radius - Corner radius in pixels
+ * @param {string} outputPath - Path where PNG should be saved
+ * @returns {Promise<boolean>} - True if successful, false otherwise
+ */
+async function createRoundedWhiteBox(width, height, radius, outputPath) {
+  try {
+    const { execFileSync } = require('child_process');
+    
+    // Using ImageMagick's convert command to create a rounded rectangle
+    // This approach creates a white rounded rectangle with transparency
+    execFileSync('convert', [
+      '-size', `${width}x${height}`,
+      'xc:none',
+      '-fill', 'white',
+      '-draw', `roundrectangle 0,0 ${width-1},${height-1} ${radius},${radius}`,
+      outputPath
+    ], { stdio: 'pipe' });
+    
+    console.log(`[imagemagick] Created rounded box: ${width}x${height} @ ${outputPath}`);
+    return true;
+  } catch (error) {
+    console.error('[imagemagick] Failed to create rounded box:', error.message);
+    return false;
+  }
+}
+
 async function generateFontsPreviewMp4({ outPath, match, limit = 180, perFontSeconds = 0.35, fps = 30 } = {}, jobId) {
   const { spawn } = require('child_process');
   const tmpDir = path.join(__dirname, 'tmp');
@@ -1120,8 +1150,20 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (hasBottomBanner) args.push('-i', bannerBottomPath);
   if (hasBadge) args.push('-i', badgePath);
   if (wantWhiteBox) {
-    // 900xH white box, duration equals opening duration (min height, grows with wrapped title)
-    args.push('-f', 'lavfi', '-i', `color=c=white:s=900x${wrapped.boxHeight}:d=${openingDur.toFixed(2)}`);
+    // Try to create a rounded white box PNG using ImageMagick
+    const roundedBoxPath = path.join(tmpDir, `white_box_${videoId}.png`);
+    const cornerRadius = 20; // 20px rounded corners
+    const created = await createRoundedWhiteBox(900, wrapped.boxHeight, cornerRadius, roundedBoxPath);
+    
+    if (created && fs.existsSync(roundedBoxPath)) {
+      // Use the rounded PNG with loop to match duration
+      args.push('-loop', '1', '-t', openingDur.toFixed(2), '-i', roundedBoxPath);
+      console.log('[banner] Using rounded white box (20px corners)');
+    } else {
+      // Fallback to non-rounded white box (FFmpeg color filter)
+      args.push('-f', 'lavfi', '-i', `color=c=white:s=900x${wrapped.boxHeight}:d=${openingDur.toFixed(2)}`);
+      console.log('[banner] Using non-rounded white box (ImageMagick unavailable)');
+    }
   }
   if (openingBuf) args.push('-i', openingAudio);
   if (storyBuf) args.push('-i', storyAudio);
