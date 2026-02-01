@@ -26,6 +26,7 @@
     "fonts:download:sans-open": "tsx scripts/download-sans-open-fonts.ts",
     "fonts:preview:sans-open": "tsx scripts/preview-sans-open-fonts.ts",
     "fonts:preview:usable": "tsx scripts/preview-usable-sans-fonts.ts",
+    "fonts:preview:round-thick": "tsx scripts/preview-round-thick-fonts.ts",
     "captions:preview:pop": "tsx scripts/preview-caption-anim.ts --anim pop",
     "captions:preview:bounce": "tsx scripts/preview-caption-anim.ts --anim bounce"
   },
