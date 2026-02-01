@@ -17,6 +17,48 @@ const videoStatus = new Map();
 // In-memory font preview job status
 const fontPreviewStatus = new Map();
 
+/**
+ * Spawn a process with a timeout to prevent hanging
+ * @param {string} command - Command to execute
+ * @param {string[]} args - Arguments
+ * @param {object} options - Spawn options (stdio, etc)
+ * @param {number} timeoutMs - Timeout in milliseconds (default: 5 minutes for ffmpeg operations)
+ * @returns {Promise<{code: number, stdout: string, stderr: string}>}
+ */
+function spawnWithTimeout(command, args, options = {}, timeoutMs = 5 * 60 * 1000) {
+  const { spawn } = require('child_process');
+  return new Promise((resolve, reject) => {
+    const proc = spawn(command, args, options);
+    let stdout = '';
+    let stderr = '';
+    let timedOut = false;
+    
+    const timer = setTimeout(() => {
+      timedOut = true;
+      console.error(`[spawn-timeout] ${command} timed out after ${timeoutMs}ms, killing process`);
+      proc.kill('SIGKILL');
+      reject(new Error(`${command} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    
+    if (proc.stdout) proc.stdout.on('data', (d) => { stdout += d.toString(); });
+    if (proc.stderr) proc.stderr.on('data', (d) => { stderr += d.toString(); });
+    
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      if (!timedOut) {
+        resolve({ code: code || 0, stdout, stderr });
+      }
+    });
+    
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      if (!timedOut) {
+        reject(err);
+      }
+    });
+  });
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -38,7 +80,11 @@ async function ensureFontPreviewsDir() {
 function listInstalledFontFaces({ match, limit } = {}) {
   const { execFileSync } = require('child_process');
   const re = match ? new RegExp(String(match), 'i') : null;
-  const raw = execFileSync('fc-list', ['-f', '%{file}|%{family}|%{style}\n'], { encoding: 'utf-8' });
+  const raw = execFileSync('fc-list', ['-f', '%{file}|%{family}|%{style}\n'], { 
+    encoding: 'utf-8',
+    timeout: 10000, // 10 second timeout
+    killSignal: 'SIGKILL'
+  });
   const out = [];
   const seen = new Set();
   for (const line of raw.split('\n')) {
@@ -90,12 +136,19 @@ async function createRoundedWhiteBox(width, height, radius, outputPath) {
       '-fill', 'white',
       '-draw', `roundrectangle 0,0 ${width-1},${height-1} ${radius},${radius}`,
       outputPath
-    ], { stdio: 'pipe' });
+    ], { 
+      stdio: 'pipe',
+      timeout: 5000, // 5 second timeout to prevent hanging
+      killSignal: 'SIGKILL'
+    });
     
     console.log(`[imagemagick] Created rounded box: ${width}x${height} @ ${outputPath}`);
     return true;
   } catch (error) {
     console.error('[imagemagick] Failed to create rounded box:', error.message);
+    if (error.killed) {
+      console.error('[imagemagick] Operation timed out after 5 seconds');
+    }
     return false;
   }
 }
@@ -109,45 +162,40 @@ async function createRoundedWhiteBox(width, height, radius, outputPath) {
  * @param {boolean} withShadow - Whether to add a shadow
  * @returns {Promise<boolean>} - True if successful, false otherwise
  */
-async function createRoundedBackground(width, height, radius, outputPath, withShadow = true) {
+async function createRoundedBackground(width, height, radius, outputPath, withShadow = false) {
   try {
     const { execFileSync } = require('child_process');
     
-    if (withShadow) {
-      // Create rounded rectangle with drop shadow
-      // Shadow parameters: offset (10,10), blur (15), opacity (50%)
-      execFileSync('convert', [
-        '-size', `${width + 40}x${height + 40}`, // Extra space for shadow
-        'xc:none',
-        '-fill', 'white',
-        '-draw', `roundrectangle 20,20 ${width + 19},${height + 19} ${radius},${radius}`,
-        '(',
-        '+clone',
-        '-background', 'black',
-        '-shadow', '50x15+10+10', // opacity x blur + x-offset + y-offset
-        ')',
-        '+swap',
-        '-background', 'none',
-        '-layers', 'merge',
-        '+repage',
-        outputPath
-      ], { stdio: 'pipe' });
-      console.log(`[imagemagick] Created rounded background with shadow: ${width}x${height} @ ${outputPath}`);
-    } else {
-      // Create rounded rectangle without shadow
-      execFileSync('convert', [
-        '-size', `${width}x${height}`,
-        'xc:none',
-        '-fill', 'white',
-        '-draw', `roundrectangle 0,0 ${width-1},${height-1} ${radius},${radius}`,
-        outputPath
-      ], { stdio: 'pipe' });
-      console.log(`[imagemagick] Created rounded background: ${width}x${height} @ ${outputPath}`);
+    // Disable shadow for now - it's causing timeouts due to complex layer processing
+    // The shadow operation with layers/merge is too slow for production
+    const useShadow = false; // Force disable regardless of withShadow parameter
+    
+    if (useShadow && withShadow) {
+      // DISABLED: Shadow generation is too slow and causes timeouts
+      // Keeping code for reference but not executing
+      console.log('[imagemagick] Shadow disabled to prevent timeouts');
     }
+    
+    // Always create simple rounded rectangle without shadow (fast and reliable)
+    execFileSync('convert', [
+      '-size', `${width}x${height}`,
+      'xc:none',
+      '-fill', 'white',
+      '-draw', `roundrectangle 0,0 ${width-1},${height-1} ${radius},${radius}`,
+      outputPath
+    ], { 
+      stdio: 'pipe',
+      timeout: 5000, // 5 second timeout to prevent hanging
+      killSignal: 'SIGKILL'
+    });
+    console.log(`[imagemagick] Created rounded background: ${width}x${height} @ ${outputPath}`);
     
     return true;
   } catch (error) {
     console.error('[imagemagick] Failed to create rounded background:', error.message);
+    if (error.killed) {
+      console.error('[imagemagick] Operation timed out after 5 seconds');
+    }
     return false;
   }
 }
@@ -1215,17 +1263,17 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     background: backgroundHeight
   });
   
-  // Create rounded background rectangle (35px corners, with shadow)
+  // Create rounded background rectangle (35px corners, no shadow to prevent timeouts)
   let hasRoundedBackground = false;
   const backgroundIdx = idx;
   if (wantWhiteBox) {
     const roundedBgPath = path.join(tmpDir, `rounded_bg_${videoId}.png`);
-    const bgCreated = await createRoundedBackground(900, backgroundHeight, 35, roundedBgPath, true);
+    const bgCreated = await createRoundedBackground(900, backgroundHeight, 35, roundedBgPath, false);
     if (bgCreated && fs.existsSync(roundedBgPath)) {
       args.push('-loop', '1', '-t', openingDur.toFixed(2), '-i', roundedBgPath);
       hasRoundedBackground = true;
       idx++;
-      console.log('[banner] Using rounded background (35px corners with shadow)');
+      console.log('[banner] Using rounded background (35px corners, no shadow)');
     }
   }
   
@@ -1365,12 +1413,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   console.log('FFMPEG ARGS =>', JSON.stringify(args));
 
   try {
-    await new Promise((resolve, reject) => {
-      const ff = spawn('ffmpeg', args);
-      let stderr = '';
-      ff.stderr.on('data', (d) => { stderr += d.toString(); });
-      ff.on('close', (code) => code === 0 ? resolve() : reject(new Error(`ffmpeg failed ${code}: ${stderr}`)));
-    });
+    // Use spawnWithTimeout to prevent hanging (5 minute max for main composition)
+    const result = await spawnWithTimeout('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] }, 5 * 60 * 1000);
+    if (result.code !== 0) {
+      throw new Error(`ffmpeg failed ${result.code}: ${result.stderr}`);
+    }
   } catch (err) {
     const allowFallback = (process.env.ALLOW_PLAIN_FALLBACK || '0') === '1';
     if (!allowFallback) {
@@ -1400,12 +1447,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     console.log('FFMPEG FALLBACK FILTER =>', fallbackFilter);
     console.log('FFMPEG FALLBACK ARGS =>', JSON.stringify(fallbackArgs));
 
-    await new Promise((resolve, reject) => {
-      const ff = spawn('ffmpeg', fallbackArgs);
-      let stderr = '';
-      ff.stderr.on('data', (d) => { stderr += d.toString(); });
-      ff.on('close', (code) => code === 0 ? resolve() : reject(new Error(`fallback ffmpeg failed ${code}: ${stderr}`)));
-    });
+    // Use spawnWithTimeout for fallback too
+    const fallbackResult = await spawnWithTimeout('ffmpeg', fallbackArgs, { stdio: ['ignore', 'pipe', 'pipe'] }, 5 * 60 * 1000);
+    if (fallbackResult.code !== 0) {
+      throw new Error(`fallback ffmpeg failed ${fallbackResult.code}: ${fallbackResult.stderr}`);
+    }
   }
 
   return `/videos/${videoId}.mp4`;
@@ -1458,7 +1504,11 @@ function resolveChromiumExecutable() {
   const candidates = ['chromium', 'google-chrome-stable', 'google-chrome', 'chromium-browser'];
   for (const bin of candidates) {
     try {
-      const resolved = execFileSync('which', [bin], {stdio: ['ignore', 'pipe', 'ignore']}).toString().trim();
+      const resolved = execFileSync('which', [bin], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 3000, // 3 second timeout
+        killSignal: 'SIGKILL'
+      }).toString().trim();
       if (resolved && fs.existsSync(resolved)) {
         console.log('[chromium] Found via which:', resolved);
         return resolved;
