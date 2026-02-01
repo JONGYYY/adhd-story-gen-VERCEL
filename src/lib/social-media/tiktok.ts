@@ -358,10 +358,26 @@ export class TikTokAPI {
         clearTimeout(initTimeout);
         const initElapsedTime = Date.now() - initStartTime;
         console.log(`Init request completed in ${initElapsedTime}ms`);
-
-        const initData = await initResponse.json();
         console.log('Init response status:', initResponse.status);
-        console.log('Init response data:', JSON.stringify(initData).substring(0, 500));
+        console.log('Init response headers:', JSON.stringify(Object.fromEntries(initResponse.headers.entries())).substring(0, 300));
+
+        // Parse response JSON with timeout using Promise.race
+        // Sometimes TikTok responses are large or the .json() parsing hangs
+        let initData;
+        try {
+          initData = await Promise.race([
+            initResponse.json(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Init response JSON parsing timed out after 15 seconds')), 15000)
+            )
+          ]);
+          console.log('Init response data:', JSON.stringify(initData).substring(0, 500));
+        } catch (jsonError) {
+          console.error('Failed to parse init response as JSON:', jsonError);
+          const text = await initResponse.text().catch(() => 'Unable to read response text');
+          console.error('Raw response text (first 500 chars):', text.substring(0, 500));
+          throw new Error(`Failed to parse TikTok init response: ${jsonError instanceof Error ? jsonError.message : 'JSON parse error'}`);
+        }
         
         if (!initResponse.ok) {
           console.error('Init error response:', initData);
@@ -415,16 +431,27 @@ export class TikTokAPI {
           clearTimeout(uploadTimeout);
           const uploadElapsedTime = Date.now() - uploadStartTime;
           console.log(`Video upload completed in ${(uploadElapsedTime / 1000).toFixed(2)} seconds`);
-          
           console.log('Upload response status:', uploadResponse.status);
-          const uploadBody = await uploadResponse.text().catch(() => '');
+          
+          // Parse response body with timeout using Promise.race
+          let uploadBody = '';
+          try {
+            uploadBody = await Promise.race([
+              uploadResponse.text(),
+              new Promise<string>((_, reject) => 
+                setTimeout(() => reject(new Error('Upload response body parsing timed out after 15 seconds')), 15000)
+              )
+            ]);
+            console.log('Upload response body:', uploadBody.substring(0, 500));
+          } catch (bodyError) {
+            console.error('Failed to read upload response body:', bodyError);
+            uploadBody = '';
+          }
           
           if (!uploadResponse.ok) {
             console.error('Upload error response:', uploadBody);
-            throw new Error(`Failed to upload video: ${uploadBody}`);
+            throw new Error(`Failed to upload video: ${uploadBody || `HTTP ${uploadResponse.status}`}`);
           }
-          
-          console.log('Upload response body:', uploadBody.substring(0, 500));
 
           // Log success based on privacy level
           const uploadMode = privacyLevel === 'PUBLIC' ? 'public post' : 'inbox draft';
