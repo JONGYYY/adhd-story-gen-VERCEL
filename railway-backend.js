@@ -1030,7 +1030,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   let storyAudio = path.join(tmpDir, `story-${videoId}.mp3`);
   if (openingBuf) await fsp.writeFile(openingAudio, openingBuf);
   if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
-  
+
   // For cliffhanger videos: trim story audio to 1 minute 5-10 seconds (65-70s)
   // This is duration-based cutting, replacing the old [BREAK] tag approach
   if (isCliffhanger && storyBuf) {
@@ -1293,7 +1293,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     totalBanner: totalBannerHeight,
     background: backgroundHeight
   });
-  
+
   // Prepare inputs and determine indexes
   // IMPORTANT: Add inputs in the SAME ORDER as index calculation!
   const args = ['-y', '-i', bgPath];
@@ -1367,8 +1367,10 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
       const y = 20 + (i * (wrapped.lineHeight || 62));
       const lineText = esc(lines[i] || '');
       // Title: bold + 5x font size (28 -> 140). Faux-bold by drawing twice with 1px offset.
-      const drawLineA = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=${TITLE_FONT_SIZE_OK}:fontcolor=black:x=44:y=${y}:shadowx=0:shadowy=0:box=0`;
-      const drawLineB = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=${TITLE_FONT_SIZE_OK}:fontcolor=black:x=45:y=${y}:shadowx=0:shadowy=0:box=0`;
+      // FIXED: Removed 'box=0' which was causing FFmpeg parse errors when followed by output label
+      // (FFmpeg was trying to parse '0[output]' as the box value). Box defaults to 0 anyway.
+      const drawLineA = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=${TITLE_FONT_SIZE_OK}:fontcolor=black:x=44:y=${y}`;
+      const drawLineB = `drawtext=${fontOptPrefix}text='${lineText}':fontsize=${TITLE_FONT_SIZE_OK}:fontcolor=black:x=45:y=${y}`;
       filter += `;[wb${i}]${drawLineA}[wb${i}a];[wb${i}a]${drawLineB}[wb${i + 1}]`;
     }
   }
