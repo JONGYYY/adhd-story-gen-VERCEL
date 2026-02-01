@@ -313,97 +313,153 @@ export class TikTokAPI {
         : 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/';
       
       console.log(`Using ${privacyLevel === 'PUBLIC' ? 'PRODUCTION' : 'SANDBOX/INBOX'} endpoint for ${privacyLevel} video`);
+      console.log(`Video size: ${(videoSize / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`Access token length: ${accessToken.length}, starts with: ${accessToken.substring(0, 10)}...`);
+      console.log(`Init endpoint: ${initEndpoint}`);
       
-      const initResponse = await fetch(initEndpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          post_info: {
-            title: videoData.title,
-            privacy_level: privacyLevel,
-            ...(privacyLevel === 'PUBLIC' && {
-              disable_duet: false,
-              disable_comment: false,
-              disable_stitch: false,
-              video_cover_timestamp_ms: 1000,
-            }),
+      // Create abort controller for timeout (30 seconds for init)
+      const initAbortController = new AbortController();
+      const initTimeout = setTimeout(() => {
+        console.error('TikTok init request timed out after 30 seconds');
+        initAbortController.abort();
+      }, 30000);
+      
+      console.log('Sending init request to TikTok...');
+      const initStartTime = Date.now();
+      
+      try {
+        const initResponse = await fetch(initEndpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
-          source_info: {
-            source: 'FILE_UPLOAD',
-            video_size: videoSize,
-            chunk_size: videoSize,
-            total_chunk_count: 1,
+          body: JSON.stringify({
+            post_info: {
+              title: videoData.title,
+              privacy_level: privacyLevel,
+              ...(privacyLevel === 'PUBLIC' && {
+                disable_duet: false,
+                disable_comment: false,
+                disable_stitch: false,
+                video_cover_timestamp_ms: 1000,
+              }),
+            },
+            source_info: {
+              source: 'FILE_UPLOAD',
+              video_size: videoSize,
+              chunk_size: videoSize,
+              total_chunk_count: 1,
+            }
+          }),
+          signal: initAbortController.signal,
+        });
+        
+        clearTimeout(initTimeout);
+        const initElapsedTime = Date.now() - initStartTime;
+        console.log(`Init request completed in ${initElapsedTime}ms`);
+
+        const initData = await initResponse.json();
+        console.log('Init response status:', initResponse.status);
+        console.log('Init response data:', JSON.stringify(initData).substring(0, 500));
+        
+        if (!initResponse.ok) {
+          console.error('Init error response:', initData);
+          throw new Error(`Failed to initialize video upload: ${initData.error?.message || initData.message || 'Unknown error'}`);
+        }
+
+        // Most v2 APIs return payload under { data: ... }
+        const initPayload = (initData && typeof initData === 'object' && 'data' in initData) ? (initData as any).data : initData;
+        const upload_url = (initPayload as any)?.upload_url;
+        const upload_id = (initPayload as any)?.upload_id;
+        const video_id = (initPayload as any)?.video_id;
+        const publish_id = (initPayload as any)?.publish_id;
+
+        if (!upload_url) {
+          console.error('Init response missing upload_url:', initData);
+          throw new Error('TikTok init did not return an upload_url');
+        }
+
+        console.log('Upload URL received:', upload_url);
+
+        // 2. Upload video
+        console.log('Uploading video file...');
+        console.log(`Upload URL domain: ${new URL(upload_url).hostname}`);
+        
+        // Create abort controller for upload timeout (2 minutes for video upload)
+        // Large videos can take time, especially on slower connections
+        const uploadAbortController = new AbortController();
+        const uploadTimeoutMs = 120000; // 2 minutes
+        const uploadTimeout = setTimeout(() => {
+          console.error(`TikTok video upload timed out after ${uploadTimeoutMs / 1000} seconds`);
+          uploadAbortController.abort();
+        }, uploadTimeoutMs);
+        
+        console.log('Sending video bytes to TikTok upload URL...');
+        const uploadStartTime = Date.now();
+        
+        try {
+          const uploadResponse = await fetch(upload_url, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'video/mp4',
+              'Content-Length': String(videoSize),
+              'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
+            },
+            // Node's fetch BodyInit typing doesn't accept Buffer in some TS DOM lib setups.
+            // Convert to Uint8Array/ArrayBuffer to satisfy typings while preserving bytes.
+            body: new Uint8Array(videoData.video_file),
+            signal: uploadAbortController.signal,
+          });
+
+          clearTimeout(uploadTimeout);
+          const uploadElapsedTime = Date.now() - uploadStartTime;
+          console.log(`Video upload completed in ${(uploadElapsedTime / 1000).toFixed(2)} seconds`);
+          
+          console.log('Upload response status:', uploadResponse.status);
+          const uploadBody = await uploadResponse.text().catch(() => '');
+          
+          if (!uploadResponse.ok) {
+            console.error('Upload error response:', uploadBody);
+            throw new Error(`Failed to upload video: ${uploadBody}`);
           }
-        }),
-      });
+          
+          console.log('Upload response body:', uploadBody.substring(0, 500));
 
-      const initData = await initResponse.json();
-      console.log('Init response status:', initResponse.status);
-      
-      if (!initResponse.ok) {
-        console.error('Init error response:', initData);
-        throw new Error(`Failed to initialize video upload: ${initData.error?.message || initData.message || 'Unknown error'}`);
+          // Log success based on privacy level
+          const uploadMode = privacyLevel === 'PUBLIC' ? 'public post' : 'inbox draft';
+          console.log(`Video uploaded successfully (${uploadMode})`, {
+            publish_id,
+            upload_id,
+            video_id,
+            privacy_level: privacyLevel,
+            uploadResponseStatus: uploadResponse.status,
+          });
+          return {
+            init: initData,
+            publish_id,
+            upload_id,
+            video_id,
+            upload_response: {
+              status: uploadResponse.status,
+              body: uploadBody?.slice(0, 2000) || '',
+            },
+            status: 'uploaded_to_tiktok'
+          };
+        } catch (uploadError) {
+          clearTimeout(uploadTimeout);
+          if (uploadError instanceof Error && uploadError.name === 'AbortError') {
+            throw new Error(`TikTok video upload timed out after ${uploadTimeoutMs / 1000} seconds. The video may be too large or the connection is slow.`);
+          }
+          throw uploadError;
+        }
+      } catch (initError) {
+        clearTimeout(initTimeout);
+        if (initError instanceof Error && initError.name === 'AbortError') {
+          throw new Error('TikTok initialization request timed out after 30 seconds. Please try again.');
+        }
+        throw initError;
       }
-
-      // Most v2 APIs return payload under { data: ... }
-      const initPayload = (initData && typeof initData === 'object' && 'data' in initData) ? (initData as any).data : initData;
-      const upload_url = (initPayload as any)?.upload_url;
-      const upload_id = (initPayload as any)?.upload_id;
-      const video_id = (initPayload as any)?.video_id;
-      const publish_id = (initPayload as any)?.publish_id;
-
-      if (!upload_url) {
-        console.error('Init response missing upload_url:', initData);
-        throw new Error('TikTok init did not return an upload_url');
-      }
-
-      console.log('Upload URL received:', upload_url);
-
-      // 2. Upload video
-      console.log('Uploading video file...');
-      const uploadResponse = await fetch(upload_url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'video/mp4',
-          'Content-Length': String(videoSize),
-          'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
-        },
-        // Node's fetch BodyInit typing doesn't accept Buffer in some TS DOM lib setups.
-        // Convert to Uint8Array/ArrayBuffer to satisfy typings while preserving bytes.
-        body: new Uint8Array(videoData.video_file),
-      });
-
-      console.log('Upload response status:', uploadResponse.status);
-      const uploadBody = await uploadResponse.text().catch(() => '');
-      
-      if (!uploadResponse.ok) {
-        console.error('Upload error response:', uploadBody);
-        throw new Error(`Failed to upload video: ${uploadBody}`);
-      }
-
-      // Log success based on privacy level
-      const uploadMode = privacyLevel === 'PUBLIC' ? 'public post' : 'inbox draft';
-      console.log(`Video uploaded successfully (${uploadMode})`, {
-        publish_id,
-        upload_id,
-        video_id,
-        privacy_level: privacyLevel,
-        uploadResponseStatus: uploadResponse.status,
-      });
-      return {
-        init: initData,
-        publish_id,
-        upload_id,
-        video_id,
-        upload_response: {
-          status: uploadResponse.status,
-          body: uploadBody?.slice(0, 2000) || '',
-        },
-        status: 'uploaded_to_tiktok'
-      };
     } catch (error) {
       console.error('TikTok video upload error:', error);
       throw error;

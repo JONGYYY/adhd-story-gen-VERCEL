@@ -4,6 +4,9 @@ import { getSocialMediaCredentialsServer } from '@/lib/social-media/schema';
 import { TikTokAPI } from '@/lib/social-media/tiktok';
 
 export const dynamic = 'force-dynamic';
+// Increase timeout for video uploads (Railway allows up to 300 seconds)
+// TikTok video uploads can take time, especially for larger files
+export const maxDuration = 180; // 3 minutes
 
 export async function POST(request: NextRequest) {
   try {
