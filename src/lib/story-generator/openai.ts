@@ -136,9 +136,10 @@ Double-check your output includes all required fields before responding.`;
       author: 'Anonymous', // Default author
     };
 
-    // Extract title and story directly using regex
+    // Extract title, story, and optionally startingQuestion using regex
     const titleMatch = response.match(/Title:\s*(.+?)(?:\n|$)/);
     const storyMatch = response.match(/Story:\s*(.+?)(?:\n|$)/);
+    const startingQuestionMatch = response.match(/StartingQuestion:\s*(.+?)(?:\n|$)/);
 
     if (!titleMatch || !storyMatch) {
       console.error('Failed to parse story format:', response);
@@ -147,6 +148,11 @@ Double-check your output includes all required fields before responding.`;
 
     story.title = titleMatch[1].trim();
     story.story = storyMatch[1].trim();
+    
+    // Extract starting question if present
+    if (startingQuestionMatch) {
+      story.startingQuestion = startingQuestionMatch[1].trim();
+    }
 
     console.log('Parsed story before validation:', JSON.stringify(story, null, 2));
 
