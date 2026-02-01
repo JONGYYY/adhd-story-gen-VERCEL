@@ -1416,14 +1416,34 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // This avoids huge filtergraphs (one drawtext per word) that can fail on longer videos.
   const assPath = path.join(tmpDir, `captions-${videoId}.ass`);
   await writeAssWordCaptions({ outPath: assPath, wordTimestamps, offsetSec: openingDur });
+  console.log('[captions] ASS file created at:', assPath);
+  console.log('[captions] ASS file exists:', fs.existsSync(assPath));
+  
   // Apply subtitles filter (libass)
-  // Escape commas/colons for filtergraph option parsing.
-  const assEsc = assPath.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
+  // Escape for filtergraph: backslashes, colons, commas, and single quotes
+  // FFmpeg filter_complex requires specific escaping for file paths
+  const assEsc = assPath
+    .replace(/\\/g, '\\\\\\\\')  // Backslash needs 4x escaping in filter graphs
+    .replace(/:/g, '\\:')        // Escape colons
+    .replace(/,/g, '\\,')        // Escape commas
+    .replace(/'/g, "'\\\\''");   // Escape single quotes
+  
   const fontsDir = path.join(__dirname, 'public', 'fonts');
   const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
-  const fontsDirEsc = fontsDir.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
-  filter += `;[${current}]ass=filename=${assEsc}:original_size=1080x1920${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
+  const fontsDirEsc = fontsDirExists ? fontsDir
+    .replace(/\\/g, '\\\\\\\\')
+    .replace(/:/g, '\\:')
+    .replace(/,/g, '\\,')
+    .replace(/'/g, "'\\\\''") : '';
+  
+  console.log('[captions] Escaped ASS path:', assEsc);
+  console.log('[captions] Fonts dir exists:', fontsDirExists, fontsDirExists ? `path: ${fontsDir}` : '');
+  
+  // Use subtitles filter instead of ass filter (more reliable)
+  // subtitles filter syntax: subtitles=filename:original_size=WxH
+  filter += `;[${current}]subtitles=filename='${assPath.replace(/'/g, "'\\\\''")}'${fontsDirExists ? `:fontsdir='${fontsDir.replace(/'/g, "'\\\\''")}'` : ''}[v_cap]`;
   current = 'v_cap';
+  console.log('[captions] Caption filter added to graph');
 
   // Audio graph within the same filter_complex
   let haveAudio = false;
