@@ -835,7 +835,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   return outPath;
 }
 
-async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias, subreddit, author }, videoId) {
+async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias, subreddit, author, isCliffhanger }, videoId) {
   const videosDir = await ensureVideosDir();
   const outPath = path.join(videosDir, `${videoId}.mp4`);
 
@@ -1019,15 +1019,53 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
 
   // Synthesize TTS for title and story segments
   const openingText = title || '';
-  const storyText = (story || '').split('[BREAK]')[0].trim() || story || '';
+  // FIXED: Use full story text, don't split at [BREAK] since that functionality was removed
+  // Remove any [BREAK] tags if present, but use the entire story
+  const storyText = (story || '').replace(/\[BREAK\]/g, ' ').trim();
   const openingBuf = await synthesizeVoiceEleven(openingText, voiceAlias).catch(() => null);
   const storyBuf = await synthesizeVoiceEleven(storyText, voiceAlias).catch(() => null);
 
   // Write audio to files
   const openingAudio = path.join(tmpDir, `open-${videoId}.mp3`);
-  const storyAudio = path.join(tmpDir, `story-${videoId}.mp3`);
+  let storyAudio = path.join(tmpDir, `story-${videoId}.mp3`);
   if (openingBuf) await fsp.writeFile(openingAudio, openingBuf);
   if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
+  
+  // For cliffhanger videos: trim story audio to 1 minute 5-10 seconds (65-70s)
+  // This is duration-based cutting, replacing the old [BREAK] tag approach
+  if (isCliffhanger && storyBuf) {
+    const fullStoryDuration = await getAudioDurationFromFile(storyAudio).catch(() => 0);
+    const targetDuration = 65 + (Math.random() * 5); // Random between 65-70 seconds
+    
+    if (fullStoryDuration > targetDuration) {
+      console.log(`[cliffhanger] Trimming story from ${fullStoryDuration.toFixed(2)}s to ${targetDuration.toFixed(2)}s`);
+      const trimmedAudio = path.join(tmpDir, `story-trimmed-${videoId}.mp3`);
+      
+      // Use FFmpeg to trim the audio
+      const { spawn } = require('child_process');
+      await new Promise((resolve, reject) => {
+        const ff = spawn('ffmpeg', [
+          '-y',
+          '-i', storyAudio,
+          '-t', targetDuration.toFixed(2), // Trim to target duration
+          '-c:a', 'copy', // Copy audio codec (fast, no re-encoding)
+          trimmedAudio
+        ]);
+        let stderr = '';
+        ff.stderr.on('data', (d) => { stderr += d.toString(); });
+        ff.on('close', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(`FFmpeg trim failed ${code}: ${stderr}`));
+        });
+        ff.on('error', reject);
+      });
+      
+      // Replace story audio path with trimmed version
+      storyAudio = trimmedAudio;
+    } else {
+      console.log(`[cliffhanger] Story duration ${fullStoryDuration.toFixed(2)}s is already < ${targetDuration.toFixed(2)}s, no trim needed`);
+    }
+  }
 
   // Durations
   // CRITICAL FIX: Use RAW audio duration (not trimmed) for banner/caption timing
@@ -1053,9 +1091,12 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   });
 
   // Resolve background with knowledge of final duration
+  // Add 2 seconds of padding to ensure background is always longer than audio
+  // This prevents the video from cutting off early due to frame rounding or encoding issues
   const totalDurSec = Math.max(0.1, openingDur + (storyDur || 0));
-  const { bgPath, bgInfo } = await resolveBackgroundForVideo(totalDurSec);
-  try { console.log('[bg] selected', JSON.stringify(bgInfo)); } catch {}
+  const bgDurationWithPadding = totalDurSec + 2.0; // Add 2 seconds padding
+  const { bgPath, bgInfo } = await resolveBackgroundForVideo(bgDurationWithPadding);
+  try { console.log('[bg] selected', JSON.stringify(bgInfo), 'audioDuration:', totalDurSec.toFixed(2), 'bgDuration:', bgDurationWithPadding.toFixed(2)); } catch {}
 
   // Word timestamps for captions (audio-based to avoid drift)
   const wordTimestamps = await buildWordTimestampsFromAudio(storyAudio, storyText, storyDur);
@@ -1409,7 +1450,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   args.push(
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
     '-c:a', 'aac', '-b:a', '128k', '-ar', '44100',
-    '-r', '30', '-pix_fmt', 'yuv420p', '-shortest', outPath
+    '-r', '30', '-pix_fmt', 'yuv420p', 
+    // REMOVED '-shortest': Let audio duration determine video length (background is padded longer)
+    outPath
   );
 
   console.log('FFMPEG FILTER_COMPLEX =>', filter);
@@ -1445,7 +1488,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
       fallbackArgs.push('-map', '0:v');
     }
 
-    fallbackArgs.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-r', '30', '-pix_fmt', 'yuv420p', '-shortest', outPath);
+    fallbackArgs.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-r', '30', '-pix_fmt', 'yuv420p', 
+      // REMOVED '-shortest': Let audio determine video length
+      outPath);
 
     console.log('FFMPEG FALLBACK FILTER =>', fallbackFilter);
     console.log('FFMPEG FALLBACK ARGS =>', JSON.stringify(fallbackArgs));
@@ -1480,7 +1525,8 @@ async function generateVideoSimple(options, videoId) {
       backgroundCategory: options?.background?.category || 'random',
       voiceAlias: options?.voice?.id || 'adam',
       subreddit: options?.customStory?.subreddit || '',
-      author: options?.customStory?.author || 'Anonymous'
+      author: options?.customStory?.author || 'Anonymous',
+      isCliffhanger: options?.isCliffhanger || false
     }, videoId);
     videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl });
     console.log(`Video generation completed for ID: ${videoId}`);
@@ -1534,7 +1580,9 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
 
   // Audio via ElevenLabs (optional)
   const openingText = title || '';
-  const storyText = (story || '').split('[BREAK]')[0].trim() || story || '';
+  // FIXED: Use full story text, don't split at [BREAK] since that functionality was removed
+  // Remove any [BREAK] tags if present, but use the entire story
+  const storyText = (story || '').replace(/\[BREAK\]/g, ' ').trim();
   const openingBuf = await synthesizeVoiceEleven(openingText, voiceAlias).catch(() => null);
   const storyBuf = await synthesizeVoiceEleven(storyText, voiceAlias).catch(() => null);
   // Also prepare data URLs for Remotion to consume directly
