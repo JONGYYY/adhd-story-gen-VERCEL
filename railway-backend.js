@@ -656,6 +656,20 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       end: (Number(w.end) || 0) + (Number(offsetSec) || 0),
     }))
     .filter((w) => w.text.length > 0 && isFinite(w.start) && isFinite(w.end));
+  
+  // Debug: log first and last few words with their exact timestamps
+  if (items.length > 0) {
+    console.log('[captions] Total words:', items.length);
+    console.log('[captions] First 3 words:', items.slice(0, 3).map(w => 
+      `"${w.text}" [${w.start.toFixed(3)}s - ${w.end.toFixed(3)}s]`
+    ));
+    if (items.length > 3) {
+      console.log('[captions] Last 3 words:', items.slice(-3).map(w => 
+        `"${w.text}" [${w.start.toFixed(3)}s - ${w.end.toFixed(3)}s]`
+      ));
+    }
+    console.log('[captions] Caption offset applied:', offsetSec.toFixed(3) + 's (title duration)');
+  }
 
   for (let idx = 0; idx < items.length; idx++) {
     const w = items[idx];
@@ -886,17 +900,27 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
 
   // Durations
-  // Use effective speech duration (trim trailing silence) so the banner hides exactly when the title ends
+  // CRITICAL FIX: Use RAW audio duration (not trimmed) for banner/caption timing
+  // so they align with actual audio playback (which includes trailing silence).
+  // The audio concat filter plays the FULL audio files, not trimmed versions.
   const openingDurRaw = openingBuf ? await getAudioDurationFromFile(openingAudio) : 0;
-  const openingDurEff = openingBuf ? await getEffectiveSpeechDuration(openingAudio).catch(() => openingDurRaw) : 0;
-  let openingDur = Math.max(openingDurEff, 0);
-  // If for some reason we couldn't detect, fall back to raw but cap with a small safety pad
-  if (openingDur === 0 && openingDurRaw > 0) openingDur = openingDurRaw;
+  let openingDur = Math.max(openingDurRaw, 0);
   // Ensure a tiny minimum so overlay shows briefly if title is ultra short
   openingDur = Math.max(openingDur, 0.6);
-  // For caption pacing, also trim trailing silence from story
+  
+  // For story duration, also use raw (captions will align with Whisper timestamps anyway)
   const storyDurRaw = storyBuf ? await getAudioDurationFromFile(storyAudio) : 3.0;
-  const storyDur = storyBuf ? await getEffectiveSpeechDuration(storyAudio).catch(() => storyDurRaw) : 3.0;
+  const storyDur = Math.max(storyDurRaw, 3.0);
+  
+  // Debug timing to help diagnose caption sync issues
+  console.log('[timing] Opening audio:', {
+    duration: openingDur.toFixed(3) + 's',
+    note: 'Banner shows 0s to ' + openingDur.toFixed(3) + 's, captions start at ' + openingDur.toFixed(3) + 's'
+  });
+  console.log('[timing] Story audio:', {
+    duration: storyDur.toFixed(3) + 's',
+    note: 'Story plays from ' + openingDur.toFixed(3) + 's to ' + (openingDur + storyDur).toFixed(3) + 's'
+  });
 
   // Resolve background with knowledge of final duration
   const totalDurSec = Math.max(0.1, openingDur + (storyDur || 0));
