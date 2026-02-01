@@ -1235,21 +1235,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   let filter = `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=brightness=0.05:contrast=1.1:saturation=1.1[bg]`;
   let current = 'bg';
 
-  // Prepare inputs and determine indexes
-  const args = ['-y', '-i', bgPath];
-  let idx = 1;
-  const topIdx = hasTopBanner ? idx++ : -1;
-  const bottomIdx = hasBottomBanner ? idx++ : -1;
-  const badgeIdx = hasBadge ? idx++ : -1;
-  // Synthetic white box as separate lavfi input (avoids drawbox issues)
-  const wantWhiteBox = openingDur > 0;
-  const whiteBoxIdx = wantWhiteBox ? idx++ : -1;
-  const openingIdx = openingBuf ? idx++ : -1;
-  const storyIdx = storyBuf ? idx++ : -1;
-  // Calculate total banner height for the background rounded rectangle
+  // Calculate total banner height for the background rounded rectangle FIRST
   // Top banner scaled height: 280 * (900/1680) = ~150px
   // Bottom banner scaled height: 162 * (900/1676) = ~87px
   // White box: wrapped.boxHeight (dynamic)
+  const wantWhiteBox = openingDur > 0;
   const topBannerScaledHeight = hasTopBanner ? Math.round(280 * (900 / 1680)) : 0;
   const bottomBannerScaledHeight = hasBottomBanner ? Math.round(162 * (900 / 1676)) : 0;
   const totalBannerHeight = topBannerScaledHeight + (wantWhiteBox ? wrapped.boxHeight : 0) + bottomBannerScaledHeight;
@@ -1263,9 +1253,14 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     background: backgroundHeight
   });
   
+  // Prepare inputs and determine indexes
+  // IMPORTANT: Add inputs in the SAME ORDER as index calculation!
+  const args = ['-y', '-i', bgPath];
+  let idx = 1;
+  
   // Create rounded background rectangle (35px corners, no shadow to prevent timeouts)
   let hasRoundedBackground = false;
-  const backgroundIdx = idx;
+  const backgroundIdx = wantWhiteBox ? idx : -1;
   if (wantWhiteBox) {
     const roundedBgPath = path.join(tmpDir, `rounded_bg_${videoId}.png`);
     const bgCreated = await createRoundedBackground(900, backgroundHeight, 35, roundedBgPath, false);
@@ -1276,6 +1271,14 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
       console.log('[banner] Using rounded background (35px corners, no shadow)');
     }
   }
+  
+  // Now add the rest of the inputs IN ORDER
+  const topIdx = hasTopBanner ? idx++ : -1;
+  const bottomIdx = hasBottomBanner ? idx++ : -1;
+  const badgeIdx = hasBadge ? idx++ : -1;
+  const whiteBoxIdx = wantWhiteBox ? idx++ : -1;
+  const openingIdx = openingBuf ? idx++ : -1;
+  const storyIdx = storyBuf ? idx++ : -1;
   
   if (hasTopBanner) args.push('-i', bannerTopPath);
   if (hasBottomBanner) args.push('-i', bannerBottomPath);
