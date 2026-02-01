@@ -1227,7 +1227,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     return { lines, boxHeight, lineHeight, paddingTop, paddingBottom };
   };
 
-  const wrapped = wrapTitleForBox(title, 26, 6);
+  const wrapped = wrapTitleForBox(title, 32, 6);
 
   const { spawn } = require('child_process');
 
