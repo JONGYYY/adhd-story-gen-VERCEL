@@ -143,20 +143,31 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Getting user info...');
+    console.log('About to call getUserInfo with access token...');
     let userInfo;
     try {
       userInfo = await tiktokApi.getUserInfo(tokens.access_token);
-      console.log('User info received successfully:', !!userInfo);
+      console.log('User info received successfully!');
+      console.log('Username:', userInfo.username);
+      console.log('Display name:', userInfo.display_name);
+      console.log('Open ID:', userInfo.open_id);
     } catch (error) {
-      console.error('Error getting user info (non-fatal):', error);
-      console.log('Proceeding without user info - username will be set to "TikTok User"');
-      // Don't fail here - we can still upload videos without the username
-      // This happens if user.info.basic scope wasn't authorized
-      userInfo = {
-        open_id: 'unknown_' + Date.now(),
-        username: 'TikTok User',
-        display_name: 'TikTok User'
-      };
+      console.error('=== getUserInfo FAILED ===');
+      console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Full error:', error);
+      
+      // Check if it's a scope issue
+      if (error instanceof Error && error.message.includes('scope_not_authorized')) {
+        const redirectUrl = `${APP_CONFIG.APP_URL}/settings/social-media?error=${encodeURIComponent(
+          'TikTok authorization incomplete: You need to grant permission to access your basic profile info (username). Please disconnect TikTok from your TikTok app settings (Settings → Privacy → Manage Apps → Remove this app), then reconnect through our app to grant all permissions.'
+        )}`;
+        const resp = NextResponse.redirect(redirectUrl);
+        resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/', domain: process.env.NODE_ENV === 'production' ? '.taleo.media' : undefined, maxAge: 0 });
+        return resp;
+      }
+      
+      throw error;
     }
     
     console.log('TikTok user info:', userInfo);

@@ -165,7 +165,9 @@ export class TikTokAPI {
   }
 
   async getUserInfo(accessToken: string) {
-    console.log('Getting user info...');
+    console.log('=== getUserInfo START ===');
+    console.log('Access token length:', accessToken ? accessToken.length : 0);
+    console.log('Access token starts with:', accessToken ? accessToken.substring(0, 10) + '...' : 'NONE');
     
     // In test mode, return mock user info
     if (TEST_MODE) {
@@ -197,6 +199,8 @@ export class TikTokAPI {
       ].join(',');
       const userUrl = `https://open.tiktokapis.com/v2/user/info/?fields=${encodeURIComponent(fields)}`;
       console.log('User info endpoint:', userUrl);
+      console.log('Requesting fields:', fields);
+      console.log('Sending request to TikTok...');
 
       const response = await fetch(userUrl, {
         headers: {
@@ -204,11 +208,19 @@ export class TikTokAPI {
         },
       });
 
-      const data = await response.json();
+      console.log('Response received from TikTok');
       console.log('User info response status:', response.status);
+      console.log('User info response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
+
+      const data = await response.json();
+      console.log('User info response data:', JSON.stringify(data, null, 2));
 
       if (!response.ok) {
-        console.error('User info error response:', data);
+        console.error('=== TikTok API ERROR ===');
+        console.error('Status:', response.status);
+        console.error('Error data:', data);
+        console.error('Error code:', data.error?.code);
+        console.error('Error message:', data.error?.message);
         throw new Error(`TikTok API error: ${data.error?.message || data.message || 'Failed to get user info'}`);
       }
 
@@ -217,10 +229,13 @@ export class TikTokAPI {
         throw new Error('Invalid user info response from TikTok');
       }
 
-      console.log('Successfully obtained user info');
+      console.log('=== getUserInfo SUCCESS ===');
+      console.log('Username:', data.data.user.username);
+      console.log('Display name:', data.data.user.display_name);
       return data.data.user;
     } catch (error) {
-      console.error('Error getting user info:', error);
+      console.error('=== getUserInfo ERROR ===');
+      console.error('Error:', error);
       throw error;
     }
   }
