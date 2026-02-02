@@ -11,51 +11,72 @@ export async function GET(request: NextRequest) {
     // Get current user from session cookie
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Verify session cookie and get user
     const decodedClaims = await verifySessionCookie(sessionCookie);
     if (!decodedClaims) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const userId = decodedClaims.uid;
     const platform = request.nextUrl.searchParams.get('platform') as SocialPlatform;
 
     if (!platform) {
-      return NextResponse.json({ error: 'Platform parameter is required' }, { status: 400 });
+      return new Response(JSON.stringify({ error: 'Platform parameter is required' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Get credentials using server-side function
     const credentials = await getSocialMediaCredentialsServer(userId, platform);
 
     if (!credentials) {
-      return NextResponse.json({ connected: false });
+      return new Response(JSON.stringify({ connected: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Return safe credential data (without sensitive tokens)
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       connected: true,
       username: credentials.username,
       platform: credentials.platform,
       profileId: credentials.profileId
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Failed to get social media credentials:', error);
     
     // Handle database service errors more gracefully
     if (error instanceof Error && error.message.includes('Database service is not available')) {
-      return NextResponse.json({ 
+      return new Response(JSON.stringify({ 
         error: 'Database service is temporarily unavailable',
         connected: false 
-      }, { status: 503 });
+      }), { 
+        status: 503,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
-    return NextResponse.json({ 
+    return new Response(JSON.stringify({ 
       error: 'Failed to get credentials',
       connected: false 
-    }, { status: 500 });
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 } 
 
@@ -64,20 +85,29 @@ export async function DELETE(request: NextRequest) {
     // Get current user from session cookie
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Verify session cookie and get user
     const decodedClaims = await verifySessionCookie(sessionCookie);
     if (!decodedClaims) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const userId = decodedClaims.uid;
     const platform = request.nextUrl.searchParams.get('platform') as SocialPlatform;
 
     if (!platform) {
-      return NextResponse.json({ error: 'Platform parameter is required' }, { status: 400 });
+      return new Response(JSON.stringify({ error: 'Platform parameter is required' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     console.log(`Disconnecting ${platform} for user ${userId}`);
@@ -86,23 +116,32 @@ export async function DELETE(request: NextRequest) {
     await deleteSocialMediaCredentialsServer(userId, platform);
 
     console.log(`Successfully disconnected ${platform} for user ${userId}`);
-    return NextResponse.json({ 
+    return new Response(JSON.stringify({ 
       success: true, 
       message: `Successfully disconnected ${platform}` 
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Failed to disconnect social media account:', error);
     
     // Handle database service errors more gracefully
     if (error instanceof Error && error.message.includes('Database service is not available')) {
-      return NextResponse.json({ 
+      return new Response(JSON.stringify({ 
         error: 'Database service is temporarily unavailable' 
-      }, { status: 503 });
+      }), { 
+        status: 503,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
-    return NextResponse.json({ 
+    return new Response(JSON.stringify({ 
       error: 'Failed to disconnect account',
       details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 } 
