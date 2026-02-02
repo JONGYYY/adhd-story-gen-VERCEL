@@ -20,6 +20,7 @@ export default function VideoPage() {
   const [videoError, setVideoError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingYouTube, setIsUploadingYouTube] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const checkStatusTimeoutRef = useRef<NodeJS.Timeout>();
@@ -175,6 +176,71 @@ export default function VideoPage() {
     }
   };
 
+  const handleYouTubeUpload = async () => {
+    if (!videoStatus.videoUrl) return;
+    
+    const title = prompt('Enter YouTube video title:', 'Reddit Story Video');
+    if (!title) return;
+    
+    const description = prompt('Enter video description (optional):', 'Generated with Taleo Shorts AI') || '';
+    const privacyStatus = confirm('Make video PUBLIC? (Cancel for Private)') ? 'public' : 'private';
+    
+    setIsUploadingYouTube(true);
+    setUploadError(null);
+    
+    try {
+      // Get the video file
+      const videoResponse = await fetch(videoStatus.videoUrl);
+      if (!videoResponse.ok) throw new Error('Failed to fetch video');
+      const videoBlob = await videoResponse.blob();
+      
+      // Create form data
+      const formData = new FormData();
+      formData.append('video', videoBlob, `video_${videoId}.mp4`);
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('privacy_status', privacyStatus);
+      
+      // Upload to YouTube
+      const uploadResponse = await fetch('/api/social-media/youtube/upload', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.text();
+        throw new Error(error || 'Failed to upload to YouTube');
+      }
+      
+      const result = await uploadResponse.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Upload failed');
+      }
+      
+      // Show success message with video URL
+      alert(`✅ Video uploaded to YouTube as ${privacyStatus.toUpperCase()}!\n\nVideo URL: ${result.videoUrl}\n\nIt may take a few minutes to process on YouTube.`);
+      
+    } catch (error) {
+      console.error('YouTube upload error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to upload to YouTube';
+      
+      // Show user-friendly error
+      if (errorMsg.includes('not connected')) {
+        alert('❌ YouTube not connected!\n\nPlease go to Settings → Social Media and connect your YouTube account first.');
+      } else if (errorMsg.includes('quotaExceeded')) {
+        alert('❌ YouTube API quota exceeded!\n\nYouTube has daily upload limits. Try again tomorrow or request a quota increase from Google Cloud Console.');
+      } else if (errorMsg.includes('expired')) {
+        alert('❌ YouTube token expired!\n\nPlease go to Settings → Social Media, disconnect and reconnect your YouTube account.');
+      } else {
+        alert(`❌ Upload failed:\n\n${errorMsg}`);
+      }
+      
+      setUploadError(errorMsg);
+    } finally {
+      setIsUploadingYouTube(false);
+    }
+  };
+
   return (
     <PageContainer>
       <TikTokUploadModal
@@ -261,6 +327,20 @@ export default function VideoPage() {
                       </>
                     ) : (
                       'Upload to TikTok'
+                    )}
+                  </Button>
+                  <Button
+                    onClick={handleYouTubeUpload}
+                    className="px-6 bg-red-600 hover:bg-red-700"
+                    disabled={!!videoError || isUploadingYouTube}
+                  >
+                    {isUploadingYouTube ? (
+                      <>
+                        <span className="animate-spin mr-2">⚙️</span>
+                        Uploading to YouTube...
+                      </>
+                    ) : (
+                      'Upload to YouTube'
                     )}
                   </Button>
                   <Button
