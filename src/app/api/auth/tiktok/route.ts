@@ -45,10 +45,11 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const mode = url.searchParams.get('mode');
     // Use this only for debugging: isolates whether TikTok rejects because of video scopes.
+    // TEMPORARY: Using minimal scopes until we verify which are approved in TikTok Developer Dashboard
     const scope =
       mode === 'login'
-        ? 'user.info.basic,user.info.profile'
-        : 'user.info.basic,user.info.profile,video.upload,video.publish';
+        ? 'user.info.basic'
+        : 'user.info.basic,video.upload,video.publish';
     const authReq = tiktokApi.createAuthRequest({ redirectUri, scope });
     
     // If redirect=1, do a server-side redirect (more robust than returning JSON + client redirect).
