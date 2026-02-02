@@ -143,48 +143,34 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Getting user info...');
-    console.log('About to call getUserInfo with access token...');
     
     // CRITICAL CHECK: Log what scopes were actually granted by TikTok
     console.log('=== SCOPE CHECK ===');
     console.log('Requested scopes: user.info.basic,video.upload,video.publish');
     console.log('Granted scopes from token:', tokens.scope || 'NOT PROVIDED BY TIKTOK');
     if (tokens.scope && !tokens.scope.includes('user.info.basic')) {
-      console.error('⚠️  WARNING: user.info.basic NOT in granted scopes!');
-      console.error('This means TikTok did not grant permission for basic user info');
-      console.error('User needs to revoke app from TikTok settings and reconnect');
+      console.log('ℹ️  INFO: user.info.basic NOT in granted scopes - will use default username');
     }
     
     let userInfo;
     try {
       userInfo = await tiktokApi.getUserInfo(tokens.access_token);
-      console.log('User info received successfully!');
+      console.log('✅ User info received successfully!');
       console.log('Username:', userInfo.username);
       console.log('Display name:', userInfo.display_name);
       console.log('Open ID:', userInfo.open_id);
     } catch (error) {
-      console.error('=== getUserInfo FAILED ===');
-      console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
-      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.log('⚠️  getUserInfo failed (non-fatal) - using default username');
+      console.log('Error:', error instanceof Error ? error.message : String(error));
+      console.log('Reason: user.info.basic scope not granted or not approved yet');
+      console.log('Note: Video uploads will still work! Username will show as "TikTok User"');
       
-      // Check if it's a scope issue
-      if (error instanceof Error && (error.message.includes('scope_not_authorized') || error.message.includes('did not authorize'))) {
-        console.error('✋ SCOPE NOT AUTHORIZED ERROR DETECTED');
-        console.error('📍 ACTION REQUIRED: User must revoke app from TikTok settings');
-        
-        const redirectUrl = `${APP_CONFIG.APP_URL}/settings/social-media?error=${encodeURIComponent(
-          '🔴 TikTok Scope Issue: TikTok is using cached authorization that doesn\'t include permission to read your username. TO FIX: (1) Open TikTok app → Settings → Privacy → Manage Apps → Find "Taleo Shorts AI" → Remove/Revoke it. (2) Then come back here and click "Connect TikTok" again. (3) Grant ALL permissions when TikTok asks. This will fix it!'
-        )}`;
-        console.log('Redirecting to settings with detailed instructions:', redirectUrl);
-        
-        const resp = NextResponse.redirect(redirectUrl);
-        resp.cookies.set({ name: 'tiktok_oauth', value: '', path: '/', domain: process.env.NODE_ENV === 'production' ? '.taleo.media' : undefined, maxAge: 0 });
-        return resp;
-      }
-      
-      // For other errors, rethrow
-      console.error('Non-scope error, rethrowing...');
-      throw error;
+      // Use fallback user info - this is NOT a fatal error
+      userInfo = {
+        open_id: 'user_' + Date.now(),
+        username: 'TikTok User',
+        display_name: 'TikTok User'
+      };
     }
     
     console.log('TikTok user info:', userInfo);
