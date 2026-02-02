@@ -363,25 +363,43 @@ export class TikTokAPI {
 
         // Parse response JSON with timeout using Promise.race
         // Sometimes TikTok responses are large or the .json() parsing hangs
+        // IMPORTANT: We must read the body as text first, then parse JSON from it,
+        // because once a body is consumed (by .json()), it cannot be read again
+        let rawText = '';
         let initData;
+        
         try {
-          initData = await Promise.race([
-            initResponse.json(),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Init response JSON parsing timed out after 15 seconds')), 15000)
+          // First, read the raw response body as text (with timeout)
+          rawText = await Promise.race([
+            initResponse.text(),
+            new Promise<string>((_, reject) => 
+              setTimeout(() => reject(new Error('Response body reading timed out after 15 seconds')), 15000)
             )
           ]);
-          console.log('Init response data:', JSON.stringify(initData).substring(0, 500));
-        } catch (jsonError) {
-          console.error('Failed to parse init response as JSON:', jsonError);
-          const text = await initResponse.text().catch(() => 'Unable to read response text');
-          console.error('Raw response text (first 500 chars):', text.substring(0, 500));
-          throw new Error(`Failed to parse TikTok init response: ${jsonError instanceof Error ? jsonError.message : 'JSON parse error'}`);
+          console.log('Raw response body length:', rawText.length);
+          console.log('Raw response body (first 500 chars):', rawText.substring(0, 500));
+          
+          // Then parse the text as JSON
+          initData = JSON.parse(rawText);
+          console.log('Parsed init response data successfully');
+        } catch (error) {
+          console.error('Failed to read/parse init response:', error);
+          console.error('Raw response text available:', rawText.substring(0, 500));
+          throw new Error(`Failed to parse TikTok init response: ${error instanceof Error ? error.message : 'Parse error'}`);
         }
         
         if (!initResponse.ok) {
           console.error('Init error response:', initData);
-          throw new Error(`Failed to initialize video upload: ${initData.error?.message || initData.message || 'Unknown error'}`);
+          const errorMessage = initData.error?.message || initData.message || 'Unknown error';
+          
+          // Special handling for 401 Unauthorized (expired/invalid token)
+          if (initResponse.status === 401) {
+            throw new Error(
+              `TikTok access token is invalid or expired. Please go to Settings → Social Media and reconnect your TikTok account. (Error: ${errorMessage})`
+            );
+          }
+          
+          throw new Error(`Failed to initialize video upload (${initResponse.status}): ${errorMessage}`);
         }
 
         // Most v2 APIs return payload under { data: ... }
