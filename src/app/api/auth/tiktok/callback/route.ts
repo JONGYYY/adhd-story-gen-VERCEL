@@ -120,6 +120,8 @@ export async function GET(request: NextRequest) {
         redirectUri: oauthState.redirectUri,
       });
       console.log('Tokens received successfully:', !!tokens.access_token);
+      console.log('Granted scopes:', tokens.scope || 'NOT PROVIDED');
+      console.log('Token expires in:', tokens.expires_in, 'seconds');
     } catch (error) {
       console.error('Error getting access token:', error);
       const redirectUrl = `${APP_CONFIG.APP_URL}/settings/social-media?error=${encodeURIComponent(
@@ -146,12 +148,15 @@ export async function GET(request: NextRequest) {
       userInfo = await tiktokApi.getUserInfo(tokens.access_token);
       console.log('User info received successfully:', !!userInfo);
     } catch (error) {
-      console.error('Error getting user info:', error);
-      const redirectUrl = `${APP_CONFIG.APP_URL}/settings/social-media?error=${encodeURIComponent(
-        error instanceof Error ? error.message : 'Failed to get user info'
-      )}`;
-      console.log('Redirecting to error page:', redirectUrl);
-      return NextResponse.redirect(redirectUrl);
+      console.error('Error getting user info (non-fatal):', error);
+      console.log('Proceeding without user info - username will be set to "TikTok User"');
+      // Don't fail here - we can still upload videos without the username
+      // This happens if user.info.basic scope wasn't authorized
+      userInfo = {
+        open_id: 'unknown_' + Date.now(),
+        username: 'TikTok User',
+        display_name: 'TikTok User'
+      };
     }
     
     console.log('TikTok user info:', userInfo);
@@ -160,11 +165,11 @@ export async function GET(request: NextRequest) {
     const credentials = {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || undefined,
-      username: userInfo.username,
+      username: userInfo.username || 'TikTok User',
       expiresAt: tokens.expires_in ? Date.now() + (tokens.expires_in * 1000) : Date.now() + 3600000,
       platform: 'tiktok' as const,
       userId: userId,
-      profileId: userInfo.open_id
+      profileId: userInfo.open_id || 'unknown'
     };
 
     console.log('Saving credentials to Firebase...');
