@@ -361,8 +361,16 @@ export class TikTokAPI {
         console.log('Init response status:', initResponse.status);
         console.log('Init response headers:', JSON.stringify(Object.fromEntries(initResponse.headers.entries())).substring(0, 300));
 
+        // CRITICAL: Check for 401 BEFORE reading body
+        // TikTok 401 responses have hanging body streams that timeout
+        if (initResponse.status === 401) {
+          console.error('Init returned 401 Unauthorized - access token is invalid or expired');
+          throw new Error(
+            `TikTok access token is invalid or expired. Please go to Settings → Social Media → Disconnect and then Reconnect your TikTok account. (Note: Making your profile public doesn't fix this - you need to reconnect the app authorization)`
+          );
+        }
+
         // Parse response JSON with timeout using Promise.race
-        // Sometimes TikTok responses are large or the .json() parsing hangs
         // IMPORTANT: We must read the body as text first, then parse JSON from it,
         // because once a body is consumed (by .json()), it cannot be read again
         let rawText = '';
@@ -391,14 +399,6 @@ export class TikTokAPI {
         if (!initResponse.ok) {
           console.error('Init error response:', initData);
           const errorMessage = initData.error?.message || initData.message || 'Unknown error';
-          
-          // Special handling for 401 Unauthorized (expired/invalid token)
-          if (initResponse.status === 401) {
-            throw new Error(
-              `TikTok access token is invalid or expired. Please go to Settings → Social Media and reconnect your TikTok account. (Error: ${errorMessage})`
-            );
-          }
-          
           throw new Error(`Failed to initialize video upload (${initResponse.status}): ${errorMessage}`);
         }
 
