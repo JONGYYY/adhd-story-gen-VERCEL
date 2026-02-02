@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { Footer } from '@/components/layout/Footer';
 import { PlatformVideos } from '@/components/dashboard/platform-videos';
 import { ActiveCampaigns } from '@/components/dashboard/active-campaigns';
+import { PlatformSelector } from '@/components/analytics/PlatformSelector';
 import { SocialPlatform } from '@/lib/social-media/types';
 import { 
   Video, 
@@ -21,7 +22,11 @@ import {
   BarChart3,
   Rocket,
   Target,
-  Crown
+  Crown,
+  Users,
+  Eye,
+  ThumbsUp,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -30,6 +35,10 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [greeting, setGreeting] = useState('Welcome back');
+  const [selectedPlatform, setSelectedPlatform] = useState<SocialPlatform>('tiktok');
+  const [youtubeStats, setYoutubeStats] = useState<any>(null);
+  const [tiktokStats, setTiktokStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -39,9 +48,37 @@ export default function Dashboard() {
     if (hour < 12) setGreeting('Good morning');
     else if (hour < 18) setGreeting('Good afternoon');
     else setGreeting('Good evening');
+
+    // Fetch platform stats
+    fetchPlatformStats();
   }, []);
 
-  const stats = [
+  const fetchPlatformStats = async () => {
+    try {
+      // Fetch TikTok stats
+      const tiktokRes = await fetch('/api/social-media/tiktok/stats');
+      if (tiktokRes.ok) {
+        const tiktokData = await tiktokRes.json();
+        setTiktokStats(tiktokData.stats);
+      }
+
+      // Fetch YouTube stats
+      const youtubeRes = await fetch('/api/social-media/youtube/analytics');
+      if (youtubeRes.ok) {
+        const youtubeData = await youtubeRes.json();
+        if (youtubeData.success && youtubeData.channel) {
+          setYoutubeStats(youtubeData.channel);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch platform stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Base stats (always shown)
+  const baseStats = [
     { 
       name: 'Videos Created', 
       value: '24', 
@@ -69,16 +106,36 @@ export default function Dashboard() {
       color: 'from-purple-500 to-pink-500',
       bgGlow: 'group-hover:shadow-purple-500/[0.02]',
     },
+  ];
+
+  // Platform-specific stats
+  const tiktokPlatformStats = [
     { 
-      name: 'Active Campaigns', 
-      value: '2', 
-      change: '+1 this week', 
+      name: 'TikTok Followers', 
+      value: tiktokStats ? new Intl.NumberFormat('en-US', { notation: 'compact' }).format(tiktokStats.follower_count) : loading ? '...' : 'N/A',
+      change: 'Live', 
       trend: 'up' as const, 
-      icon: Zap,
-      color: 'from-orange-500 to-amber-500',
-      bgGlow: 'group-hover:shadow-orange-500/[0.02]',
+      icon: Users,
+      color: 'from-pink-500 to-cyan-500',
+      bgGlow: 'group-hover:shadow-pink-500/[0.02]',
     },
   ];
+
+  const youtubePlatformStats = [
+    { 
+      name: 'YouTube Subscribers', 
+      value: youtubeStats ? new Intl.NumberFormat('en-US', { notation: 'compact' }).format(youtubeStats.subscribers) : loading ? '...' : 'N/A',
+      change: youtubeStats?.last30Days ? `+${youtubeStats.last30Days.subscribersGained - youtubeStats.last30Days.subscribersLost} (30d)` : 'N/A',
+      trend: 'up' as const, 
+      icon: Users,
+      color: 'from-red-500 to-red-600',
+      bgGlow: 'group-hover:shadow-red-500/[0.02]',
+    },
+  ];
+
+  const stats = selectedPlatform === 'youtube'
+    ? [...baseStats, ...youtubePlatformStats]
+    : [...baseStats, ...tiktokPlatformStats];
 
   const quickActions = [
     {
@@ -149,8 +206,6 @@ export default function Dashboard() {
     }
   ];
 
-  const platforms: SocialPlatform[] = ['youtube', 'tiktok'];
-
   return (
     <main className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -181,13 +236,28 @@ export default function Dashboard() {
                     <span className="text-muted-foreground ml-1">Videos Created</span>
                   </span>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
-                  <Zap className="w-4 h-4 text-primary" />
-                  <span className="text-sm">
-                    <span className="font-bold text-foreground">2</span>
-                    <span className="text-muted-foreground ml-1">Active Campaigns</span>
-                  </span>
-                </div>
+                {selectedPlatform === 'tiktok' && tiktokStats && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-pink-500/10 to-cyan-500/10 border border-pink-500/30">
+                    <Users className="w-4 h-4 text-pink-400" />
+                    <span className="text-sm">
+                      <span className="font-bold bg-gradient-to-r from-pink-500 to-cyan-500 bg-clip-text text-transparent">
+                        {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(tiktokStats.follower_count)}
+                      </span>
+                      <span className="text-muted-foreground ml-1">TikTok Followers</span>
+                    </span>
+                  </div>
+                )}
+                {selectedPlatform === 'youtube' && youtubeStats && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-red-500/10 to-red-600/10 border border-red-500/30">
+                    <Users className="w-4 h-4 text-red-400" />
+                    <span className="text-sm">
+                      <span className="font-bold bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
+                        {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(youtubeStats.subscribers)}
+                      </span>
+                      <span className="text-muted-foreground ml-1">YT Subscribers</span>
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
                   <TrendingUp className="w-4 h-4 text-green-400" />
                   <span className="text-sm">
@@ -219,6 +289,14 @@ export default function Dashboard() {
 
       <div className="section-py">
         <div className="container-wide space-y-12">
+          {/* Platform Selector */}
+          <div className="flex justify-center">
+            <PlatformSelector
+              selected={selectedPlatform}
+              onSelect={setSelectedPlatform}
+            />
+          </div>
+
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {stats.map((stat, i) => {
@@ -348,9 +426,7 @@ export default function Dashboard() {
 
           {/* Platform Videos */}
           <div className="space-y-8">
-            {platforms.map((platform) => (
-              <PlatformVideos key={platform} platform={platform} />
-            ))}
+            <PlatformVideos key={selectedPlatform} platform={selectedPlatform} />
           </div>
 
           {/* Active Campaigns */}
