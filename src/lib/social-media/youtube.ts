@@ -54,27 +54,43 @@ export class YouTubeAPI {
         code_length: code.length
       });
 
-      const response = await fetch(tokenEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params.toString()
-      });
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Token exchange failed:', response.status, errorText);
-        throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
+      try {
+        const response = await fetch(tokenEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString(),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Token exchange failed:', response.status, errorText);
+          throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
+        }
+
+        const tokens = await response.json();
+        console.log('Tokens received successfully');
+        
+        // Set credentials on OAuth2 client for future API calls
+        this.oauth2Client.setCredentials(tokens);
+        
+        return tokens;
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.error('Token exchange timed out after 30 seconds');
+          throw new Error('Token exchange timed out. Please try again.');
+        }
+        throw fetchError;
       }
-
-      const tokens = await response.json();
-      console.log('Tokens received successfully');
-      
-      // Set credentials on OAuth2 client for future API calls
-      this.oauth2Client.setCredentials(tokens);
-      
-      return tokens;
     } catch (error) {
       console.error('Error in getTokensFromCode:', error);
       throw error;
