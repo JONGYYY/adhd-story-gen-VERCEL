@@ -128,21 +128,43 @@ export class YouTubeAPI {
   }
 
   async getUserInfo(accessToken: string) {
-    const youtube = google.youtube('v3');
-    this.oauth2Client.setCredentials({ access_token: accessToken });
-    const res = await youtube.channels.list({
-      auth: this.oauth2Client,
-      part: ['snippet'],
-      mine: true,
-    });
-    if (!res.data.items || res.data.items.length === 0) {
-      throw new Error('No YouTube channel found for this user');
+    try {
+      console.log('Fetching YouTube channel info...');
+      
+      // Manual REST API call to avoid googleapis compatibility issues
+      const response = await fetch(
+        'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('YouTube API error:', response.status, errorText);
+        throw new Error(`Failed to fetch YouTube channel info: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.items || data.items.length === 0) {
+        throw new Error('No YouTube channel found for this user');
+      }
+      
+      const channel = data.items[0];
+      console.log('YouTube channel found:', channel.snippet?.title);
+      
+      return {
+        id: channel.id,
+        username: channel.snippet?.title || '',
+      };
+    } catch (error) {
+      console.error('Error in getUserInfo:', error);
+      throw error;
     }
-    const channel = res.data.items[0];
-    return {
-      id: channel.id,
-      username: channel.snippet?.title || '',
-    };
   }
 
   async getVideoAnalytics(accessToken: string, videoId: string) {
