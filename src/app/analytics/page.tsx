@@ -634,10 +634,9 @@ export default function Analytics() {
         <div className="absolute inset-0 bg-grid-white/[0.02] pointer-events-none" />
         
         <div className="container-wide relative py-12">
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-                <div>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+              <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-4">
                     <BarChart3 className="w-4 h-4 text-primary" />
                     <span className="text-sm font-medium text-primary">Performance Analytics</span>
@@ -650,24 +649,22 @@ export default function Analytics() {
                   </p>
                 </div>
 
-                {/* Platform Selector */}
-                <PlatformSelector
-                  selected={selectedPlatform}
-                  onSelect={setSelectedPlatform}
-                />
-              </div>
-
-              {/* Time Frame Selector - Only show for YouTube */}
-              {selectedPlatform === 'youtube' && (
-                <div className="flex justify-center md:justify-end">
-                  <TimeFrameSelector
-                    selected={timeFrame}
-                    onSelect={setTimeFrame}
-                  />
-                </div>
-              )}
+              {/* Platform Selector */}
+              <PlatformSelector
+                selected={selectedPlatform}
+                onSelect={setSelectedPlatform}
+              />
             </div>
 
+            {/* Time Frame Selector - Only show for YouTube */}
+            {selectedPlatform === 'youtube' && (
+              <div className="flex justify-center md:justify-end">
+                <TimeFrameSelector
+                  selected={timeFrame}
+                  onSelect={setTimeFrame}
+                />
+              </div>
+            )}
             {/* Notice Banner */}
             {selectedPlatform === 'tiktok' ? (
               <Alert className="border-primary/20 bg-primary/5">
@@ -712,8 +709,8 @@ export default function Analytics() {
         </div>
       </div>
 
-      <div className="section-py">
-        <div className="container-wide space-y-12">
+      <div className="py-8 md:py-12">
+        <div className="container-wide space-y-8">
           {/* KPI Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {stats.map((stat, i) => {
