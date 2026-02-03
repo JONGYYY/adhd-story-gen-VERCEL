@@ -3,6 +3,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { VideoOptions, SubredditStory } from '@/lib/video-generator/types';
 import { generateStory } from '@/lib/story-generator/openai';
 import { verifySessionCookie, getAdminFirestore } from '@/lib/firebase-admin';
+import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit';
+import { videoGenerationSchema, sanitizeString } from '@/lib/security/validation';
+import { secureJsonResponse } from '@/lib/security/headers';
+import { getSecureApiKey } from '@/lib/security/api-keys';
 
 // Prevent static generation but use Node.js runtime for video generation
 export const runtime = 'nodejs';
@@ -89,8 +93,74 @@ export async function POST(request: NextRequest) {
   const videoId = uuidv4();
   
   try {
-    const options: VideoOptions = await request.json();
-    console.log('Received video generation request with options:', JSON.stringify(options, null, 2));
+    // SECURITY: Authentication check
+    const sessionCookie = request.cookies.get('session')?.value;
+    const decodedClaims = sessionCookie ? await verifySessionCookie(sessionCookie) : null;
+    const userId = decodedClaims?.uid;
+    
+    // SECURITY: Rate limiting (IP + user-based)
+    const rateLimitResponse = await rateLimit(
+      request, 
+      RATE_LIMITS.VIDEO_GENERATION,
+      userId
+    );
+    if (rateLimitResponse) return rateLimitResponse;
+    
+    // SECURITY: Parse and validate request body
+    const rawBody = await request.json();
+    console.log('Received video generation request with options:', JSON.stringify(rawBody, null, 2));
+    
+    // SECURITY: Input validation - validate required fields
+    if (!rawBody.subreddit || typeof rawBody.subreddit !== 'string') {
+      return secureJsonResponse({ error: 'Subreddit is required and must be a string' }, 400);
+    }
+    
+    if (!rawBody.videoType || !['cliffhanger', 'full-story'].includes(rawBody.videoType)) {
+      return secureJsonResponse({ error: 'Video type must be cliffhanger or full-story' }, 400);
+    }
+    
+    // SECURITY: Sanitize string inputs to prevent injection
+    const sanitizedSubreddit = sanitizeString(rawBody.subreddit, 100);
+    
+    // SECURITY: Validate subreddit format
+    if (!/^r\/[a-zA-Z0-9_]+$/.test(sanitizedSubreddit) && !sanitizedSubreddit.match(/^[a-zA-Z0-9_]+$/)) {
+      return secureJsonResponse({ error: 'Invalid subreddit format' }, 400);
+    }
+    
+    // SECURITY: Type-check nested objects
+    if (rawBody.voice && typeof rawBody.voice !== 'object') {
+      return secureJsonResponse({ error: 'Voice configuration must be an object' }, 400);
+    }
+    
+    if (rawBody.background && typeof rawBody.background !== 'object') {
+      return secureJsonResponse({ error: 'Background configuration must be an object' }, 400);
+    }
+    
+    // SECURITY: Validate custom story if provided
+    if (rawBody.customStory) {
+      if (typeof rawBody.customStory !== 'object') {
+        return secureJsonResponse({ error: 'Custom story must be an object' }, 400);
+      }
+      
+      if (!rawBody.customStory.title || typeof rawBody.customStory.title !== 'string') {
+        return secureJsonResponse({ error: 'Custom story title is required' }, 400);
+      }
+      
+      if (!rawBody.customStory.story || typeof rawBody.customStory.story !== 'string') {
+        return secureJsonResponse({ error: 'Custom story content is required' }, 400);
+      }
+      
+      // SECURITY: Length limits to prevent resource exhaustion
+      if (rawBody.customStory.title.length > 500) {
+        return secureJsonResponse({ error: 'Story title too long (max 500 characters)' }, 400);
+      }
+      
+      if (rawBody.customStory.story.length > 10000) {
+        return secureJsonResponse({ error: 'Story content too long (max 10000 characters)' }, 400);
+      }
+    }
+    
+    const options: VideoOptions = rawBody;
 
     // Pull user-defined display name (if logged in) for the banner author label.
     let displayName: string | null = null;
@@ -114,8 +184,12 @@ export async function POST(request: NextRequest) {
       const subreddit = options.subreddit.startsWith('r/') ? options.subreddit : `r/${options.subreddit}`;
       console.log('Normalized subreddit:', subreddit);
 
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error('OPENAI_API_KEY is not set on the UI service');
+      // SECURITY: Validate API key securely
+      try {
+        getSecureApiKey('OPENAI_API_KEY', 20);
+      } catch (error) {
+        console.error('OpenAI API key validation failed:', error);
+        return secureJsonResponse({ error: 'Video generation service is misconfigured' }, 500);
       }
       const storyParams = {
         subreddit,
@@ -138,40 +212,31 @@ export async function POST(request: NextRequest) {
     // Always use Railway API from the UI service
     try {
       const railwayVideoId = await generateVideoOnRailway(options, videoId, story);
-      return new Response(JSON.stringify({
+      
+      // SECURITY: Return response with security headers
+      return secureJsonResponse({
         success: true,
         videoId: railwayVideoId,
         videoUrl: `/video/${railwayVideoId}`,
         useRailway: true,
-      }), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      }, 200);
     } catch (railwayError) {
       console.error('Railway API failed:', railwayError);
       const message = railwayError instanceof Error ? railwayError.message : 'Unknown error';
-      return new Response(JSON.stringify({
+      
+      // SECURITY: Don't expose internal error details
+      return secureJsonResponse({
         success: false,
-        error: `Video generation service unavailable: ${message}. Please try again.`
-      }), {
-        status: 503,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+        error: 'Video generation service temporarily unavailable. Please try again.'
+      }, 503);
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to generate video';
     console.error('Error generating video:', error);
-    return new Response(JSON.stringify({
-      error: errorMessage
-    }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    
+    // SECURITY: Generic error message to prevent information leakage
+    return secureJsonResponse({
+      error: 'An error occurred during video generation. Please try again.'
+    }, 500);
   }
 } 

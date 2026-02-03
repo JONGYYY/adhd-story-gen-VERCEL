@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSessionCookie } from '@/lib/firebase-admin';
+import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit';
+import { secureJsonResponse } from '@/lib/security/headers';
 
 // Ensure Node.js runtime for Firebase Admin
 export const runtime = 'nodejs';
@@ -28,29 +30,34 @@ function determineCookieDomain(hostHeader: string | null): string | undefined {
 export async function POST(request: NextRequest) {
   try {
     console.log('Session creation request received');
+    
+    // SECURITY: Rate limiting for authentication (prevent brute force)
+    const rateLimitResponse = await rateLimit(request, RATE_LIMITS.AUTH);
+    if (rateLimitResponse) return rateLimitResponse;
 
-    // Parse JSON body (avoid brittle request.body checks)
+    // SECURITY: Parse JSON body with error handling
     let body: any;
     try {
       body = await request.json();
     } catch (e) {
       console.error('Failed to parse JSON body');
-      return new NextResponse(
-        JSON.stringify({ error: 'Invalid JSON body' }),
-        { status: 400 }
-      );
+      return secureJsonResponse({ error: 'Invalid JSON body' }, 400);
     }
 
     console.log('Request body keys:', Object.keys(body || {}));
 
     const { idToken } = body || {};
 
+    // SECURITY: Validate idToken
     if (!idToken || typeof idToken !== 'string') {
       console.error('Missing or invalid idToken');
-      return new NextResponse(
-        JSON.stringify({ error: 'Missing or invalid ID token' }),
-        { status: 400 }
-      );
+      return secureJsonResponse({ error: 'Missing or invalid ID token' }, 400);
+    }
+    
+    // SECURITY: Length validation to prevent malformed tokens
+    if (idToken.length < 100 || idToken.length > 10000) {
+      console.error('ID token length out of expected range:', idToken.length);
+      return secureJsonResponse({ error: 'Invalid ID token format' }, 400);
     }
 
     console.log('ID token received, length:', idToken.length);
@@ -61,10 +68,7 @@ export async function POST(request: NextRequest) {
 
     if (!sessionCookie) {
       console.error('Failed to create session cookie - no cookie returned');
-      return new NextResponse(
-        JSON.stringify({ error: 'Failed to create session cookie' }),
-        { status: 500 }
-      );
+      return secureJsonResponse({ error: 'Failed to create session cookie' }, 500);
     }
 
     console.log('Session cookie created successfully, length:', sessionCookie.length);
@@ -115,22 +119,14 @@ export async function POST(request: NextRequest) {
     console.error('Error code:', error.code);
     console.error('Error message:', error.message);
 
-    const errorMessage = error.message || 'Unknown error occurred';
-    const errorCode = error.code || 'UNKNOWN_ERROR';
+    // SECURITY: Don't expose internal error details in production
+    const errorMessage = error.message || 'Failed to create session';
+    const isDevelopment = process.env.NODE_ENV === 'development';
 
-    return new NextResponse(
-      JSON.stringify({
-        error: 'Internal server error',
-        details: errorMessage,
-        code: errorCode,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      }
-    );
+    return secureJsonResponse({
+      error: 'Authentication failed',
+      // Only expose details in development
+      ...(isDevelopment ? { details: errorMessage, code: error.code } : {})
+    }, 500);
   }
 } 

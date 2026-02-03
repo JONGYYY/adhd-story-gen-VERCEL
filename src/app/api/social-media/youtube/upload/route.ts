@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { verifySessionCookie } from '@/lib/firebase-admin';
 import { getSocialMediaCredentialsServer } from '@/lib/social-media/schema';
+import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit';
+import { validateFile, FILE_VALIDATION_CONFIGS, sanitizeString } from '@/lib/security/validation';
+import { secureJsonResponse } from '@/lib/security/headers';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes for YouTube uploads
@@ -9,63 +12,87 @@ export async function POST(request: NextRequest) {
   try {
     console.log('=== YouTube Video Upload Started ===');
     
-    // Get current user from session cookie
+    // SECURITY: Authentication check
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return secureJsonResponse({ error: 'Not authenticated' }, 401);
     }
 
     // Verify session cookie and get user
     const decodedClaims = await verifySessionCookie(sessionCookie);
     if (!decodedClaims) {
-      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return secureJsonResponse({ error: 'Invalid session' }, 401);
     }
 
     const userId = decodedClaims.uid;
     console.log('User authenticated:', userId);
+    
+    // SECURITY: Rate limiting (IP + user-based)
+    const rateLimitResponse = await rateLimit(request, RATE_LIMITS.UPLOAD, userId);
+    if (rateLimitResponse) return rateLimitResponse;
 
-    // Get YouTube credentials
+    // SECURITY: Get YouTube credentials
     const credentials = await getSocialMediaCredentialsServer(userId, 'youtube');
     if (!credentials) {
-      return new Response(JSON.stringify({ 
+      return secureJsonResponse({ 
         error: 'YouTube not connected. Please connect your YouTube account first.' 
-      }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      }, 400);
     }
 
     console.log('YouTube credentials found');
+    
+    // SECURITY: Validate access token
     if (!credentials.accessToken || typeof credentials.accessToken !== 'string') {
-      return new Response(JSON.stringify(
-        { error: 'YouTube access token is missing. Please disconnect and reconnect YouTube.' }
-      ), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return secureJsonResponse({ 
+        error: 'YouTube access token is missing. Please disconnect and reconnect YouTube.' 
+      }, 400);
+    }
+    
+    if (credentials.accessToken.length < 20) {
+      return secureJsonResponse({ 
+        error: 'Invalid YouTube access token. Please reconnect YouTube.' 
+      }, 400);
     }
 
-    // Parse form data
+    // SECURITY: Parse and validate form data
     const formData = await request.formData();
     const title = formData.get('title') as string;
-    const description = formData.get('description') as string || '';
+    const description = (formData.get('description') as string) || '';
     const videoFile = formData.get('video') as File;
     const privacyStatus = (formData.get('privacy_status') as string) || 'private';
 
+    // SECURITY: Required field validation
     if (!title || !videoFile) {
-      return new Response(JSON.stringify({ 
+      return secureJsonResponse({ 
         error: 'Missing required fields: title and video file' 
-      }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      }, 400);
     }
+    
+    // SECURITY: Input validation - length limits
+    if (title.length > 100) {
+      return secureJsonResponse({ error: 'Title exceeds YouTube limit (100 characters)' }, 400);
+    }
+    
+    if (description.length > 5000) {
+      return secureJsonResponse({ error: 'Description exceeds YouTube limit (5000 characters)' }, 400);
+    }
+    
+    // SECURITY: Privacy status validation
+    if (!['public', 'private', 'unlisted'].includes(privacyStatus)) {
+      return secureJsonResponse({ 
+        error: 'Invalid privacy status. Must be public, private, or unlisted' 
+      }, 400);
+    }
+    
+    // SECURITY: File validation (type, size, extension)
+    const fileValidation = validateFile(videoFile, FILE_VALIDATION_CONFIGS.VIDEO);
+    if (!fileValidation.valid) {
+      return secureJsonResponse({ error: fileValidation.error }, 400);
+    }
+    
+    // SECURITY: Sanitize text inputs
+    const sanitizedTitle = sanitizeString(title, 100);
+    const sanitizedDescription = sanitizeString(description, 5000);
 
     console.log('Upload request:', {
       title,
@@ -83,10 +110,11 @@ export async function POST(request: NextRequest) {
     
     // Use direct REST API to avoid googleapis Gaxios compatibility issues
     // YouTube Data API v3 simple upload
+    // SECURITY: Use sanitized inputs in metadata
     const metadata = {
       snippet: {
-        title: title,
-        description: description,
+        title: sanitizedTitle,
+        description: sanitizedDescription,
         categoryId: '22', // People & Blogs
       },
       status: {
@@ -139,15 +167,13 @@ export async function POST(request: NextRequest) {
       console.log('Video uploaded successfully:', uploadResult.id);
       console.log('=== YouTube Video Upload Completed ===');
 
-      return new Response(JSON.stringify({
+      // SECURITY: Return response with security headers
+      return secureJsonResponse({
         success: true,
         message: 'Video uploaded successfully to YouTube',
         videoId: uploadResult.id,
         videoUrl: `https://youtube.com/watch?v=${uploadResult.id}`
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      }, 200);
     } catch (uploadError: any) {
       clearTimeout(timeoutId);
       if (uploadError.name === 'AbortError') {
@@ -161,28 +187,40 @@ export async function POST(request: NextRequest) {
     console.error('=== YouTube Video Upload Error ===');
     console.error('Error details:', error);
     
-    // Handle specific YouTube API errors
-    let errorMessage = 'Unknown error occurred';
+    // SECURITY: Handle errors without exposing internal details
+    let errorMessage = 'Failed to upload video to YouTube';
+    let statusCode = 500;
+    
     if (error instanceof Error) {
-      errorMessage = error.message;
+      const message = error.message;
       
       // Check for quota exceeded
-      if (errorMessage.includes('quotaExceeded')) {
-        errorMessage = 'YouTube API quota exceeded. Try again tomorrow or request quota increase.';
+      if (message.includes('quotaExceeded')) {
+        errorMessage = 'YouTube API quota exceeded. Try again tomorrow.';
+        statusCode = 429;
       }
       // Check for token expired
-      else if (errorMessage.includes('invalid_grant') || errorMessage.includes('Token has been expired')) {
-        errorMessage = 'YouTube access token expired. Please disconnect and reconnect YouTube.';
+      else if (message.includes('invalid_grant') || message.includes('Token has been expired')) {
+        errorMessage = 'YouTube access token expired. Please reconnect YouTube.';
+        statusCode = 401;
+      }
+      // Check for timeout
+      else if (message.includes('timed out')) {
+        errorMessage = 'Upload timed out. Please try a smaller video.';
+        statusCode = 408;
+      }
+      // Generic validation errors
+      else if (message.includes('Validation failed') || message.includes('Invalid')) {
+        errorMessage = message;
+        statusCode = 400;
       }
     }
     
-    return new Response(JSON.stringify({
+    // SECURITY: Return secure response with appropriate status
+    return secureJsonResponse({
       success: false,
       error: errorMessage
-    }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    }, statusCode);
   }
 }
 

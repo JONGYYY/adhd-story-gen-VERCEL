@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionCookie } from '@/lib/firebase-admin';
 import { getSocialMediaCredentialsServer } from '@/lib/social-media/schema';
 import { TikTokAPI } from '@/lib/social-media/tiktok';
+import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit';
+import { validateFile, FILE_VALIDATION_CONFIGS, sanitizeString } from '@/lib/security/validation';
+import { secureJsonResponse } from '@/lib/security/headers';
 
 export const dynamic = 'force-dynamic';
 // Increase timeout for video uploads (Railway allows up to 300 seconds)
@@ -12,71 +15,87 @@ export async function POST(request: NextRequest) {
   try {
     console.log('=== TikTok Video Upload Started ===');
     
-    // Get current user from session cookie
+    // SECURITY: Authentication check
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return secureJsonResponse({ error: 'Not authenticated' }, 401);
     }
 
     // Verify session cookie and get user
     const decodedClaims = await verifySessionCookie(sessionCookie);
     if (!decodedClaims) {
-      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return secureJsonResponse({ error: 'Invalid session' }, 401);
     }
 
     const userId = decodedClaims.uid;
     console.log('User authenticated:', userId);
+    
+    // SECURITY: Rate limiting (IP + user-based)
+    const rateLimitResponse = await rateLimit(request, RATE_LIMITS.UPLOAD, userId);
+    if (rateLimitResponse) return rateLimitResponse;
 
-    // Get TikTok credentials
+    // SECURITY: Get TikTok credentials
     const credentials = await getSocialMediaCredentialsServer(userId, 'tiktok');
     if (!credentials) {
-      return new Response(JSON.stringify({ 
+      return secureJsonResponse({ 
         error: 'TikTok not connected. Please connect your TikTok account first.' 
-      }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      }, 400);
     }
 
     console.log('TikTok credentials found');
+    
+    // SECURITY: Validate access token
     if (!credentials.accessToken || typeof credentials.accessToken !== 'string') {
-      return new Response(JSON.stringify(
-        { error: 'TikTok access token is missing. Please disconnect and reconnect TikTok.' }
-      ), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return secureJsonResponse({ 
+        error: 'TikTok access token is missing. Please disconnect and reconnect TikTok.' 
+      }, 400);
     }
+    
+    if (credentials.accessToken.length < 20) {
+      return secureJsonResponse({ 
+        error: 'Invalid TikTok access token. Please reconnect TikTok.' 
+      }, 400);
+    }
+    
     if (credentials.accessToken.startsWith('test_access_token_')) {
-      return new Response(JSON.stringify({
-        error:
-          'Your TikTok connection is using a TEST token (TIKTOK_TEST_MODE). Disable test mode and reconnect TikTok in Settings → Social Media.',
-      }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return secureJsonResponse({
+        error: 'TikTok test mode detected. Please disable test mode and reconnect.'
+      }, 400);
     }
 
-    // Parse form data
+    // SECURITY: Parse and validate form data
     const formData = await request.formData();
     const title = formData.get('title') as string;
     const videoFile = formData.get('video') as File;
-    const privacyLevel = formData.get('privacy_level') as 'PUBLIC' | 'SELF_ONLY' | 'MUTUAL_FOLLOW' || 'SELF_ONLY';
+    const privacyLevel = (formData.get('privacy_level') as 'PUBLIC' | 'SELF_ONLY') || 'SELF_ONLY';
 
+    // SECURITY: Required field validation
     if (!title || !videoFile) {
-      return new Response(JSON.stringify({ 
+      return secureJsonResponse({ 
         error: 'Missing required fields: title and video file' 
-      }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      }, 400);
     }
+    
+    // SECURITY: Input validation - length limits
+    if (title.length > 2200) {
+      return secureJsonResponse({ error: 'Title exceeds TikTok limit (2200 characters)' }, 400);
+    }
+    
+    // SECURITY: Privacy level validation
+    if (!['PUBLIC', 'SELF_ONLY'].includes(privacyLevel)) {
+      return secureJsonResponse({ 
+        error: 'Invalid privacy level. Must be PUBLIC or SELF_ONLY' 
+      }, 400);
+    }
+    
+    // SECURITY: File validation (type, size, extension)
+    const fileValidation = validateFile(videoFile, FILE_VALIDATION_CONFIGS.VIDEO);
+    if (!fileValidation.valid) {
+      return secureJsonResponse({ error: fileValidation.error }, 400);
+    }
+    
+    // SECURITY: Sanitize text input
+    const sanitizedTitle = sanitizeString(title, 2200);
 
     console.log('Upload request:', {
       title,
@@ -91,9 +110,9 @@ export async function POST(request: NextRequest) {
     // Initialize TikTok API
     const tiktokApi = new TikTokAPI();
 
-    // Upload video
+    // SECURITY: Upload video with sanitized title
     const result = await tiktokApi.uploadVideo(credentials.accessToken, {
-      title,
+      title: sanitizedTitle,
       video_file: videoBuffer,
       privacy_level: privacyLevel
     });
@@ -101,25 +120,40 @@ export async function POST(request: NextRequest) {
     console.log('Video upload successful:', result);
     console.log('=== TikTok Video Upload Completed ===');
 
-    return new Response(JSON.stringify({
+    // SECURITY: Return response with security headers
+    return secureJsonResponse({
       success: true,
       message: 'Video uploaded successfully',
       result
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    }, 200);
 
   } catch (error) {
     console.error('=== TikTok Video Upload Error ===');
     console.error('Error details:', error);
     
-    return new Response(JSON.stringify({
+    // SECURITY: Handle errors without exposing internal details
+    let errorMessage = 'Failed to upload video to TikTok';
+    let statusCode = 500;
+    
+    if (error instanceof Error) {
+      const message = error.message;
+      
+      // Check for specific error types
+      if (message.includes('timed out')) {
+        errorMessage = 'Upload timed out. Please try again.';
+        statusCode = 408;
+      } else if (message.includes('401') || message.includes('expired')) {
+        errorMessage = 'TikTok access expired. Please reconnect TikTok.';
+        statusCode = 401;
+      } else if (message.includes('Validation failed') || message.includes('Invalid')) {
+        errorMessage = message;
+        statusCode = 400;
+      }
+    }
+    
+    return secureJsonResponse({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+      error: errorMessage
+    }, statusCode);
   }
 } 
