@@ -48,6 +48,10 @@ export async function GET(request: NextRequest) {
     const youtubeApi = new YouTubeAPI();
     
     console.log('Getting tokens from code...');
+    console.log('Environment check:', {
+      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+      expectedRedirectUri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/youtube/callback`
+    });
     const tokens = await youtubeApi.getTokensFromCode(code);
 
     if (!tokens.access_token) {

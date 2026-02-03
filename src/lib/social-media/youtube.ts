@@ -33,8 +33,52 @@ export class YouTubeAPI {
   }
 
   async getTokensFromCode(code: string) {
-    const { tokens } = await this.oauth2Client.getToken(code);
-    return tokens;
+    try {
+      console.log('Exchanging code for tokens...');
+      console.log('Redirect URI:', YOUTUBE_OAUTH_CONFIG.redirectUri);
+      
+      // Manual token exchange to avoid google-auth-library body serialization bug
+      const tokenEndpoint = 'https://oauth2.googleapis.com/token';
+      const params = new URLSearchParams({
+        code: code,
+        client_id: YOUTUBE_OAUTH_CONFIG.clientId,
+        client_secret: YOUTUBE_OAUTH_CONFIG.clientSecret,
+        redirect_uri: YOUTUBE_OAUTH_CONFIG.redirectUri,
+        grant_type: 'authorization_code'
+      });
+
+      console.log('Token exchange params:', {
+        client_id: YOUTUBE_OAUTH_CONFIG.clientId.substring(0, 20) + '...',
+        redirect_uri: YOUTUBE_OAUTH_CONFIG.redirectUri,
+        grant_type: 'authorization_code',
+        code_length: code.length
+      });
+
+      const response = await fetch(tokenEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString()
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Token exchange failed:', response.status, errorText);
+        throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
+      }
+
+      const tokens = await response.json();
+      console.log('Tokens received successfully');
+      
+      // Set credentials on OAuth2 client for future API calls
+      this.oauth2Client.setCredentials(tokens);
+      
+      return tokens;
+    } catch (error) {
+      console.error('Error in getTokensFromCode:', error);
+      throw error;
+    }
   }
 
   async uploadVideo(accessToken: string, videoData: {
