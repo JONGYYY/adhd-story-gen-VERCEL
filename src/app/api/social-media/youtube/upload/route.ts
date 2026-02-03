@@ -1,8 +1,6 @@
 import { NextRequest } from 'next/server';
 import { verifySessionCookie } from '@/lib/firebase-admin';
 import { getSocialMediaCredentialsServer } from '@/lib/social-media/schema';
-import { google } from 'googleapis';
-import { Readable } from 'stream';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes for YouTube uploads
@@ -81,63 +79,83 @@ export async function POST(request: NextRequest) {
     const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
     console.log('Video buffer created:', videoBuffer.length, 'bytes');
 
-    // Set up OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.YOUTUBE_CLIENT_ID!,
-      process.env.YOUTUBE_CLIENT_SECRET!,
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/youtube/callback`
-    );
-
-    oauth2Client.setCredentials({
-      access_token: credentials.accessToken,
-      refresh_token: credentials.refreshToken
-    });
-
-    // Create YouTube API client
-    const youtube = google.youtube('v3');
-
     console.log('Uploading to YouTube...');
     
-    // Convert buffer to readable stream
-    const videoStream = Readable.from(videoBuffer);
-
-    // Upload video
-    const response = await youtube.videos.insert({
-      auth: oauth2Client,
-      part: ['snippet', 'status'],
-      requestBody: {
-        snippet: {
-          title: title,
-          description: description,
-          categoryId: '22', // People & Blogs
-        },
-        status: {
-          privacyStatus: privacyStatus as 'private' | 'public' | 'unlisted',
-          selfDeclaredMadeForKids: false,
-        }
+    // Use direct REST API to avoid googleapis Gaxios compatibility issues
+    // YouTube Data API v3 simple upload
+    const metadata = {
+      snippet: {
+        title: title,
+        description: description,
+        categoryId: '22', // People & Blogs
       },
-      media: {
-        body: videoStream
+      status: {
+        privacyStatus: privacyStatus as 'private' | 'public' | 'unlisted',
+        selfDeclaredMadeForKids: false,
       }
-    }, {
-      onUploadProgress: (evt: any) => {
-        const progress = (evt.bytesRead / videoBuffer.length) * 100;
-        console.log(`Upload progress: ${Math.round(progress)}%`);
+    };
+
+    // Create multipart body with metadata + video
+    const boundary = '-------314159265358979323846';
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const closeDelimiter = `\r\n--${boundary}--`;
+
+    const multipartBody = Buffer.concat([
+      Buffer.from(delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n'),
+      Buffer.from(JSON.stringify(metadata)),
+      Buffer.from(delimiter + 'Content-Type: video/mp4\r\n\r\n'),
+      videoBuffer,
+      Buffer.from(closeDelimiter)
+    ]);
+
+    // Upload with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout
+
+    try {
+      const uploadResponse = await fetch(
+        'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${credentials.accessToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`,
+            'Content-Length': multipartBody.length.toString(),
+          },
+          body: multipartBody,
+          signal: controller.signal
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('YouTube upload failed:', uploadResponse.status, errorText);
+        throw new Error(`YouTube upload failed: ${uploadResponse.status} ${errorText}`);
       }
-    });
 
-    console.log('Video uploaded successfully:', response.data.id);
-    console.log('=== YouTube Video Upload Completed ===');
+      const uploadResult = await uploadResponse.json();
+      console.log('Video uploaded successfully:', uploadResult.id);
+      console.log('=== YouTube Video Upload Completed ===');
 
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Video uploaded successfully to YouTube',
-      videoId: response.data.id,
-      videoUrl: `https://youtube.com/watch?v=${response.data.id}`
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Video uploaded successfully to YouTube',
+        videoId: uploadResult.id,
+        videoUrl: `https://youtube.com/watch?v=${uploadResult.id}`
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (uploadError: any) {
+      clearTimeout(timeoutId);
+      if (uploadError.name === 'AbortError') {
+        console.error('YouTube upload timed out after 3 minutes');
+        throw new Error('Video upload timed out. Please try again with a smaller video.');
+      }
+      throw uploadError;
+    }
 
   } catch (error) {
     console.error('=== YouTube Video Upload Error ===');
