@@ -61,6 +61,7 @@ export default function RootLayout({
             'tiktok-developers-site-verification=5Kt6Vq9a21F6XcwGsCk9MrAw2mymMuFj'
           }
         />
+        <meta name="google-site-verification" content="pEngX_433qIiPYTJ0dmUrX-QATENPiqtWhH2eLNUWPU" />
       </head>
       <body className={GeistSans.className}>
         <ThemeProvider
