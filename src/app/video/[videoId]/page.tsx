@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { PageContainer } from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
 import { TikTokUploadModal } from '@/components/tiktok/TikTokUploadModal';
+import { YouTubeUploadModal } from '@/components/youtube/YouTubeUploadModal';
 
 type VideoStatus = {
   status: 'generating' | 'ready' | 'failed';
@@ -23,6 +24,7 @@ export default function VideoPage() {
   const [isUploadingYouTube, setIsUploadingYouTube] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showYouTubeModal, setShowYouTubeModal] = useState(false);
   const checkStatusTimeoutRef = useRef<NodeJS.Timeout>();
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -176,14 +178,13 @@ export default function VideoPage() {
     }
   };
 
-  const handleYouTubeUpload = async () => {
+  const handleYouTubeUpload = async (data: { 
+    title: string; 
+    description: string; 
+    tags: string[]; 
+    privacyStatus: 'public' | 'unlisted' | 'private' 
+  }) => {
     if (!videoStatus.videoUrl) return;
-    
-    const title = prompt('Enter YouTube video title:', 'Reddit Story Video');
-    if (!title) return;
-    
-    const description = prompt('Enter video description (optional):', 'Generated with Taleo Shorts AI') || '';
-    const privacyStatus = confirm('Make video PUBLIC? (Cancel for Private)') ? 'public' : 'private';
     
     setIsUploadingYouTube(true);
     setUploadError(null);
@@ -194,12 +195,17 @@ export default function VideoPage() {
       if (!videoResponse.ok) throw new Error('Failed to fetch video');
       const videoBlob = await videoResponse.blob();
       
+      // Add tags to description if provided
+      const descriptionWithTags = data.tags.length > 0 
+        ? `${data.description}\n\nTags: ${data.tags.join(', ')}`
+        : data.description;
+      
       // Create form data
       const formData = new FormData();
       formData.append('video', videoBlob, `video_${videoId}.mp4`);
-      formData.append('title', title);
-      formData.append('description', description);
-      formData.append('privacy_status', privacyStatus);
+      formData.append('title', data.title);
+      formData.append('description', descriptionWithTags);
+      formData.append('privacy_status', data.privacyStatus);
       
       // Upload to YouTube
       const uploadResponse = await fetch('/api/social-media/youtube/upload', {
@@ -217,8 +223,11 @@ export default function VideoPage() {
         throw new Error(result.error || 'Upload failed');
       }
       
-      // Show success message with video URL
-      alert(`✅ Video uploaded to YouTube as ${privacyStatus.toUpperCase()}!\n\nVideo URL: ${result.videoUrl}\n\nIt may take a few minutes to process on YouTube.`);
+      // Close modal and show success message
+      setShowYouTubeModal(false);
+      
+      const message = `✅ Video uploaded to YouTube as ${data.privacyStatus.toUpperCase()}!\n\nVideo URL: ${result.videoUrl}\n\nIt may take a few minutes to process on YouTube.`;
+      alert(message);
       
     } catch (error) {
       console.error('YouTube upload error:', error);
@@ -248,6 +257,13 @@ export default function VideoPage() {
         onOpenChange={setShowUploadModal}
         onUpload={handleTikTokUpload}
         isUploading={isUploading}
+      />
+      
+      <YouTubeUploadModal
+        open={showYouTubeModal}
+        onOpenChange={setShowYouTubeModal}
+        onUpload={handleYouTubeUpload}
+        isUploading={isUploadingYouTube}
       />
       
       <div className="bg-gray-800 border-b border-gray-700 w-full">
@@ -330,7 +346,7 @@ export default function VideoPage() {
                     )}
                   </Button>
                   <Button
-                    onClick={handleYouTubeUpload}
+                    onClick={() => setShowYouTubeModal(true)}
                     className="px-6 bg-red-600 hover:bg-red-700"
                     disabled={!!videoError || isUploadingYouTube}
                   >
