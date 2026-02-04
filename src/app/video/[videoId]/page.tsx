@@ -190,10 +190,15 @@ export default function VideoPage() {
     setUploadError(null);
     
     try {
-      // Get the video file
+      // Get the video file with better error handling
+      console.log('Fetching video from:', videoStatus.videoUrl);
       const videoResponse = await fetch(videoStatus.videoUrl);
-      if (!videoResponse.ok) throw new Error('Failed to fetch video');
+      if (!videoResponse.ok) {
+        console.error('Video fetch failed:', videoResponse.status, videoResponse.statusText);
+        throw new Error(`Failed to fetch video file: ${videoResponse.status} ${videoResponse.statusText}. The video may have expired or been deleted.`);
+      }
       const videoBlob = await videoResponse.blob();
+      console.log('Video blob retrieved, size:', videoBlob.size);
       
       // Add tags to description if provided
       const descriptionWithTags = data.tags.length > 0 
@@ -208,17 +213,23 @@ export default function VideoPage() {
       formData.append('privacy_status', data.privacyStatus);
       
       // Upload to YouTube
+      console.log('Uploading to YouTube API...');
       const uploadResponse = await fetch('/api/social-media/youtube/upload', {
         method: 'POST',
         body: formData
       });
       
+      console.log('YouTube API response status:', uploadResponse.status);
+      
       if (!uploadResponse.ok) {
         const error = await uploadResponse.text();
-        throw new Error(error || 'Failed to upload to YouTube');
+        console.error('YouTube upload failed:', error);
+        throw new Error(error || `Failed to upload to YouTube (${uploadResponse.status})`);
       }
       
       const result = await uploadResponse.json();
+      console.log('YouTube upload result:', result);
+      
       if (!result.success) {
         throw new Error(result.error || 'Upload failed');
       }
