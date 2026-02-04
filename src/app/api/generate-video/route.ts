@@ -115,16 +115,28 @@ export async function POST(request: NextRequest) {
       return secureJsonResponse({ error: 'Subreddit is required and must be a string' }, 400);
     }
     
-    if (!rawBody.videoType || !['cliffhanger', 'full-story'].includes(rawBody.videoType)) {
-      return secureJsonResponse({ error: 'Video type must be cliffhanger or full-story' }, 400);
+    // SECURITY: Validate video type (accepts both isCliffhanger boolean and videoType string)
+    if (rawBody.isCliffhanger !== undefined) {
+      // Frontend sends isCliffhanger as boolean
+      if (typeof rawBody.isCliffhanger !== 'boolean') {
+        return secureJsonResponse({ error: 'isCliffhanger must be a boolean' }, 400);
+      }
+    } else if (rawBody.videoType !== undefined) {
+      // Alternative format: videoType as string
+      if (!['cliffhanger', 'full-story'].includes(rawBody.videoType)) {
+        return secureJsonResponse({ error: 'Video type must be cliffhanger or full-story' }, 400);
+      }
     }
+    // Note: isCliffhanger/videoType is optional, defaults to full-story if not provided
     
     // SECURITY: Sanitize string inputs to prevent injection
     const sanitizedSubreddit = sanitizeString(rawBody.subreddit, 100);
     
-    // SECURITY: Validate subreddit format
-    if (!/^r\/[a-zA-Z0-9_]+$/.test(sanitizedSubreddit) && !sanitizedSubreddit.match(/^[a-zA-Z0-9_]+$/)) {
-      return secureJsonResponse({ error: 'Invalid subreddit format' }, 400);
+    // SECURITY: Validate subreddit format (more lenient for custom stories)
+    // Accepts: r/subreddit, subreddit, or r/test (for testing)
+    const subredditPattern = /^(r\/)?[a-zA-Z0-9_-]+$/;
+    if (!subredditPattern.test(sanitizedSubreddit)) {
+      return secureJsonResponse({ error: 'Invalid subreddit format. Use format: r/subreddit or subreddit' }, 400);
     }
     
     // SECURITY: Type-check nested objects
