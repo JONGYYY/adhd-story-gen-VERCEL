@@ -9,24 +9,15 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes for YouTube uploads
 
 export async function POST(request: NextRequest) {
-  // Wrap entire handler in a timeout to prevent infinite hangs
-  const handlerTimeout = new Promise((_, reject) => {
-    setTimeout(() => {
-      console.error('=== CRITICAL: Handler timeout after 4 minutes ===');
-      reject(new Error('Upload handler timed out. This suggests an issue with the YouTube API connection or token refresh.'));
-    }, 240000); // 4 minute timeout (less than maxDuration)
-  });
-
-  const handler = async () => {
-    try {
-      console.log('=== YouTube Video Upload Started ===');
-      console.log('Timestamp:', new Date().toISOString());
-      
-      // SECURITY: Authentication check
-      const sessionCookie = request.cookies.get('session')?.value;
-      if (!sessionCookie) {
-        return secureJsonResponse({ error: 'Not authenticated' }, 401);
-      }
+  try {
+    console.log('=== YouTube Video Upload Started ===');
+    console.log('Timestamp:', new Date().toISOString());
+    
+    // SECURITY: Authentication check
+    const sessionCookie = request.cookies.get('session')?.value;
+    if (!sessionCookie) {
+      return secureJsonResponse({ error: 'Not authenticated' }, 401);
+    }
 
     // Verify session cookie and get user
     const decodedClaims = await verifySessionCookie(sessionCookie);
@@ -285,19 +276,6 @@ export async function POST(request: NextRequest) {
       success: false,
       error: errorMessage
     }, statusCode);
-  }
-  }; // End of handler function
-
-  // Race between handler and timeout
-  try {
-    return await Promise.race([handler(), handlerTimeout]) as Response;
-  } catch (error) {
-    console.error('=== Handler Promise.race error ===');
-    console.error(error);
-    return secureJsonResponse({
-      success: false,
-      error: error instanceof Error ? error.message : 'Upload failed due to timeout or network error'
-    }, 408);
   }
 }
 
