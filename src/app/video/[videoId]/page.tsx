@@ -12,6 +12,7 @@ type VideoStatus = {
   progress?: number;
   videoUrl?: string;
   error?: string;
+  title?: string; // Story title for auto-filling upload modals
 };
 
 export default function VideoPage() {
@@ -48,7 +49,8 @@ export default function VideoPage() {
           status: uiStatus,
           progress: typeof data.progress === 'number' ? data.progress : (uiStatus === 'ready' ? 100 : 0),
           error: data.error,
-          videoUrl: uiStatus === 'ready' ? videoUrl : undefined
+          videoUrl: uiStatus === 'ready' ? videoUrl : undefined,
+          title: data.title || undefined // Include story title from backend
         });
 
         // If still generating, check again in 2 seconds
@@ -275,6 +277,7 @@ export default function VideoPage() {
         onOpenChange={setShowYouTubeModal}
         onUpload={handleYouTubeUpload}
         isUploading={isUploadingYouTube}
+        initialTitle={videoStatus.title || ''}
       />
       
       <div className="bg-gray-800 border-b border-gray-700 w-full">

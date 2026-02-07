@@ -26,6 +26,7 @@ interface YouTubeUploadModalProps {
     privacyStatus: 'public' | 'unlisted' | 'private' 
   }) => void;
   isUploading: boolean;
+  initialTitle?: string; // Story title to auto-fill
 }
 
 // Pre-written tag suggestions categorized
@@ -40,12 +41,23 @@ const TITLE_MAX_LENGTH = 100; // YouTube's title limit
 const DESCRIPTION_MAX_LENGTH = 5000; // YouTube's description limit
 const MAX_TAGS = 15; // YouTube's tag limit
 
-export function YouTubeUploadModal({ open, onOpenChange, onUpload, isUploading }: YouTubeUploadModalProps) {
+export function YouTubeUploadModal({ open, onOpenChange, onUpload, isUploading, initialTitle }: YouTubeUploadModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [privacyStatus, setPrivacyStatus] = useState<'public' | 'unlisted' | 'private'>('public');
   const [activeCategory, setActiveCategory] = useState<keyof typeof TAG_SUGGESTIONS>('trending');
+
+  // Auto-fill title when modal opens with story title
+  useEffect(() => {
+    if (open && initialTitle && !title) {
+      // Truncate title to YouTube's 100 char limit
+      const truncatedTitle = initialTitle.length > TITLE_MAX_LENGTH 
+        ? initialTitle.substring(0, TITLE_MAX_LENGTH) 
+        : initialTitle;
+      setTitle(truncatedTitle);
+    }
+  }, [open, initialTitle]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -98,6 +110,16 @@ export function YouTubeUploadModal({ open, onOpenChange, onUpload, isUploading }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-red-500/20 max-h-[90vh] overflow-y-auto">
+        {/* Custom close button (above sticky header) */}
+        <button
+          onClick={() => onOpenChange(false)}
+          disabled={isUploading}
+          className="absolute right-4 top-4 z-50 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-30 bg-red-500/20 hover:bg-red-500/30 p-1.5"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4 text-white" />
+        </button>
+        
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

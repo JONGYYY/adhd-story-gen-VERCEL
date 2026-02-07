@@ -1550,12 +1550,27 @@ async function generateVideoSimple(options, videoId) {
       author: options?.customStory?.author || 'Anonymous',
       isCliffhanger: options?.isCliffhanger || false
     }, videoId);
-    videoStatus.set(videoId, { status: 'completed', progress: 100, message: 'Video generation complete.', videoUrl });
+    // Get title from videoStatus (preserve it from initial set)
+    const currentStatus = videoStatus.get(videoId);
+    const storyTitle = currentStatus?.title || options?.customStory?.title || 'Untitled Story';
+    
+    videoStatus.set(videoId, { 
+      status: 'completed', 
+      progress: 100, 
+      message: 'Video generation complete.', 
+      videoUrl,
+      title: storyTitle
+    });
     console.log(`Video generation completed for ID: ${videoId}`);
   } catch (err) {
     console.error('Video build failed (FFmpeg fallback):', err);
     const msg = err instanceof Error ? err.message : String(err);
-    videoStatus.set(videoId, { status: 'failed', error: msg || 'Video build failed' });
+    const currentStatus = videoStatus.get(videoId);
+    videoStatus.set(videoId, { 
+      status: 'failed', 
+      error: msg || 'Video build failed',
+      title: currentStatus?.title || 'Untitled Story'
+    });
   }
 }
 
@@ -1701,7 +1716,13 @@ async function generateVideoHandler(req, res) {
 		const videoId = uuidv4();
 
 		// Set initial processing status so /video-status does not 404
-		videoStatus.set(videoId, { status: 'processing', progress: 0, message: 'Video generation started.' });
+		// Include title for frontend use (auto-fill YouTube upload)
+		videoStatus.set(videoId, { 
+			status: 'processing', 
+			progress: 0, 
+			message: 'Video generation started.',
+			title: customStory?.title || 'Untitled Story'
+		});
 
 		// Start video generation in the background (FFmpeg-only; Remotion disabled for production stability)
 		(async () => {
