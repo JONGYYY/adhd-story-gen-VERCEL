@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { verifySessionCookie } from '@/lib/firebase-admin';
-import { getSocialMediaCredentialsServer } from '@/lib/social-media/schema';
+import { getSocialMediaCredentialsServer, setSocialMediaCredentialsServer } from '@/lib/social-media/schema';
+import { YouTubeAPI } from '@/lib/social-media/youtube';
 import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit';
 import { validateFile, FILE_VALIDATION_CONFIGS, sanitizeString } from '@/lib/security/validation';
 import { secureJsonResponse } from '@/lib/security/headers';
@@ -55,11 +56,39 @@ export async function POST(request: NextRequest) {
       }, 400);
     }
     
-    // CRITICAL: Check if token is expired
-    if (credentials.expiresAt && Date.now() > credentials.expiresAt) {
-      console.error('YouTube access token has expired');
-      const expiredDate = new Date(credentials.expiresAt).toLocaleString();
-      console.error(`Token expired at: ${expiredDate}`);
+    // CRITICAL: Check if token is expired or about to expire (within 5 minutes)
+    const isExpired = credentials.expiresAt && Date.now() > credentials.expiresAt;
+    const isExpiringSoon = credentials.expiresAt && (credentials.expiresAt - Date.now()) < 300000; // 5 minutes
+    
+    // AUTO-REFRESH: If token expired or expiring soon, refresh it using refresh token
+    if ((isExpired || isExpiringSoon) && credentials.refreshToken) {
+      console.log('Access token expired or expiring soon, attempting auto-refresh...');
+      
+      try {
+        const youtubeApi = new YouTubeAPI();
+        const newTokens = await youtubeApi.refreshAccessToken(credentials.refreshToken);
+        
+        // Update credentials with new access token
+        credentials.accessToken = newTokens.access_token;
+        credentials.expiresAt = newTokens.expiry_date;
+        
+        // Save refreshed token to database
+        await setSocialMediaCredentialsServer(userId, 'youtube', {
+          ...credentials,
+          accessToken: newTokens.access_token,
+          expiresAt: newTokens.expiry_date
+        });
+        
+        console.log('✅ Access token refreshed successfully');
+      } catch (refreshError) {
+        console.error('Failed to refresh token:', refreshError);
+        return secureJsonResponse({ 
+          error: 'YouTube access token has expired and could not be refreshed. Please go to Settings → Social Media and reconnect your YouTube account.' 
+        }, 401);
+      }
+    } else if (isExpired && !credentials.refreshToken) {
+      // No refresh token available, user must reconnect
+      console.error('YouTube access token has expired and no refresh token available');
       return secureJsonResponse({ 
         error: 'YouTube access token has expired. Please go to Settings → Social Media, disconnect and reconnect your YouTube account.' 
       }, 401);

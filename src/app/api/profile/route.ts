@@ -16,31 +16,50 @@ async function getUserIdFromSession(request: NextRequest): Promise<string | null
 export async function GET(request: NextRequest) {
   try {
     const uid = await getUserIdFromSession(request);
-    if (!uid) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    if (!uid) {
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     const db = await getAdminFirestore();
     const snap = await db.collection(COLLECTION).doc(uid).get();
     const data = snap.exists ? (snap.data() as any) : {};
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       displayName: typeof data.displayName === 'string' ? data.displayName : '',
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Failed to load profile:', error);
-    return NextResponse.json({ error: 'Failed to load profile' }, { status: 500 });
+    return new Response(JSON.stringify({ error: 'Failed to load profile' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const uid = await getUserIdFromSession(request);
-    if (!uid) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    if (!uid) {
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     let body: any;
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const displayNameRaw = typeof body?.displayName === 'string' ? body.displayName : '';
@@ -55,10 +74,16 @@ export async function POST(request: NextRequest) {
       { merge: true }
     );
 
-    return NextResponse.json({ success: true, displayName });
+    return new Response(JSON.stringify({ success: true, displayName }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
     console.error('Failed to save profile:', error);
-    return NextResponse.json({ error: 'Failed to save profile' }, { status: 500 });
+    return new Response(JSON.stringify({ error: 'Failed to save profile' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 

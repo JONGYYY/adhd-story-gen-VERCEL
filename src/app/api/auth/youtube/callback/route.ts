@@ -5,15 +5,16 @@ import { setSocialMediaCredentialsServer } from '@/lib/social-media/schema';
 
 // Prevent static generation but use Node.js runtime for Firebase Admin
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // 60 seconds max for OAuth callback
+export const maxDuration = 120; // 120 seconds max for OAuth callback (YouTube API can be slow)
 
 export async function GET(request: NextRequest) {
   // Wrap entire handler in a timeout to prevent infinite hangs
+  // Increased from 45s to 90s to allow for slow token exchange + getUserInfo
   const handlerTimeout = new Promise((_, reject) => {
     setTimeout(() => {
-      console.error('=== CRITICAL: OAuth callback timeout after 45 seconds ===');
-      reject(new Error('OAuth callback timed out. YouTube API may be slow or your connection is unstable.'));
-    }, 45000); // 45 second timeout
+      console.error('=== CRITICAL: OAuth callback timeout after 90 seconds ===');
+      reject(new Error('OAuth callback timed out. This may indicate YouTube API is experiencing issues. Please try again.'));
+    }, 90000); // 90 second timeout (allows for slow API calls)
   });
 
   const handler = async () => {

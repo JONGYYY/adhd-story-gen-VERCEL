@@ -32,6 +32,65 @@ export class YouTubeAPI {
     });
   }
 
+  /**
+   * Refresh access token using refresh token
+   * YouTube access tokens expire after 1 hour
+   */
+  async refreshAccessToken(refreshToken: string) {
+    try {
+      console.log('Refreshing YouTube access token...');
+      
+      const tokenEndpoint = 'https://oauth2.googleapis.com/token';
+      const params = new URLSearchParams({
+        client_id: YOUTUBE_OAUTH_CONFIG.clientId,
+        client_secret: YOUTUBE_OAUTH_CONFIG.clientSecret,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token'
+      });
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      try {
+        const response = await fetch(tokenEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString(),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Token refresh failed:', response.status, errorText);
+          throw new Error(`Token refresh failed: ${response.status} ${errorText}`);
+        }
+
+        const tokens = await response.json();
+        console.log('Access token refreshed successfully');
+        
+        return {
+          access_token: tokens.access_token,
+          expires_in: tokens.expires_in,
+          expiry_date: Date.now() + (tokens.expires_in * 1000)
+        };
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.error('Token refresh timed out after 30 seconds');
+          throw new Error('Token refresh timed out. Please try again.');
+        }
+        throw fetchError;
+      }
+    } catch (error) {
+      console.error('Error in refreshAccessToken:', error);
+      throw error;
+    }
+  }
+
   async getTokensFromCode(code: string) {
     try {
       console.log('Exchanging code for tokens...');
@@ -54,9 +113,12 @@ export class YouTubeAPI {
         code_length: code.length
       });
 
-      // Add timeout to prevent hanging
+      // Add timeout to prevent hanging (increased to 60s for slow YouTube API)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => {
+        console.error('Token exchange timeout (60s) - aborting');
+        controller.abort();
+      }, 60000); // 60 second timeout
 
       try {
         const response = await fetch(tokenEndpoint, {
@@ -86,8 +148,8 @@ export class YouTubeAPI {
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
-          console.error('Token exchange timed out after 30 seconds');
-          throw new Error('Token exchange timed out. Please try again.');
+          console.error('Token exchange timed out after 60 seconds');
+          throw new Error('YouTube authorization is taking too long. Please try again.');
         }
         throw fetchError;
       }
@@ -147,12 +209,12 @@ export class YouTubeAPI {
     try {
       console.log('Fetching YouTube channel info...');
       
-      // Add timeout to prevent hanging
+      // Add timeout to prevent hanging (increased to 60s for slow YouTube API)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.error('getUserInfo timeout (30s) - aborting');
+        console.error('getUserInfo timeout (60s) - aborting');
         controller.abort();
-      }, 30000); // 30 second timeout
+      }, 60000); // 60 second timeout
       
       let data: any;
       
@@ -186,8 +248,8 @@ export class YouTubeAPI {
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
-          console.error('getUserInfo request timed out after 30 seconds');
-          throw new Error('YouTube API request timed out. Please try again.');
+          console.error('getUserInfo request timed out after 60 seconds');
+          throw new Error('YouTube API is taking too long to respond. Please try again.');
         }
         throw fetchError;
       }
