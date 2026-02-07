@@ -103,10 +103,6 @@ export default function Analytics() {
   const appStats = {
     videosCreated: 24,
     videosCreatedChange: '+4',
-    uploadSuccessRate: 95,
-    uploadSuccessRateChange: '+2.1%',
-    avgGenerationTime: 45,
-    avgGenerationTimeChange: '-3s',
   };
 
   // Platform-specific stats
@@ -177,31 +173,11 @@ export default function Analytics() {
       bgGlow: 'group-hover:shadow-blue-500/[0.02]',
       description: 'Total videos generated in your account',
     },
-    {
-      name: 'Upload Success Rate',
-      value: `${appStats.uploadSuccessRate}%`,
-      change: appStats.uploadSuccessRateChange,
-      trend: 'up' as const,
-      icon: CheckCircle2,
-      color: 'from-green-500 to-emerald-500',
-      bgGlow: 'group-hover:shadow-green-500/[0.02]',
-      description: 'Successful uploads to social platforms',
-    },
-    {
-      name: 'Avg Generation Time',
-      value: `${appStats.avgGenerationTime}s`,
-      change: appStats.avgGenerationTimeChange,
-      trend: 'up' as const,
-      icon: Clock,
-      color: 'from-purple-500 to-pink-500',
-      bgGlow: 'group-hover:shadow-purple-500/[0.02]',
-      description: 'Average time to create a video',
-    },
   ];
 
   const stats = selectedPlatform === 'youtube' 
-    ? [...baseStats, ...youtubeSpecificStats]
-    : [...baseStats, ...tiktokSpecificStats];
+    ? [...youtubeSpecificStats, ...baseStats]
+    : [...tiktokSpecificStats, ...baseStats];
 
   // Subreddit distribution chart data
   const subredditData = {
@@ -580,15 +556,6 @@ export default function Analytics() {
       color: 'from-purple-500/20 to-pink-500/20',
       iconColor: 'text-purple-400',
     },
-    {
-      icon: Sparkles,
-      title: 'Upload Success',
-      description: `Your upload success rate is ${appStats.uploadSuccessRate}%. Great job maintaining quality!`,
-      action: 'View Library',
-      href: '/library',
-      color: 'from-green-500/20 to-emerald-500/20',
-      iconColor: 'text-green-400',
-    },
   ];
 
   const youtubeInsights = [
@@ -613,15 +580,6 @@ export default function Analytics() {
       href: '/create',
       color: 'from-blue-500/20 to-cyan-500/20',
       iconColor: 'text-blue-400',
-    },
-    {
-      icon: Sparkles,
-      title: 'Upload Success',
-      description: `Your upload success rate is ${appStats.uploadSuccessRate}%. Great job maintaining quality!`,
-      action: 'View Library',
-      href: '/library',
-      color: 'from-green-500/20 to-emerald-500/20',
-      iconColor: 'text-green-400',
     },
   ];
 
@@ -712,7 +670,7 @@ export default function Analytics() {
       <div className="py-8 md:py-12">
         <div className="container-wide space-y-8">
           {/* KPI Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {stats.map((stat, i) => {
               const Icon = stat.icon;
               return (

@@ -88,24 +88,6 @@ export default function Dashboard() {
       color: 'from-blue-500 to-cyan-500',
       bgGlow: 'group-hover:shadow-blue-500/[0.02]',
     },
-    { 
-      name: 'Upload Success', 
-      value: '95%', 
-      change: '+2.1%', 
-      trend: 'up' as const, 
-      icon: TrendingUp,
-      color: 'from-green-500 to-emerald-500',
-      bgGlow: 'group-hover:shadow-green-500/[0.02]',
-    },
-    { 
-      name: 'Avg Generation Time', 
-      value: '45s', 
-      change: '-3s faster', 
-      trend: 'up' as const, 
-      icon: Clock,
-      color: 'from-purple-500 to-pink-500',
-      bgGlow: 'group-hover:shadow-purple-500/[0.02]',
-    },
   ];
 
   // Platform-specific stats
@@ -134,8 +116,8 @@ export default function Dashboard() {
   ];
 
   const stats = selectedPlatform === 'youtube'
-    ? [...baseStats, ...youtubePlatformStats]
-    : [...baseStats, ...tiktokPlatformStats];
+    ? [...youtubePlatformStats, ...baseStats]
+    : [...tiktokPlatformStats, ...baseStats];
 
   const quickActions = [
     {
@@ -258,13 +240,6 @@ export default function Dashboard() {
                     </span>
                   </div>
                 )}
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
-                  <TrendingUp className="w-4 h-4 text-green-400" />
-                  <span className="text-sm">
-                    <span className="font-bold text-green-400">95%</span>
-                    <span className="text-muted-foreground ml-1">Upload Success</span>
-                  </span>
-                </div>
               </div>
             </div>
 
@@ -298,7 +273,7 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {stats.map((stat, i) => {
               const Icon = stat.icon;
               return (
