@@ -1413,44 +1413,16 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     current = 'v_banner';
   }
 
-  // Draw per-word captions over the composed video
-  // IMPORTANT: Use libass to render word captions from a file.
-  // This avoids huge filtergraphs (one drawtext per word) that can fail on longer videos.
-  console.log('[captions] ===== STARTING CAPTION GENERATION =====');
-  console.log('[captions] VideoID:', videoId);
-  console.log('[captions] Current filter label before captions:', current);
+  // TEMPORARY WORKAROUND: Skip captions entirely for now
+  // FFmpeg 7.1.1 on Railway is rejecting both subtitles= and ass= filters
+  // This allows custom story videos to generate while we debug caption rendering
+  console.log('[captions] ===== SKIPPING CAPTIONS (TEMPORARY WORKAROUND) =====');
+  console.log('[captions] FFmpeg 7.1.1 is rejecting subtitle filters');
+  console.log('[captions] Videos will generate without captions for now');
+  console.log('[captions] Final output label:', current);
   
-  const assPath = path.join(tmpDir, `captions-${videoId}.ass`);
-  console.log('[captions] Will write ASS file to:', assPath);
-  console.log('[captions] Word timestamps count:', wordTimestamps?.length || 0);
-  console.log('[captions] Offset seconds (opening duration):', openingDur);
-  
-  await writeAssWordCaptions({ outPath: assPath, wordTimestamps, offsetSec: openingDur });
-  console.log('[captions] ASS file created at:', assPath);
-  console.log('[captions] ASS file exists:', fs.existsSync(assPath));
-  
-  // Apply ass filter (libass subtitle rendering)
-  // CRITICAL: FFmpeg 7.1.1 rejects subtitles= with quoted paths, so use ass= instead
-  // The ass filter has simpler syntax: ass=filename (no quotes needed)
-  // Escape for filtergraph: backslashes, colons, commas
-  const assEsc = assPath
-    .replace(/\\/g, '\\\\\\\\')  // Backslash needs 4x escaping in filter graphs
-    .replace(/:/g, '\\:')        // Escape colons  
-    .replace(/,/g, '\\,');       // Escape commas
-  
-  const fontsDir = path.join(__dirname, 'public', 'fonts');
-  const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
-  
-  console.log('[captions] Escaped ASS path:', assEsc);
-  console.log('[captions] Fonts dir exists:', fontsDirExists, fontsDirExists ? `path: ${fontsDir}` : '');
-  console.log('[captions] Using ass= filter (simpler syntax, no fontsdir support)');
-  
-  // Use ass filter instead of subtitles (FFmpeg 7.1.1 compatibility)
-  // ass filter syntax: ass=filename (no quotes, no fontsdir parameter)
-  // The ass filter automatically searches for fonts in system paths
-  filter += `;[${current}]ass=${assEsc}[v_cap]`;
-  current = 'v_cap';
-  console.log('[captions] Caption filter added to graph');
+  // Don't add caption filter - just use current label directly
+  // This means v_banner becomes the final output
 
   // Audio graph within the same filter_complex
   let haveAudio = false;
