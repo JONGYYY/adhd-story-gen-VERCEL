@@ -5,16 +5,28 @@ import { setSocialMediaCredentialsServer } from '@/lib/social-media/schema';
 
 // Prevent static generation but use Node.js runtime for Firebase Admin
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // 60 seconds max for OAuth callback
 
 export async function GET(request: NextRequest) {
-  try {
-    console.log('YouTube OAuth callback received');
-    const searchParams = request.nextUrl.searchParams;
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
-    const error = searchParams.get('error');
-    
-    console.log('YouTube OAuth callback params:', { code: !!code, state: !!state, error });
+  // Wrap entire handler in a timeout to prevent infinite hangs
+  const handlerTimeout = new Promise((_, reject) => {
+    setTimeout(() => {
+      console.error('=== CRITICAL: OAuth callback timeout after 45 seconds ===');
+      reject(new Error('OAuth callback timed out. YouTube API may be slow or your connection is unstable.'));
+    }, 45000); // 45 second timeout
+  });
+
+  const handler = async () => {
+    try {
+      console.log('=== YouTube OAuth Callback Started ===');
+      console.log('Timestamp:', new Date().toISOString());
+      
+      const searchParams = request.nextUrl.searchParams;
+      const code = searchParams.get('code');
+      const state = searchParams.get('state');
+      const error = searchParams.get('error');
+      
+      console.log('YouTube OAuth callback params:', { code: !!code, state: !!state, error });
     
     if (error) {
       console.error('YouTube OAuth error:', error);
@@ -85,5 +97,16 @@ export async function GET(request: NextRequest) {
     console.error('Error handling YouTube OAuth callback:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/settings/social-media?error=Failed to connect YouTube: ${errorMessage}`);
+  }
+  }; // End of handler function
+
+  // Race between handler and timeout
+  try {
+    return await Promise.race([handler(), handlerTimeout]) as Response;
+  } catch (error) {
+    console.error('=== OAuth callback Promise.race error ===');
+    console.error(error);
+    const errorMessage = error instanceof Error ? error.message : 'OAuth callback timed out';
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/settings/social-media?error=${encodeURIComponent(errorMessage)}`);
   }
 } 

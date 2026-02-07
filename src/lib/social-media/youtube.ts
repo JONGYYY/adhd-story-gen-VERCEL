@@ -147,24 +147,48 @@ export class YouTubeAPI {
     try {
       console.log('Fetching YouTube channel info...');
       
-      // Manual REST API call to avoid googleapis compatibility issues
-      const response = await fetch(
-        'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Accept': 'application/json'
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.error('getUserInfo timeout (30s) - aborting');
+        controller.abort();
+      }, 30000); // 30 second timeout
+      
+      try {
+        console.log('Sending request to YouTube channels API...');
+        const startTime = Date.now();
+        
+        // Manual REST API call to avoid googleapis compatibility issues
+        const response = await fetch(
+          'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Accept': 'application/json'
+            },
+            signal: controller.signal
           }
+        );
+
+        const elapsed = Date.now() - startTime;
+        clearTimeout(timeoutId);
+        console.log(`Channel info response received in ${elapsed}ms, status: ${response.status}`);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('YouTube API error:', response.status, errorText);
+          throw new Error(`Failed to fetch YouTube channel info: ${response.status}`);
         }
-      );
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('YouTube API error:', response.status, errorText);
-        throw new Error(`Failed to fetch YouTube channel info: ${response.status}`);
+        const data = await response.json();
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.error('getUserInfo request timed out after 30 seconds');
+          throw new Error('YouTube API request timed out. Please try again.');
+        }
+        throw fetchError;
       }
-
-      const data = await response.json();
       
       if (!data.items || data.items.length === 0) {
         throw new Error('No YouTube channel found for this user');
