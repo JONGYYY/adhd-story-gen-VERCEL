@@ -1413,16 +1413,29 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     current = 'v_banner';
   }
 
-  // TEMPORARY WORKAROUND: Skip captions entirely for now
-  // FFmpeg 7.1.1 on Railway is rejecting both subtitles= and ass= filters
-  // This allows custom story videos to generate while we debug caption rendering
-  console.log('[captions] ===== SKIPPING CAPTIONS (TEMPORARY WORKAROUND) =====');
-  console.log('[captions] FFmpeg 7.1.1 is rejecting subtitle filters');
-  console.log('[captions] Videos will generate without captions for now');
-  console.log('[captions] Final output label:', current);
+  // Draw per-word captions over the composed video
+  // IMPORTANT: Use libass to render word captions from a file.
+  // This avoids huge filtergraphs (one drawtext per word) that can fail on longer videos.
+  const assPath = path.join(tmpDir, `captions-${videoId}.ass`);
+  await writeAssWordCaptions({ outPath: assPath, wordTimestamps, offsetSec: openingDur });
+  console.log('[captions] ASS file created at:', assPath);
+  console.log('[captions] ASS file exists:', fs.existsSync(assPath));
   
-  // Don't add caption filter - just use current label directly
-  // This means v_banner becomes the final output
+  // Apply ass filter (libass) - CORRECT SYNTAX from working commit c8f0f5c
+  // Escape commas/colons for filtergraph option parsing (simple escaping, no quotes)
+  const assEsc = assPath.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
+  const fontsDir = path.join(__dirname, 'public', 'fonts');
+  const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
+  const fontsDirEsc = fontsDir.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
+  
+  console.log('[captions] Escaped ASS path:', assEsc);
+  console.log('[captions] Fonts dir exists:', fontsDirExists);
+  
+  // CRITICAL: Use FULL ass filter syntax with filename=, original_size=, and fontsdir= parameters
+  // This is the EXACT syntax from commit c8f0f5c that was working
+  filter += `;[${current}]ass=filename=${assEsc}:original_size=1080x1920${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
+  current = 'v_cap';
+  console.log('[captions] Caption filter added to graph');
 
   // Audio graph within the same filter_complex
   let haveAudio = false;
