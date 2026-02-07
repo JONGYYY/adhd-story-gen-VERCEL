@@ -360,7 +360,10 @@ export default function VideoPage() {
                     )}
                   </Button>
                   <Button
-                    onClick={() => setShowYouTubeModal(true)}
+                    onClick={() => {
+                      console.log('[Video Page] Opening YouTube modal with title:', videoStatus.title);
+                      setShowYouTubeModal(true);
+                    }}
                     className="px-6 bg-red-600 hover:bg-red-700"
                     disabled={!!videoError || isUploadingYouTube}
                   >
