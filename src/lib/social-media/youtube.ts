@@ -336,6 +336,76 @@ export class YouTubeAPI {
     }
   }
 
+  /**
+   * Get list of uploaded videos from the channel
+   * Returns up to 50 most recent videos with their stats
+   */
+  async getChannelVideos(accessToken: string, maxResults: number = 50) {
+    this.oauth2Client.setCredentials({ access_token: accessToken });
+    
+    const youtube = google.youtube('v3');
+
+    // First, get the channel to find the uploads playlist
+    const channelRes = await youtube.channels.list({
+      auth: this.oauth2Client,
+      part: ['contentDetails', 'snippet'],
+      mine: true,
+    });
+
+    if (!channelRes.data.items || channelRes.data.items.length === 0) {
+      return [];
+    }
+
+    const uploadsPlaylistId = channelRes.data.items[0].contentDetails?.relatedPlaylists?.uploads;
+    if (!uploadsPlaylistId) {
+      return [];
+    }
+
+    // Get videos from uploads playlist
+    const playlistRes = await youtube.playlistItems.list({
+      auth: this.oauth2Client,
+      part: ['snippet', 'contentDetails'],
+      playlistId: uploadsPlaylistId,
+      maxResults,
+    });
+
+    if (!playlistRes.data.items || playlistRes.data.items.length === 0) {
+      return [];
+    }
+
+    // Get detailed stats for each video
+    const videoIds = playlistRes.data.items
+      .map(item => item.contentDetails?.videoId)
+      .filter((id): id is string => Boolean(id));
+
+    if (videoIds.length === 0) {
+      return [];
+    }
+
+    const videosRes = await youtube.videos.list({
+      auth: this.oauth2Client,
+      part: ['snippet', 'statistics', 'contentDetails'],
+      id: videoIds,
+    });
+
+    if (!videosRes.data.items) {
+      return [];
+    }
+
+    // Transform to our format
+    return videosRes.data.items.map(video => ({
+      id: video.id || '',
+      title: video.snippet?.title || 'Untitled',
+      thumbnail: video.snippet?.thumbnails?.medium?.url || video.snippet?.thumbnails?.default?.url || '',
+      publishedAt: video.snippet?.publishedAt || '',
+      views: parseInt(video.statistics?.viewCount || '0'),
+      likes: parseInt(video.statistics?.likeCount || '0'),
+      comments: parseInt(video.statistics?.commentCount || '0'),
+      duration: video.contentDetails?.duration || '',
+      url: `https://www.youtube.com/watch?v=${video.id}`,
+    }));
+  }
+
   async getChannelAnalytics(accessToken: string) {
     this.oauth2Client.setCredentials({ access_token: accessToken });
     
