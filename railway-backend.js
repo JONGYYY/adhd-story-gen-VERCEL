@@ -1424,29 +1424,37 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Apply subtitles filter (libass)
   // Escape for filtergraph: backslashes, colons, commas
   // FFmpeg filter_complex requires specific escaping for file paths
-  // CRITICAL: Do NOT use quotes around filename= - they conflict with path escaping
+  console.log('[captions] ===== SUBTITLE FILTER DEBUG START =====');
+  console.log('[captions] Raw ASS path:', assPath);
+  console.log('[captions] Platform:', process.platform);
+  
+  // On Linux, paths don't have backslashes, so we need simpler escaping
+  // Only escape colons and commas for Linux paths
   const assEsc = assPath
-    .replace(/\\/g, '\\\\\\\\')  // Backslash needs 4x escaping in filter graphs
     .replace(/:/g, '\\:')        // Escape colons
     .replace(/,/g, '\\,');       // Escape commas
   
   const fontsDir = path.join(__dirname, 'public', 'fonts');
   const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
   const fontsDirEsc = fontsDirExists ? fontsDir
-    .replace(/\\/g, '\\\\\\\\')
     .replace(/:/g, '\\:')
     .replace(/,/g, '\\,') : '';
   
   console.log('[captions] Escaped ASS path:', assEsc);
   console.log('[captions] Fonts dir exists:', fontsDirExists, fontsDirExists ? `path: ${fontsDir}` : '');
+  console.log('[captions] Escaped fonts dir:', fontsDirEsc);
+  console.log('[captions] Current label before subtitle filter:', current);
   
   // Use subtitles filter without quotes around paths
   // subtitles filter syntax: subtitles=filename=path:fontsdir=path
-  // CRITICAL FIX: Do NOT wrap paths in quotes - use direct escaping only
-  // Quotes cause the filter parser to fail when combined with escaped special chars
-  filter += `;[${current}]subtitles=filename=${assEsc}${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
+  const subtitleFilter = `;[${current}]subtitles=filename=${assEsc}${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
+  console.log('[captions] Subtitle filter to add:', subtitleFilter);
+  
+  filter += subtitleFilter;
   current = 'v_cap';
   console.log('[captions] Caption filter added to graph');
+  console.log('[captions] New current label:', current);
+  console.log('[captions] ===== SUBTITLE FILTER DEBUG END =====');
 
   // Audio graph within the same filter_complex
   let haveAudio = false;
