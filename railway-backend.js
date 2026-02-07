@@ -1416,7 +1416,15 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Draw per-word captions over the composed video
   // IMPORTANT: Use libass to render word captions from a file.
   // This avoids huge filtergraphs (one drawtext per word) that can fail on longer videos.
+  console.log('[captions] ===== STARTING CAPTION GENERATION =====');
+  console.log('[captions] VideoID:', videoId);
+  console.log('[captions] Current filter label before captions:', current);
+  
   const assPath = path.join(tmpDir, `captions-${videoId}.ass`);
+  console.log('[captions] Will write ASS file to:', assPath);
+  console.log('[captions] Word timestamps count:', wordTimestamps?.length || 0);
+  console.log('[captions] Offset seconds (opening duration):', openingDur);
+  
   await writeAssWordCaptions({ outPath: assPath, wordTimestamps, offsetSec: openingDur });
   console.log('[captions] ASS file created at:', assPath);
   console.log('[captions] ASS file exists:', fs.existsSync(assPath));
@@ -1481,16 +1489,21 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     outPath
   );
 
+  console.log('[ffmpeg] ===== ABOUT TO SPAWN FFMPEG =====');
+  console.log('[ffmpeg] Current label for output mapping:', current);
   console.log('FFMPEG FILTER_COMPLEX =>', filter);
   console.log('FFMPEG ARGS =>', JSON.stringify(args));
 
   try {
+    console.log('[ffmpeg] Spawning ffmpeg process...');
     // Use spawnWithTimeout to prevent hanging (5 minute max for main composition)
     const result = await spawnWithTimeout('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] }, 5 * 60 * 1000);
+    console.log('[ffmpeg] FFmpeg process completed with code:', result.code);
     if (result.code !== 0) {
       throw new Error(`ffmpeg failed ${result.code}: ${result.stderr}`);
     }
   } catch (err) {
+    console.error('[ffmpeg] FFmpeg spawn/execution error:', err.message);
     const allowFallback = (process.env.ALLOW_PLAIN_FALLBACK || '0') === '1';
     if (!allowFallback) {
       console.error('Primary ffmpeg graph failed (no fallback):', err.message);
