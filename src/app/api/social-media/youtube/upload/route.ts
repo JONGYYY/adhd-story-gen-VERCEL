@@ -106,11 +106,10 @@ export async function POST(request: NextRequest) {
     const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
     console.log('Video buffer created:', videoBuffer.length, 'bytes');
 
-    console.log('Uploading to YouTube...');
+    console.log('Uploading to YouTube using resumable upload protocol...');
     
-    // Use direct REST API to avoid googleapis Gaxios compatibility issues
-    // YouTube Data API v3 simple upload
-    // SECURITY: Use sanitized inputs in metadata
+    // STEP 1: Initiate resumable upload session
+    // https://developers.google.com/youtube/v3/guides/using_resumable_upload_protocol
     const metadata = {
       snippet: {
         title: sanitizedTitle,
@@ -123,46 +122,68 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    // Create multipart body with metadata + video
-    const boundary = '-------314159265358979323846';
-    const delimiter = `\r\n--${boundary}\r\n`;
-    const closeDelimiter = `\r\n--${boundary}--`;
-
-    const multipartBody = Buffer.concat([
-      Buffer.from(delimiter + 'Content-Type: application/json; charset=UTF-8\r\n\r\n'),
-      Buffer.from(JSON.stringify(metadata)),
-      Buffer.from(delimiter + 'Content-Type: video/mp4\r\n\r\n'),
-      videoBuffer,
-      Buffer.from(closeDelimiter)
-    ]);
-
-    // Upload with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout
+    console.log('Step 1: Initiating resumable upload session...');
+    const initController = new AbortController();
+    const initTimeoutId = setTimeout(() => initController.abort(), 30000); // 30 second timeout for init
 
     try {
-      const uploadResponse = await fetch(
-        'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status',
+      // Initiate resumable upload session
+      const initResponse = await fetch(
+        'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${credentials.accessToken}`,
-            'Content-Type': `multipart/related; boundary=${boundary}`,
-            'Content-Length': multipartBody.length.toString(),
+            'Content-Type': 'application/json; charset=UTF-8',
+            'X-Upload-Content-Length': videoBuffer.length.toString(),
+            'X-Upload-Content-Type': 'video/mp4',
           },
-          body: multipartBody,
-          signal: controller.signal
+          body: JSON.stringify(metadata),
+          signal: initController.signal
         }
       );
 
-      clearTimeout(timeoutId);
+      clearTimeout(initTimeoutId);
+
+      if (!initResponse.ok) {
+        const errorText = await initResponse.text();
+        console.error('Failed to initiate upload session:', initResponse.status, errorText);
+        throw new Error(`Failed to initiate upload: ${initResponse.status} ${errorText}`);
+      }
+
+      // Get the upload URL from Location header
+      const uploadUrl = initResponse.headers.get('Location');
+      if (!uploadUrl) {
+        throw new Error('No upload URL returned from YouTube');
+      }
+
+      console.log('Upload session initiated, upload URL received');
+      console.log('Step 2: Uploading video file...');
+
+      // STEP 2: Upload the actual video file
+      const uploadController = new AbortController();
+      const uploadTimeoutId = setTimeout(() => uploadController.abort(), 300000); // 5 minute timeout for upload
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${credentials.accessToken}`,
+          'Content-Length': videoBuffer.length.toString(),
+          'Content-Type': 'video/mp4',
+        },
+        body: videoBuffer,
+        signal: uploadController.signal
+      });
+
+      clearTimeout(uploadTimeoutId);
 
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
-        console.error('YouTube upload failed:', uploadResponse.status, errorText);
-        throw new Error(`YouTube upload failed: ${uploadResponse.status} ${errorText}`);
+        console.error('Video upload failed:', uploadResponse.status, errorText);
+        throw new Error(`Video upload failed: ${uploadResponse.status} ${errorText}`);
       }
 
+      // Parse the response - YouTube returns the video resource
       const uploadResult = await uploadResponse.json();
       console.log('Video uploaded successfully:', uploadResult.id);
       console.log('=== YouTube Video Upload Completed ===');
@@ -174,12 +195,21 @@ export async function POST(request: NextRequest) {
         videoId: uploadResult.id,
         videoUrl: `https://youtube.com/watch?v=${uploadResult.id}`
       }, 200);
+
     } catch (uploadError: any) {
-      clearTimeout(timeoutId);
+      // Clean up any pending timeouts
+      try { clearTimeout(initTimeoutId); } catch {}
+      
       if (uploadError.name === 'AbortError') {
-        console.error('YouTube upload timed out after 3 minutes');
-        throw new Error('Video upload timed out. Please try again with a smaller video.');
+        console.error('YouTube upload timed out');
+        throw new Error('Video upload timed out. The video may be too large or your connection is too slow.');
       }
+      
+      // Handle specific error codes
+      if (uploadError.message?.includes('ECONNRESET')) {
+        throw new Error('Connection was reset. Please check your internet connection and try again.');
+      }
+      
       throw uploadError;
     }
 
