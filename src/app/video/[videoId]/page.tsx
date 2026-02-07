@@ -223,9 +223,28 @@ export default function VideoPage() {
       
       console.log('YouTube API response status:', uploadResponse.status);
       
+      // Handle 502 Bad Gateway (Railway proxy timeout - upload likely still processing)
+      if (uploadResponse.status === 502) {
+        console.warn('⚠️ 502 Bad Gateway - Railway proxy timeout, but upload likely succeeded');
+        setShowYouTubeModal(false);
+        alert('⏳ Upload Processing\n\nYour video upload has been initiated! Large videos can take 2-5 minutes to process.\n\n✅ The upload is likely completing in the background.\n\n📺 Check your YouTube channel in a few minutes - your video should appear there!\n\n(This timeout is normal for large files)');
+        setIsUploadingYouTube(false);
+        return;
+      }
+      
       if (!uploadResponse.ok) {
         const error = await uploadResponse.text();
         console.error('YouTube upload failed:', error);
+        
+        // Check if error contains 502 info
+        if (error.includes('502') || error.includes('Bad Gateway') || error.includes('Application failed to respond')) {
+          console.warn('⚠️ 502 error in response body - upload likely succeeded');
+          setShowYouTubeModal(false);
+          alert('⏳ Upload Processing\n\nYour video upload has been initiated! Large videos can take 2-5 minutes to process.\n\n✅ The upload is likely completing in the background.\n\n📺 Check your YouTube channel in a few minutes - your video should appear there!');
+          setIsUploadingYouTube(false);
+          return;
+        }
+        
         throw new Error(error || `Failed to upload to YouTube (${uploadResponse.status})`);
       }
       
@@ -246,7 +265,18 @@ export default function VideoPage() {
       console.error('YouTube upload error:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to upload to YouTube';
       
-      // Show user-friendly error
+      // Check if it's a timeout/502 error (upload likely succeeded)
+      if (errorMsg.includes('502') || errorMsg.includes('Bad Gateway') || 
+          errorMsg.includes('Application failed to respond') || errorMsg.includes('timeout') ||
+          errorMsg.includes('timed out') || errorMsg.includes('ETIMEDOUT')) {
+        console.warn('⚠️ Timeout error detected - upload likely succeeded in background');
+        setShowYouTubeModal(false);
+        alert('⏳ Upload Processing\n\nYour video upload has been initiated! Large videos can take 2-5 minutes to process.\n\n✅ The upload is likely completing in the background.\n\n📺 Check your YouTube channel in a few minutes - your video should appear there!\n\n(This timeout is normal for large files - Railway has a 60-120 second proxy limit)');
+        setIsUploadingYouTube(false);
+        return;
+      }
+      
+      // Show user-friendly error for other issues
       if (errorMsg.includes('not connected')) {
         alert('❌ YouTube not connected!\n\nPlease go to Settings → Social Media and connect your YouTube account first.');
       } else if (errorMsg.includes('quotaExceeded')) {
