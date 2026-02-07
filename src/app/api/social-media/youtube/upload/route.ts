@@ -9,14 +9,24 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes for YouTube uploads
 
 export async function POST(request: NextRequest) {
-  try {
-    console.log('=== YouTube Video Upload Started ===');
-    
-    // SECURITY: Authentication check
-    const sessionCookie = request.cookies.get('session')?.value;
-    if (!sessionCookie) {
-      return secureJsonResponse({ error: 'Not authenticated' }, 401);
-    }
+  // Wrap entire handler in a timeout to prevent infinite hangs
+  const handlerTimeout = new Promise((_, reject) => {
+    setTimeout(() => {
+      console.error('=== CRITICAL: Handler timeout after 4 minutes ===');
+      reject(new Error('Upload handler timed out. This suggests an issue with the YouTube API connection or token refresh.'));
+    }, 240000); // 4 minute timeout (less than maxDuration)
+  });
+
+  const handler = async () => {
+    try {
+      console.log('=== YouTube Video Upload Started ===');
+      console.log('Timestamp:', new Date().toISOString());
+      
+      // SECURITY: Authentication check
+      const sessionCookie = request.cookies.get('session')?.value;
+      if (!sessionCookie) {
+        return secureJsonResponse({ error: 'Not authenticated' }, 401);
+      }
 
     // Verify session cookie and get user
     const decodedClaims = await verifySessionCookie(sessionCookie);
@@ -53,6 +63,18 @@ export async function POST(request: NextRequest) {
         error: 'Invalid YouTube access token. Please reconnect YouTube.' 
       }, 400);
     }
+    
+    // CRITICAL: Check if token is expired
+    if (credentials.expiresAt && Date.now() > credentials.expiresAt) {
+      console.error('YouTube access token has expired');
+      const expiredDate = new Date(credentials.expiresAt).toLocaleString();
+      console.error(`Token expired at: ${expiredDate}`);
+      return secureJsonResponse({ 
+        error: 'YouTube access token has expired. Please go to Settings → Social Media, disconnect and reconnect your YouTube account.' 
+      }, 401);
+    }
+    
+    console.log('Access token validation passed');
 
     // SECURITY: Parse and validate form data
     const formData = await request.formData();
@@ -123,10 +145,20 @@ export async function POST(request: NextRequest) {
     };
 
     console.log('Step 1: Initiating resumable upload session...');
+    console.log('Access token length:', credentials.accessToken.length);
+    console.log('Video size:', videoBuffer.length, 'bytes');
+    console.log('Request URL:', 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status');
+    
     const initController = new AbortController();
-    const initTimeoutId = setTimeout(() => initController.abort(), 30000); // 30 second timeout for init
+    const initTimeoutId = setTimeout(() => {
+      console.error('Init request timeout (30s) - aborting');
+      initController.abort();
+    }, 30000); // 30 second timeout for init
 
     try {
+      console.log('Sending POST request to YouTube...');
+      const startTime = Date.now();
+      
       // Initiate resumable upload session
       const initResponse = await fetch(
         'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
@@ -143,7 +175,9 @@ export async function POST(request: NextRequest) {
         }
       );
 
+      const elapsed = Date.now() - startTime;
       clearTimeout(initTimeoutId);
+      console.log(`Init response received in ${elapsed}ms, status: ${initResponse.status}`);
 
       if (!initResponse.ok) {
         const errorText = await initResponse.text();
@@ -251,6 +285,19 @@ export async function POST(request: NextRequest) {
       success: false,
       error: errorMessage
     }, statusCode);
+  }
+  }; // End of handler function
+
+  // Race between handler and timeout
+  try {
+    return await Promise.race([handler(), handlerTimeout]) as Response;
+  } catch (error) {
+    console.error('=== Handler Promise.race error ===');
+    console.error(error);
+    return secureJsonResponse({
+      success: false,
+      error: error instanceof Error ? error.message : 'Upload failed due to timeout or network error'
+    }, 408);
   }
 }
 
