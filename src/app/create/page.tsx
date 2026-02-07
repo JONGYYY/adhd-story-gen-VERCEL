@@ -18,10 +18,12 @@ type Voice = {
 };
 
 export default function Create() {
-  const [storySource, setStorySource] = useState<'ai' | 'reddit' | 'paste' | null>(null);
+  const [storySource, setStorySource] = useState<'ai' | 'reddit' | 'paste' | 'link' | null>(null);
   const [selectedSubreddit, setSelectedSubreddit] = useState<string | null>(null);
   const [storyText, setStoryText] = useState('');
   const [storyTitle, setStoryTitle] = useState('');
+  const [redditUrl, setRedditUrl] = useState('');
+  const [isScrapingReddit, setIsScrapingReddit] = useState(false);
   const [selectedBackground, setSelectedBackground] = useState<string | null>(null);
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
   const [storyLength, setStoryLength] = useState<'1 min+ (Cliffhanger)' | 'Full Story Length'>('1 min+ (Cliffhanger)');
@@ -189,6 +191,50 @@ export default function Create() {
     }
   };
 
+  const handleScrapeReddit = async () => {
+    try {
+      setError(null);
+      setIsScrapingReddit(true);
+
+      if (!redditUrl.trim()) {
+        setError('Please enter a Reddit URL.');
+        return;
+      }
+
+      console.log('[reddit-link] Scraping URL:', redditUrl);
+
+      const response = await fetch('/api/scrape-reddit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: redditUrl }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.error || 'Failed to scrape Reddit post');
+        return;
+      }
+
+      // Auto-fill the title and story from scraped data
+      setStoryTitle(data.title);
+      setStoryText(data.story);
+      setSelectedSubreddit(data.subreddit || 'r/stories');
+
+      console.log('[reddit-link] Scraped successfully:', {
+        title: data.title.substring(0, 50) + '...',
+        storyLength: data.story.length,
+        subreddit: data.subreddit
+      });
+
+    } catch (error) {
+      console.error('[reddit-link] Scraping failed:', error);
+      setError('Failed to scrape Reddit post. Please check the URL and try again.');
+    } finally {
+      setIsScrapingReddit(false);
+    }
+  };
+
   const handleGenerateVideo = async () => {
     try {
       setError(null);
@@ -212,7 +258,7 @@ export default function Create() {
         subreddit?: string;
       } | undefined;
 
-      if (storySource === 'paste') {
+      if (storySource === 'paste' || storySource === 'link') {
         if (!storyTitle.trim() || !storyText.trim()) {
           setError('Please enter both a title and story content.');
           return;
@@ -220,7 +266,7 @@ export default function Create() {
         storyData = {
           title: storyTitle,
           story: storyText,
-          subreddit: 'r/stories',
+          subreddit: selectedSubreddit || 'r/stories',
         };
       } else if (!selectedSubreddit) {
         setError('Please select a subreddit before generating.');
@@ -445,7 +491,7 @@ export default function Create() {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <button
                     onClick={() => setStorySource('ai')}
                     className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
@@ -478,6 +524,24 @@ export default function Create() {
                       Use trending Reddit content
                     </p>
                     {storySource === 'reddit' && (
+                      <Check className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setStorySource('link')}
+                    className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
+                      storySource === 'link'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/30'
+                    }`}
+                  >
+                    <div className="w-8 h-8 mb-3 flex items-center justify-center text-2xl">🔗</div>
+                    <h3 className="font-semibold mb-2">Reddit Link</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Paste a Reddit post URL
+                    </p>
+                    {storySource === 'link' && (
                       <Check className="absolute top-4 right-4 w-6 h-6 text-primary" />
                     )}
                   </button>
@@ -561,6 +625,70 @@ export default function Create() {
                   </div>
                 )}
 
+                {/* Reddit Link Scraper */}
+                {storySource === 'link' && (
+                  <div className="mt-6 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Reddit Post URL</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={redditUrl}
+                          onChange={(e) => setRedditUrl(e.target.value)}
+                          placeholder="https://reddit.com/r/subreddit/comments/..."
+                          className="input-elevo flex-1"
+                        />
+                        <Button
+                          onClick={handleScrapeReddit}
+                          disabled={isScrapingReddit || !redditUrl.trim()}
+                          className="btn-orange gap-2 whitespace-nowrap"
+                        >
+                          {isScrapingReddit ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Scraping...
+                            </>
+                          ) : (
+                            <>
+                              <FileText className="w-4 h-4" />
+                              Fetch Story
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Paste any Reddit post URL and we'll automatically extract the title and story content
+                      </p>
+                    </div>
+
+                    {/* Show scraped content (read-only preview) */}
+                    {storyTitle && storyText && (
+                      <div className="space-y-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Title</label>
+                          <p className="text-sm font-semibold">{storyTitle}</p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Story Preview</label>
+                          <p className="text-sm text-muted-foreground line-clamp-3">
+                            {storyText}
+                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-xs text-muted-foreground">
+                              {storyText.length}/5000 characters
+                            </p>
+                            {storyText.length > 5000 && (
+                              <p className="text-xs text-red-400">
+                                ⚠️ Will be truncated
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Paste Story */}
                 {storySource === 'paste' && (
                   <div className="mt-6 space-y-4">
@@ -576,13 +704,23 @@ export default function Create() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-2">Story Content</label>
-                      <textarea
-                        value={storyText}
-                        onChange={(e) => setStoryText(e.target.value)}
-                        placeholder="Paste your story here..."
-                        rows={8}
-                        className="input-elevo resize-none"
-                      />
+                      <div className="relative">
+                        <textarea
+                          value={storyText}
+                          onChange={(e) => setStoryText(e.target.value)}
+                          placeholder="Paste your story here..."
+                          rows={8}
+                          className="input-elevo resize-none"
+                        />
+                        <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
+                          {storyText.length}/5000
+                        </div>
+                      </div>
+                      {storyText.length > 5000 && (
+                        <p className="text-xs text-red-400 mt-1">
+                          ⚠️ Story exceeds 5000 characters. Text will be truncated for TTS.
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -687,7 +825,7 @@ export default function Create() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerateVideo}
-                disabled={!storySource || !selectedBackground || !selectedVoice || (storySource !== 'paste' && !selectedSubreddit)}
+                disabled={!storySource || !selectedBackground || !selectedVoice || (storySource !== 'paste' && storySource !== 'link' && !selectedSubreddit)}
                 className="btn-orange w-full text-lg py-6 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Generate Video

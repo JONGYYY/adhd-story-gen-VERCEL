@@ -423,6 +423,31 @@ async function synthesizeVoiceEleven(text, voiceAlias) {
     console.warn('TTS disabled or voice not found. Skipping.');
     return null;
   }
+  
+  // CRITICAL: ElevenLabs has character limits per request (typically ~5000 chars)
+  // For longer texts, we need to truncate or handle gracefully
+  const MAX_TTS_CHARS = 5000;
+  const textLength = (text || '').length;
+  
+  if (textLength === 0) {
+    console.warn('[TTS] Empty text provided, skipping');
+    return null;
+  }
+  
+  let processedText = text;
+  if (textLength > MAX_TTS_CHARS) {
+    console.warn(`[TTS] Text too long (${textLength} chars), truncating to ${MAX_TTS_CHARS} chars`);
+    // Truncate at word boundary to avoid cutting mid-word
+    processedText = text.substring(0, MAX_TTS_CHARS);
+    const lastSpace = processedText.lastIndexOf(' ');
+    if (lastSpace > MAX_TTS_CHARS * 0.9) { // Only use word boundary if it's within 10% of limit
+      processedText = processedText.substring(0, lastSpace);
+    }
+    processedText = processedText.trim();
+  }
+  
+  console.log(`[TTS] Synthesizing ${processedText.length} characters with voice: ${voiceAlias}`);
+  
   const voiceId = VOICE_IDS[voiceAlias];
   const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
     method: 'POST',
@@ -432,16 +457,18 @@ async function synthesizeVoiceEleven(text, voiceAlias) {
       'xi-api-key': ELEVENLABS_API_KEY
     },
     body: JSON.stringify({
-      text,
+      text: processedText,
       model_id: 'eleven_monolingual_v1',
       voice_settings: { stability: 0.5, similarity_boost: 0.75 }
     })
   });
   if (!resp.ok) {
     const t = await resp.text();
+    console.error(`[TTS] ElevenLabs API error ${resp.status}:`, t);
     throw new Error(`ElevenLabs error ${resp.status}: ${t}`);
   }
   const buf = Buffer.from(await resp.arrayBuffer());
+  console.log(`[TTS] Successfully generated ${buf.length} bytes of audio`);
   return buf;
 }
 
@@ -821,8 +848,20 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     const st = secondsToAssTime(stCs / 100);
     const en = secondsToAssTime(enCs / 100);
     const txt = w.text;
-    // Escape ASS special characters minimally
-    const safe = txt.replace(/{/g, '\\{').replace(/}/g, '\\}');
+    // CRITICAL: Escape ASS special characters thoroughly
+    // ASS format requires escaping these characters to prevent parsing errors
+    const safe = txt
+      .replace(/\\/g, '\\\\')     // Backslash must be escaped first
+      .replace(/{/g, '\\{')       // Opening brace
+      .replace(/}/g, '\\}')       // Closing brace
+      .replace(/\n/g, '\\N')      // Newlines (hard break)
+      .replace(/\r/g, '')         // Remove carriage returns
+      .replace(/\t/g, ' ')        // Convert tabs to spaces
+      .trim();
+    
+    // Skip empty words after sanitization
+    if (safe.length === 0) continue;
+    
     const upper = safe.toUpperCase();
     // Underlay (Layer 0): no outline, tiny blur, slightly larger scale to fake a heavier fill.
     // Keep it subtle so it doesn't look like a glow.
@@ -1099,7 +1138,26 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   try { console.log('[bg] selected', JSON.stringify(bgInfo), 'audioDuration:', totalDurSec.toFixed(2), 'bgDuration:', bgDurationWithPadding.toFixed(2)); } catch {}
 
   // Word timestamps for captions (audio-based to avoid drift)
-  const wordTimestamps = await buildWordTimestampsFromAudio(storyAudio, storyText, storyDur);
+  console.log('[captions] Building word timestamps from audio...');
+  console.log('[captions] Story audio path:', storyAudio);
+  console.log('[captions] Story text length:', storyText.length, 'chars');
+  console.log('[captions] Story duration:', storyDur.toFixed(3), 'seconds');
+  
+  let wordTimestamps = [];
+  try {
+    wordTimestamps = await buildWordTimestampsFromAudio(storyAudio, storyText, storyDur);
+    console.log('[captions] Successfully built', wordTimestamps.length, 'word timestamps');
+    
+    if (wordTimestamps.length === 0) {
+      console.warn('[captions] WARNING: No word timestamps generated, captions will be skipped');
+    }
+  } catch (err) {
+    console.error('[captions] ERROR building word timestamps:', err.message);
+    console.warn('[captions] Falling back to heuristic timestamps');
+    // Fallback to heuristic if audio-based fails
+    wordTimestamps = buildWordTimestamps(storyDur, storyText);
+    console.log('[captions] Fallback generated', wordTimestamps.length, 'word timestamps');
+  }
 
   // Banner images (overlay during opening)
   // Prefer pre-rounded assets if present to avoid brittle FFmpeg masking
@@ -1416,26 +1474,72 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // Draw per-word captions over the composed video
   // IMPORTANT: Use libass to render word captions from a file.
   // This avoids huge filtergraphs (one drawtext per word) that can fail on longer videos.
-  const assPath = path.join(tmpDir, `captions-${videoId}.ass`);
-  await writeAssWordCaptions({ outPath: assPath, wordTimestamps, offsetSec: openingDur });
-  console.log('[captions] ASS file created at:', assPath);
-  console.log('[captions] ASS file exists:', fs.existsSync(assPath));
   
-  // Apply ass filter (libass) - CORRECT SYNTAX from working commit c8f0f5c
-  // Escape commas/colons for filtergraph option parsing (simple escaping, no quotes)
-  const assEsc = assPath.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
-  const fontsDir = path.join(__dirname, 'public', 'fonts');
-  const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
-  const fontsDirEsc = fontsDir.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
-  
-  console.log('[captions] Escaped ASS path:', assEsc);
-  console.log('[captions] Fonts dir exists:', fontsDirExists);
-  
-  // CRITICAL: Use FULL ass filter syntax with filename=, original_size=, and fontsdir= parameters
-  // This is the EXACT syntax from commit c8f0f5c that was working
-  filter += `;[${current}]ass=filename=${assEsc}:original_size=1080x1920${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
-  current = 'v_cap';
-  console.log('[captions] Caption filter added to graph');
+  // VALIDATION: Check if we have valid word timestamps
+  if (!Array.isArray(wordTimestamps) || wordTimestamps.length === 0) {
+    console.warn('[captions] No valid word timestamps, skipping captions entirely');
+    // Skip captions - current stays as 'v_banner'
+  } else {
+    const assPath = path.join(tmpDir, `captions-${videoId}.ass`);
+    console.log('[captions] Creating ASS file with', wordTimestamps.length, 'words');
+    await writeAssWordCaptions({ outPath: assPath, wordTimestamps, offsetSec: openingDur });
+    console.log('[captions] ASS file created at:', assPath);
+    console.log('[captions] ASS file exists:', fs.existsSync(assPath));
+    
+    // DIAGNOSTIC: Check ASS file size and content validity
+    try {
+    const assStats = fs.statSync(assPath);
+    const assSizeMB = (assStats.size / (1024 * 1024)).toFixed(2);
+    console.log('[captions] ASS file size:', assSizeMB, 'MB');
+    
+    // Read first and last few lines to verify format
+    const assContent = await fsp.readFile(assPath, 'utf-8');
+    const assLines = assContent.split('\n');
+    console.log('[captions] ASS file total lines:', assLines.length);
+    console.log('[captions] ASS file first 5 lines:', assLines.slice(0, 5).join('\\n'));
+    console.log('[captions] ASS file last 3 lines:', assLines.slice(-3).join('\\n'));
+    
+    // Count dialogue lines
+    const dialogueCount = assLines.filter(l => l.startsWith('Dialogue:')).length;
+    console.log('[captions] ASS file dialogue count:', dialogueCount);
+    
+    // CRITICAL FIX: For very long stories with many words, the ASS filter might fail
+    // If the file is too large (> 10MB or > 10000 dialogue lines), skip captions
+    const MAX_ASS_SIZE_MB = 10;
+    const MAX_DIALOGUE_LINES = 10000;
+    
+    if (assStats.size > MAX_ASS_SIZE_MB * 1024 * 1024) {
+      console.warn(`[captions] WARNING: ASS file too large (${assSizeMB}MB > ${MAX_ASS_SIZE_MB}MB), skipping captions to prevent FFmpeg failure`);
+      // Skip captions for this video - just use v_banner as final output
+      console.log('[captions] Skipping caption overlay, using v_banner as final output');
+      // current stays as 'v_banner', no v_cap created
+    } else if (dialogueCount > MAX_DIALOGUE_LINES) {
+      console.warn(`[captions] WARNING: Too many dialogue lines (${dialogueCount} > ${MAX_DIALOGUE_LINES}), skipping captions to prevent FFmpeg failure`);
+      console.log('[captions] Skipping caption overlay, using v_banner as final output');
+      // current stays as 'v_banner', no v_cap created
+    } else {
+      // Apply ass filter (libass) - CORRECT SYNTAX from working commit c8f0f5c
+      // Escape commas/colons for filtergraph option parsing (simple escaping, no quotes)
+      const assEsc = assPath.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
+      const fontsDir = path.join(__dirname, 'public', 'fonts');
+      const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
+      const fontsDirEsc = fontsDir.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
+      
+      console.log('[captions] Escaped ASS path:', assEsc);
+      console.log('[captions] Fonts dir exists:', fontsDirExists);
+      
+      // CRITICAL: Use FULL ass filter syntax with filename=, original_size=, and fontsdir= parameters
+      // This is the EXACT syntax from commit c8f0f5c that was working
+      filter += `;[${current}]ass=filename=${assEsc}:original_size=1080x1920${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
+      current = 'v_cap';
+      console.log('[captions] Caption filter added to graph');
+    }
+    } catch (err) {
+      console.error('[captions] ERROR checking ASS file:', err.message);
+      console.log('[captions] Continuing without captions due to error');
+      // current stays as 'v_banner', no v_cap created
+    }
+  }
 
   // Audio graph within the same filter_complex
   let haveAudio = false;
