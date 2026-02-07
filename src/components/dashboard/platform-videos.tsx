@@ -27,6 +27,22 @@ interface PlatformVideosProps {
   platform: SocialPlatform;
 }
 
+// Parse ISO 8601 duration (PT1M30S) to human-readable format
+const parseDuration = (duration: string): string => {
+  if (!duration) return 'N/A';
+  const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return 'N/A';
+  
+  const hours = parseInt(match[1] || '0');
+  const minutes = parseInt(match[2] || '0');
+  const seconds = parseInt(match[3] || '0');
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
 export function PlatformVideos({ platform }: PlatformVideosProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [username, setUsername] = useState('');
@@ -51,25 +67,30 @@ export function PlatformVideos({ platform }: PlatformVideosProps) {
         
         if (data.connected) {
           setUsername(data.username);
-          // Sample data - replace with actual API call
-          setVideos([
-            {
-              id: '1',
-              title: 'AITA for not attending my sister\'s wedding after she uninvited my partner?',
-              thumbnail: '/thumbnails/video1.jpg',
-              url: '#',
-              date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-              duration: '0:45',
-            },
-            {
-              id: '2',
-              title: 'The mysterious package that showed up at my door changed everything',
-              thumbnail: '/thumbnails/video2.jpg',
-              url: '#',
-              date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-              duration: '0:45',
-            },
-          ]);
+          
+          // Fetch real videos from YouTube API
+          if (platform === 'youtube') {
+            try {
+              const videosResponse = await fetch('/api/social-media/youtube/videos?maxResults=6');
+              if (videosResponse.ok) {
+                const videosData = await videosResponse.json();
+                if (videosData.success && videosData.videos) {
+                  // Transform YouTube API format to our component format
+                  const formattedVideos = videosData.videos.slice(0, 6).map((video: any) => ({
+                    id: video.id,
+                    title: video.title,
+                    thumbnail: video.thumbnail,
+                    url: video.url,
+                    date: video.publishedAt,
+                    duration: parseDuration(video.duration),
+                  }));
+                  setVideos(formattedVideos);
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching YouTube videos:', error);
+            }
+          }
         }
       } catch (error) {
         console.error(`Error loading ${platform} data:`, error);
@@ -221,9 +242,17 @@ export function PlatformVideos({ platform }: PlatformVideosProps) {
                 <div className="relative rounded-2xl overflow-hidden bg-muted/50 border border-border/50 hover:border-primary/30 transition-all duration-300 hover:scale-105 hover:shadow-xl">
                   {/* Thumbnail */}
                   <div className="relative aspect-video bg-gradient-to-br from-primary/20 to-primary/5 overflow-hidden">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <VideoIcon className="w-12 h-12 text-primary/50" />
-                    </div>
+                    {video.thumbnail ? (
+                      <img 
+                        src={video.thumbnail} 
+                        alt={video.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <VideoIcon className="w-12 h-12 text-primary/50" />
+                      </div>
+                    )}
                     
                     {/* Overlay on hover */}
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
