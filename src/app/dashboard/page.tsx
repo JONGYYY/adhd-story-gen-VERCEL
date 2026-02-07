@@ -38,6 +38,7 @@ export default function Dashboard() {
   const [selectedPlatform, setSelectedPlatform] = useState<SocialPlatform>('tiktok');
   const [youtubeStats, setYoutubeStats] = useState<any>(null);
   const [tiktokStats, setTiktokStats] = useState<any>(null);
+  const [userStats, setUserStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -55,6 +56,13 @@ export default function Dashboard() {
 
   const fetchPlatformStats = async () => {
     try {
+      // Fetch user stats (videos created count)
+      const userStatsRes = await fetch('/api/user-stats');
+      if (userStatsRes.ok) {
+        const userStatsData = await userStatsRes.json();
+        setUserStats(userStatsData);
+      }
+
       // Fetch TikTok stats
       const tiktokRes = await fetch('/api/social-media/tiktok/stats');
       if (tiktokRes.ok) {
@@ -78,11 +86,12 @@ export default function Dashboard() {
   };
 
   // Base stats (always shown)
+  const videosCreated = userStats?.videosCreated || 0;
   const baseStats = [
     { 
       name: 'Videos Created', 
-      value: '24', 
-      change: '+4 this month', 
+      value: loading ? '...' : videosCreated.toString(), 
+      change: videosCreated > 0 ? `${videosCreated} total` : 'Create your first!', 
       trend: 'up' as const, 
       icon: Video,
       color: 'from-blue-500 to-cyan-500',
@@ -214,7 +223,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
                   <Video className="w-4 h-4 text-primary" />
                   <span className="text-sm">
-                    <span className="font-bold text-foreground">24</span>
+                    <span className="font-bold text-foreground">{userStats?.videosCreated || 0}</span>
                     <span className="text-muted-foreground ml-1">Videos Created</span>
                   </span>
                 </div>

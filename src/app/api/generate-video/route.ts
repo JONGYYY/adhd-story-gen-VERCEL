@@ -225,6 +225,17 @@ export async function POST(request: NextRequest) {
     try {
       const railwayVideoId = await generateVideoOnRailway(options, videoId, story);
       
+      // Increment user's video created count (async, don't wait for it)
+      if (userId) {
+        fetch(`${request.nextUrl.origin}/api/user-stats`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Cookie': `session=${sessionCookie}`
+          },
+        }).catch(err => console.error('Failed to increment video count:', err));
+      }
+      
       // SECURITY: Return response with security headers
       return secureJsonResponse({
         success: true,

@@ -60,14 +60,28 @@ export default function Analytics() {
   const [mounted, setMounted] = useState(false);
   const [tiktokStats, setTiktokStats] = useState<any>(null);
   const [youtubeStats, setYoutubeStats] = useState<any>(null);
+  const [userStats, setUserStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [youtubeLoading, setYoutubeLoading] = useState(true);
 
   useEffect(() => {
     setMounted(true);
+    fetchUserStats();
     fetchTiktokStats();
     fetchYoutubeStats();
   }, []);
+
+  const fetchUserStats = async () => {
+    try {
+      const response = await fetch('/api/user-stats');
+      if (response.ok) {
+        const data = await response.json();
+        setUserStats(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user stats:', error);
+    }
+  };
 
   const fetchTiktokStats = async () => {
     try {
@@ -97,12 +111,6 @@ export default function Analytics() {
     } finally {
       setYoutubeLoading(false);
     }
-  };
-
-  // TODO: Replace with real Firestore data
-  const appStats = {
-    videosCreated: 24,
-    videosCreatedChange: '+4',
   };
 
   // Platform-specific stats
@@ -162,11 +170,12 @@ export default function Analytics() {
     },
   ];
 
+  const videosCreated = userStats?.videosCreated || 0;
   const baseStats = [
     {
       name: 'Videos Created',
-      value: appStats.videosCreated.toString(),
-      change: appStats.videosCreatedChange,
+      value: loading ? '...' : videosCreated.toString(),
+      change: videosCreated > 0 ? `${videosCreated} total` : 'Create your first!',
       trend: 'up' as const,
       icon: Video,
       color: 'from-blue-500 to-cyan-500',
@@ -285,9 +294,9 @@ export default function Analytics() {
   // YouTube-specific charts
   const youtubeViewsData = {
     labels: getTimeFrameLabels(timeFrame),
-    datasets: [
-      {
-        label: 'Views',
+      datasets: [
+        {
+          label: 'Views',
         data: youtubeStats?.last30Days?.views 
           ? generateDataPoints(youtubeStats.last30Days.views, timeFrame, 'up')
           : generateDataPoints(1000, timeFrame, 'up'),
@@ -316,8 +325,8 @@ export default function Analytics() {
           : generateDataPoints(1000, timeFrame, 'up'),
         borderColor: 'rgb(249, 115, 22)',
         backgroundColor: 'rgba(249, 115, 22, 0.1)',
-        tension: 0.4,
-        fill: true,
+          tension: 0.4,
+          fill: true,
         pointRadius: 5,
         pointHoverRadius: 7,
         pointBackgroundColor: 'rgb(249, 115, 22)',
@@ -339,17 +348,17 @@ export default function Analytics() {
           : generateDataPoints(100, timeFrame, 'up'),
         borderColor: 'rgb(168, 85, 247)',
         backgroundColor: 'rgba(168, 85, 247, 0.1)',
-        tension: 0.4,
-        fill: true,
+          tension: 0.4,
+          fill: true,
         pointRadius: 5,
         pointHoverRadius: 7,
         pointBackgroundColor: 'rgb(168, 85, 247)',
         pointBorderColor: 'white',
         pointBorderWidth: 2,
         borderWidth: 3,
-      },
-    ],
-  };
+        },
+      ],
+    };
 
   const youtubeEngagementData = {
     labels: ['Likes', 'Comments', 'Shares'],
@@ -713,9 +722,9 @@ export default function Analytics() {
                       ) : (
                         <TrendingDown className="w-3 h-3" />
                       )}
-                      {stat.change}
+                  {stat.change}
                     </div>
-                  </div>
+              </div>
 
                   <div>
                     <p className="text-sm text-muted-foreground font-medium mb-1">
@@ -727,16 +736,16 @@ export default function Analytics() {
                     <p className="text-xs text-muted-foreground/70">
                       {stat.description}
                     </p>
-                  </div>
-                </div>
+              </div>
+            </div>
               );
             })}
-          </div>
+        </div>
 
           {/* Main Content Grid */}
-          <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-3 gap-8">
             {/* Left Column - Charts */}
-            <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 space-y-8">
               {/* Timeline Chart - Platform Specific */}
               <div className="card-elevo p-6">
                 <div className="mb-6">
@@ -748,8 +757,8 @@ export default function Analytics() {
                         : 'from-pink-500/20 to-cyan-500/20'
                     )}>
                       <span className="text-2xl">{selectedPlatform === 'youtube' ? '▶️' : '🎵'}</span>
-                    </div>
-                    <div>
+                          </div>
+                          <div>
                       <h2 className="text-2xl font-bold">
                         {selectedPlatform === 'youtube' ? 'YouTube Views (30d)' : 'Video Creation Timeline'}
                       </h2>
@@ -758,9 +767,9 @@ export default function Analytics() {
                           ? 'Channel views over the past month' 
                           : 'Videos created over the past month'}
                       </p>
-                    </div>
-                  </div>
-                </div>
+                          </div>
+                        </div>
+                      </div>
                 
                 <div className="h-[300px] w-full">
                   {selectedPlatform === 'youtube' ? (
@@ -811,12 +820,12 @@ export default function Analytics() {
                       <p className="text-sm text-muted-foreground">
                         Videos by subreddit
                       </p>
-                    </div>
+              </div>
                     
                     <div className="h-[300px] w-full">
                       <Doughnut options={doughnutOptions} data={subredditData} />
-                    </div>
-                  </div>
+              </div>
+            </div>
 
                   {/* Voice Usage */}
                   <div className="card-elevo p-6">
@@ -894,10 +903,10 @@ export default function Analytics() {
                             {timeFrame === '90d' && 'Monthly watch hours over 90 days'}
                             {timeFrame === 'all' && 'Monthly watch hours over the year'}
                           </p>
-                        </div>
-                      </div>
-                    </div>
-                    
+              </div>
+            </div>
+          </div>
+
                     <div className="h-[300px] w-full">
                       <Line options={lineOptions} data={youtubeWatchTimeDetailedData} />
                     </div>
@@ -910,14 +919,14 @@ export default function Analytics() {
                           <p className="text-lg font-bold text-purple-400">
                             {Math.round(youtubeStats.last30Days.watchTime / 60)}h
                           </p>
-                        </div>
+                  </div>
                         <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
                           <p className="text-xs text-muted-foreground mb-1">Avg Duration</p>
                           <p className="text-lg font-bold text-blue-400">
                             {Math.round(youtubeStats.last30Days.averageViewDuration / 60)}m
                           </p>
-                        </div>
-                      </div>
+              </div>
+            </div>
                     )}
                   </div>
                 </div>
@@ -1093,4 +1102,4 @@ export default function Analytics() {
       </div>
     </main>
   );
-}
+} 
