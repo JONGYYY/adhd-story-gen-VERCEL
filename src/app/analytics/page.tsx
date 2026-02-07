@@ -170,17 +170,21 @@ export default function Analytics() {
     },
   ];
 
-  const videosCreated = userStats?.videosCreated || 0;
+  // Use YouTube video count if on YouTube platform, otherwise use Firestore count
+  const videosCreated = selectedPlatform === 'youtube' && youtubeStats?.totalVideos
+    ? youtubeStats.totalVideos
+    : (userStats?.videosCreated || 0);
+  
   const baseStats = [
     {
       name: 'Videos Created',
       value: loading ? '...' : videosCreated.toString(),
-      change: videosCreated > 0 ? `${videosCreated} total` : 'Create your first!',
+      change: videosCreated > 0 ? `${videosCreated} ${selectedPlatform === 'youtube' ? 'on YouTube' : 'total'}` : 'Create your first!',
       trend: 'up' as const,
       icon: Video,
       color: 'from-blue-500 to-cyan-500',
       bgGlow: 'group-hover:shadow-blue-500/[0.02]',
-      description: 'Total videos generated in your account',
+      description: selectedPlatform === 'youtube' ? 'Total videos uploaded to YouTube' : 'Total videos generated in your account',
     },
   ];
 
@@ -249,57 +253,55 @@ export default function Analytics() {
     ],
   };
 
-  // Helper function to generate labels based on time frame
-  const getTimeFrameLabels = (timeFrame: TimeFrame): string[] => {
+  // Helper function to format date labels
+  const formatDateLabel = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  };
+
+  // Helper function to get real YouTube time-series data based on time frame
+  const getYouTubeTimeSeriesData = (metric: 'views' | 'watchTime' | 'subscribersGained', timeFrame: TimeFrame) => {
+    if (!youtubeStats?.timeSeries) {
+      return { labels: [], data: [] };
+    }
+
+    let dataSource: any[] = [];
+    
     switch (timeFrame) {
       case '7d':
-        return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        dataSource = youtubeStats.timeSeries.last7Days || [];
+        break;
       case '30d':
-        return ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+        dataSource = youtubeStats.timeSeries.last30Days || [];
+        break;
       case '90d':
-        return ['Month 1', 'Month 2', 'Month 3'];
+        dataSource = youtubeStats.timeSeries.last90Days || [];
+        break;
       case 'all':
-        return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        dataSource = youtubeStats.timeSeries.last90Days || [];
+        break;
       default:
-        return ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+        dataSource = youtubeStats.timeSeries.last30Days || [];
     }
+
+    if (dataSource.length === 0) {
+      return { labels: [], data: [] };
+    }
+
+    const labels = dataSource.map(item => formatDateLabel(item.date));
+    const data = dataSource.map(item => item[metric] || 0);
+
+    return { labels, data };
   };
 
-  // Helper function to generate data points based on time frame
-  const generateDataPoints = (baseValue: number, timeFrame: TimeFrame, trend: 'up' | 'down' | 'stable' = 'up'): number[] => {
-    const labels = getTimeFrameLabels(timeFrame);
-    const dataPoints: number[] = [];
-    
-    for (let i = 0; i < labels.length; i++) {
-      const progress = i / (labels.length - 1);
-      let value: number;
-      
-      if (trend === 'up') {
-        // Upward trend with some variation
-        value = baseValue * (0.6 + progress * 0.4) + (Math.random() * 0.1 - 0.05) * baseValue;
-      } else if (trend === 'down') {
-        // Downward trend with some variation
-        value = baseValue * (1 - progress * 0.3) + (Math.random() * 0.1 - 0.05) * baseValue;
-      } else {
-        // Stable with natural variation
-        value = baseValue * (0.9 + Math.random() * 0.2);
-      }
-      
-      dataPoints.push(Math.round(value));
-    }
-    
-    return dataPoints;
-  };
-
-  // YouTube-specific charts
+  // YouTube-specific charts with REAL data
+  const viewsTimeSeriesData = getYouTubeTimeSeriesData('views', timeFrame);
   const youtubeViewsData = {
-    labels: getTimeFrameLabels(timeFrame),
-      datasets: [
-        {
-          label: 'Views',
-        data: youtubeStats?.last30Days?.views 
-          ? generateDataPoints(youtubeStats.last30Days.views, timeFrame, 'up')
-          : generateDataPoints(1000, timeFrame, 'up'),
+    labels: viewsTimeSeriesData.labels.length > 0 ? viewsTimeSeriesData.labels : ['No Data'],
+    datasets: [
+      {
+        label: 'Views',
+        data: viewsTimeSeriesData.data.length > 0 ? viewsTimeSeriesData.data : [0],
         borderColor: 'rgb(239, 68, 68)',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         tension: 0.4,
@@ -314,19 +316,18 @@ export default function Analytics() {
     ],
   };
 
-  // YouTube Subscriber Growth Chart
+  // YouTube Subscriber Growth Chart with REAL data
+  const subscribersTimeSeriesData = getYouTubeTimeSeriesData('subscribersGained', timeFrame);
   const youtubeSubscriberGrowthData = {
-    labels: getTimeFrameLabels(timeFrame),
+    labels: subscribersTimeSeriesData.labels.length > 0 ? subscribersTimeSeriesData.labels : ['No Data'],
     datasets: [
       {
-        label: 'Subscribers',
-        data: youtubeStats?.subscribers
-          ? generateDataPoints(youtubeStats.subscribers, timeFrame, 'up')
-          : generateDataPoints(1000, timeFrame, 'up'),
+        label: 'New Subscribers',
+        data: subscribersTimeSeriesData.data.length > 0 ? subscribersTimeSeriesData.data : [0],
         borderColor: 'rgb(249, 115, 22)',
         backgroundColor: 'rgba(249, 115, 22, 0.1)',
-          tension: 0.4,
-          fill: true,
+        tension: 0.4,
+        fill: true,
         pointRadius: 5,
         pointHoverRadius: 7,
         pointBackgroundColor: 'rgb(249, 115, 22)',
@@ -337,28 +338,27 @@ export default function Analytics() {
     ],
   };
 
-  // YouTube Watch Time Chart
+  // YouTube Watch Time Chart with REAL data
+  const watchTimeTimeSeriesData = getYouTubeTimeSeriesData('watchTime', timeFrame);
   const youtubeWatchTimeDetailedData = {
-    labels: getTimeFrameLabels(timeFrame),
+    labels: watchTimeTimeSeriesData.labels.length > 0 ? watchTimeTimeSeriesData.labels : ['No Data'],
     datasets: [
       {
-        label: 'Watch Time (hours)',
-        data: youtubeStats?.last30Days?.watchTime
-          ? generateDataPoints(Math.round(youtubeStats.last30Days.watchTime / 60), timeFrame, 'up')
-          : generateDataPoints(100, timeFrame, 'up'),
+        label: 'Watch Time (minutes)',
+        data: watchTimeTimeSeriesData.data.length > 0 ? watchTimeTimeSeriesData.data : [0],
         borderColor: 'rgb(168, 85, 247)',
         backgroundColor: 'rgba(168, 85, 247, 0.1)',
-          tension: 0.4,
-          fill: true,
+        tension: 0.4,
+        fill: true,
         pointRadius: 5,
         pointHoverRadius: 7,
         pointBackgroundColor: 'rgb(168, 85, 247)',
         pointBorderColor: 'white',
         pointBorderWidth: 2,
         borderWidth: 3,
-        },
-      ],
-    };
+      },
+    ],
+  };
 
   const youtubeEngagementData = {
     labels: ['Likes', 'Comments', 'Shares'],
@@ -384,19 +384,34 @@ export default function Analytics() {
     ],
   };
 
+  // Use real weekly watch time data (aggregate by week from daily data)
+  const getWeeklyWatchTimeData = () => {
+    if (!youtubeStats?.timeSeries?.last30Days || youtubeStats.timeSeries.last30Days.length === 0) {
+      return { labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'], data: [0, 0, 0, 0] };
+    }
+
+    const dailyData = youtubeStats.timeSeries.last30Days;
+    const weeks = [0, 0, 0, 0];
+    
+    // Aggregate data into 4 weeks
+    dailyData.forEach((day, index) => {
+      const weekIndex = Math.min(Math.floor(index / 7), 3); // Max 4 weeks
+      weeks[weekIndex] += (day.watchTime || 0);
+    });
+
+    return {
+      labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+      data: weeks.map(minutes => Math.round(minutes / 60)), // Convert to hours
+    };
+  };
+
+  const weeklyWatchTime = getWeeklyWatchTimeData();
   const youtubeWatchTimeData = {
-    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+    labels: weeklyWatchTime.labels,
     datasets: [
       {
         label: 'Watch Time (hours)',
-        data: youtubeStats?.last30Days?.watchTime
-          ? [
-              Math.round(youtubeStats.last30Days.watchTime * 0.18 / 60),
-              Math.round(youtubeStats.last30Days.watchTime * 0.23 / 60),
-              Math.round(youtubeStats.last30Days.watchTime * 0.26 / 60),
-              Math.round(youtubeStats.last30Days.watchTime * 0.33 / 60),
-            ]
-          : [0, 0, 0, 0],
+        data: weeklyWatchTime.data,
         backgroundColor: 'rgba(249, 115, 22, 0.8)',
         borderColor: 'rgb(249, 115, 22)',
         borderWidth: 2,

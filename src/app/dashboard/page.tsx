@@ -86,12 +86,16 @@ export default function Dashboard() {
   };
 
   // Base stats (always shown)
-  const videosCreated = userStats?.videosCreated || 0;
+  // Use YouTube video count if connected, otherwise use Firestore count
+  const videosCreated = selectedPlatform === 'youtube' && youtubeStats?.totalVideos 
+    ? youtubeStats.totalVideos 
+    : (userStats?.videosCreated || 0);
+  
   const baseStats = [
     { 
       name: 'Videos Created', 
       value: loading ? '...' : videosCreated.toString(), 
-      change: videosCreated > 0 ? `${videosCreated} total` : 'Create your first!', 
+      change: videosCreated > 0 ? `${videosCreated} ${selectedPlatform === 'youtube' ? 'on YouTube' : 'total'}` : 'Create your first!', 
       trend: 'up' as const, 
       icon: Video,
       color: 'from-blue-500 to-cyan-500',
@@ -223,8 +227,12 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
                   <Video className="w-4 h-4 text-primary" />
                   <span className="text-sm">
-                    <span className="font-bold text-foreground">{userStats?.videosCreated || 0}</span>
-                    <span className="text-muted-foreground ml-1">Videos Created</span>
+                    <span className="font-bold text-foreground">
+                      {selectedPlatform === 'youtube' && youtubeStats?.totalVideos 
+                        ? youtubeStats.totalVideos 
+                        : (userStats?.videosCreated || 0)}
+                    </span>
+                    <span className="text-muted-foreground ml-1">Videos {selectedPlatform === 'youtube' ? 'on YouTube' : 'Created'}</span>
                   </span>
                 </div>
                 {selectedPlatform === 'tiktok' && tiktokStats && (

@@ -425,20 +425,78 @@ export class YouTubeAPI {
 
     const channel = channelRes.data.items[0];
 
-    // Get analytics for last 30 days
+    // Get analytics for different time periods
     const endDate = new Date().toISOString().split('T')[0];
-    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const startDate30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const startDate7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const startDate90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     try {
+      // Get aggregated metrics for last 30 days
       const analyticsRes = await youtubeAnalytics.reports.query({
         auth: this.oauth2Client,
         ids: 'channel==MINE',
-        startDate,
+        startDate: startDate30,
         endDate,
         metrics: 'views,likes,comments,shares,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost',
       });
 
       const metrics = analyticsRes.data.rows?.[0] || [];
+
+      // Get daily breakdown for last 30 days (for charts)
+      const dailyAnalyticsRes = await youtubeAnalytics.reports.query({
+        auth: this.oauth2Client,
+        ids: 'channel==MINE',
+        startDate: startDate30,
+        endDate,
+        metrics: 'views,estimatedMinutesWatched,subscribersGained',
+        dimensions: 'day',
+        sort: 'day',
+      });
+
+      // Get weekly breakdown for last 7 days
+      const weeklyAnalyticsRes = await youtubeAnalytics.reports.query({
+        auth: this.oauth2Client,
+        ids: 'channel==MINE',
+        startDate: startDate7,
+        endDate,
+        metrics: 'views,estimatedMinutesWatched,subscribersGained',
+        dimensions: 'day',
+        sort: 'day',
+      });
+
+      // Get 90-day breakdown (for longer trend)
+      const ninetyDayAnalyticsRes = await youtubeAnalytics.reports.query({
+        auth: this.oauth2Client,
+        ids: 'channel==MINE',
+        startDate: startDate90,
+        endDate,
+        metrics: 'views,estimatedMinutesWatched,subscribersGained',
+        dimensions: 'day',
+        sort: 'day',
+      });
+
+      // Parse daily data
+      const dailyData = (dailyAnalyticsRes.data.rows || []).map((row: any[]) => ({
+        date: row[0], // YYYY-MM-DD
+        views: row[1] || 0,
+        watchTime: row[2] || 0, // minutes
+        subscribersGained: row[3] || 0,
+      }));
+
+      const weeklyData = (weeklyAnalyticsRes.data.rows || []).map((row: any[]) => ({
+        date: row[0],
+        views: row[1] || 0,
+        watchTime: row[2] || 0,
+        subscribersGained: row[3] || 0,
+      }));
+
+      const ninetyDayData = (ninetyDayAnalyticsRes.data.rows || []).map((row: any[]) => ({
+        date: row[0],
+        views: row[1] || 0,
+        watchTime: row[2] || 0,
+        subscribersGained: row[3] || 0,
+      }));
 
       return {
         channelName: channel.snippet?.title || '',
@@ -456,8 +514,15 @@ export class YouTubeAPI {
           subscribersGained: metrics[6] || 0,
           subscribersLost: metrics[7] || 0,
         },
+        // Time-series data for charts
+        timeSeries: {
+          last7Days: weeklyData,
+          last30Days: dailyData,
+          last90Days: ninetyDayData,
+        },
       };
     } catch (error) {
+      console.error('Failed to fetch YouTube Analytics time-series data:', error);
       // If analytics fail, return basic channel stats
       return {
         channelName: channel.snippet?.title || '',
@@ -474,6 +539,11 @@ export class YouTubeAPI {
           averageViewDuration: 0,
           subscribersGained: 0,
           subscribersLost: 0,
+        },
+        timeSeries: {
+          last7Days: [],
+          last30Days: [],
+          last90Days: [],
         },
       };
     }
