@@ -192,8 +192,59 @@ Double-check your output includes all required fields before responding.`;
 
     console.log('Successfully generated and validated story:', JSON.stringify(story, null, 2));
     return story as SubredditStory;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to generate story:', error);
+    
+    // CRITICAL: Handle OpenAI quota/billing errors with user-friendly messages
+    if (error?.status === 429) {
+      // Check if it's a quota issue
+      if (error?.error?.type === 'insufficient_quota' || error?.code === 'insufficient_quota') {
+        console.error('OpenAI quota exceeded. User needs to add credits.');
+        throw new Error(
+          '⚠️ OpenAI API quota exceeded. Please add credits to your OpenAI account:\n\n' +
+          '1. Go to: https://platform.openai.com/account/billing\n' +
+          '2. Add a payment method\n' +
+          '3. Add credits or increase your usage limit\n' +
+          '4. Wait ~5 minutes for quota to activate\n\n' +
+          'Contact support if you need help.'
+        );
+      }
+      
+      // Check if it's a rate limit issue
+      if (error?.error?.type === 'rate_limit_exceeded') {
+        console.error('OpenAI rate limit exceeded. Too many requests.');
+        throw new Error(
+          '⚠️ Too many requests to OpenAI. Please wait a moment and try again.\n\n' +
+          'If this persists, you may have hit your rate limit. Check your OpenAI dashboard.'
+        );
+      }
+      
+      // Generic 429 error
+      throw new Error(
+        '⚠️ OpenAI API limit reached. This could be a quota or rate limit issue.\n\n' +
+        'Please check your OpenAI account: https://platform.openai.com/account/billing'
+      );
+    }
+    
+    // Handle 401 authentication errors
+    if (error?.status === 401) {
+      console.error('OpenAI API key invalid or expired');
+      throw new Error(
+        '⚠️ OpenAI API key is invalid or expired. Please check your API key configuration.\n\n' +
+        'Contact the site administrator to update the API key.'
+      );
+    }
+    
+    // Handle 500+ server errors
+    if (error?.status >= 500) {
+      console.error('OpenAI server error');
+      throw new Error(
+        '⚠️ OpenAI servers are experiencing issues. Please try again in a few moments.\n\n' +
+        'If this persists, check OpenAI status: https://status.openai.com'
+      );
+    }
+    
+    // Re-throw with original error for other cases
     throw error;
   }
 } 

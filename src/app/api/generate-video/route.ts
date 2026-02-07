@@ -246,7 +246,23 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to generate video';
     console.error('Error generating video:', error);
     
-    // SECURITY: Generic error message to prevent information leakage
+    // SECURITY: Pass through user-friendly OpenAI errors, hide others
+    // Check if this is an OpenAI quota/billing error (starts with warning emoji)
+    if (errorMessage.includes('⚠️')) {
+      // This is a user-friendly error from openai.ts, pass it through
+      return secureJsonResponse({
+        error: errorMessage
+      }, 429);
+    }
+    
+    // Check for other specific errors to pass through
+    if (errorMessage.includes('OpenAI') || errorMessage.includes('API key')) {
+      return secureJsonResponse({
+        error: errorMessage
+      }, 500);
+    }
+    
+    // SECURITY: Generic error message for other errors to prevent information leakage
     return secureJsonResponse({
       error: 'An error occurred during video generation. Please try again.'
     }, 500);
