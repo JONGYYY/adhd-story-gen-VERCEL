@@ -1422,31 +1422,29 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   console.log('[captions] ASS file exists:', fs.existsSync(assPath));
   
   // Apply subtitles filter (libass)
-  // Escape for filtergraph: backslashes, colons, commas, and single quotes
+  // Escape for filtergraph: backslashes, colons, commas
   // FFmpeg filter_complex requires specific escaping for file paths
+  // CRITICAL: Do NOT use quotes around filename= - they conflict with path escaping
   const assEsc = assPath
     .replace(/\\/g, '\\\\\\\\')  // Backslash needs 4x escaping in filter graphs
     .replace(/:/g, '\\:')        // Escape colons
-    .replace(/,/g, '\\,')        // Escape commas
-    .replace(/'/g, "'\\\\''");   // Escape single quotes
+    .replace(/,/g, '\\,');       // Escape commas
   
   const fontsDir = path.join(__dirname, 'public', 'fonts');
   const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
   const fontsDirEsc = fontsDirExists ? fontsDir
     .replace(/\\/g, '\\\\\\\\')
     .replace(/:/g, '\\:')
-    .replace(/,/g, '\\,')
-    .replace(/'/g, "'\\\\''") : '';
+    .replace(/,/g, '\\,') : '';
   
   console.log('[captions] Escaped ASS path:', assEsc);
   console.log('[captions] Fonts dir exists:', fontsDirExists, fontsDirExists ? `path: ${fontsDir}` : '');
   
-  // Use subtitles filter instead of ass filter (more reliable)
-  // subtitles filter syntax: subtitles=filename:original_size=WxH
-  // CRITICAL FIX: Use properly escaped paths (assEsc, fontsDirEsc) not raw paths!
-  // The escaping on lines 1427-1439 handles all special chars (backslashes, colons, commas, quotes)
-  // Using raw paths with only quote escaping causes filter parsing to fail → v_cap never created
-  filter += `;[${current}]subtitles=filename='${assEsc}'${fontsDirExists ? `:fontsdir='${fontsDirEsc}'` : ''}[v_cap]`;
+  // Use subtitles filter without quotes around paths
+  // subtitles filter syntax: subtitles=filename=path:fontsdir=path
+  // CRITICAL FIX: Do NOT wrap paths in quotes - use direct escaping only
+  // Quotes cause the filter parser to fail when combined with escaped special chars
+  filter += `;[${current}]subtitles=filename=${assEsc}${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
   current = 'v_cap';
   console.log('[captions] Caption filter added to graph');
 
