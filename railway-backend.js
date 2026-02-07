@@ -1429,33 +1429,26 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   console.log('[captions] ASS file created at:', assPath);
   console.log('[captions] ASS file exists:', fs.existsSync(assPath));
   
-  // Apply subtitles filter (libass)
-  // Escape for filtergraph: backslashes, colons, commas, and single quotes
-  // FFmpeg filter_complex requires specific escaping for file paths
-  // CRITICAL: This is the PROVEN WORKING version from commit 426ea96
+  // Apply ass filter (libass subtitle rendering)
+  // CRITICAL: FFmpeg 7.1.1 rejects subtitles= with quoted paths, so use ass= instead
+  // The ass filter has simpler syntax: ass=filename (no quotes needed)
+  // Escape for filtergraph: backslashes, colons, commas
   const assEsc = assPath
     .replace(/\\/g, '\\\\\\\\')  // Backslash needs 4x escaping in filter graphs
-    .replace(/:/g, '\\:')        // Escape colons
-    .replace(/,/g, '\\,')        // Escape commas
-    .replace(/'/g, "'\\\\''");   // Escape single quotes (for use within quoted strings)
+    .replace(/:/g, '\\:')        // Escape colons  
+    .replace(/,/g, '\\,');       // Escape commas
   
   const fontsDir = path.join(__dirname, 'public', 'fonts');
   const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
-  const fontsDirEsc = fontsDirExists ? fontsDir
-    .replace(/\\/g, '\\\\\\\\')
-    .replace(/:/g, '\\:')
-    .replace(/,/g, '\\,')
-    .replace(/'/g, "'\\\\''") : '';
   
   console.log('[captions] Escaped ASS path:', assEsc);
   console.log('[captions] Fonts dir exists:', fontsDirExists, fontsDirExists ? `path: ${fontsDir}` : '');
+  console.log('[captions] Using ass= filter (simpler syntax, no fontsdir support)');
   
-  // Use subtitles filter instead of ass filter (more reliable)
-  // subtitles filter syntax: subtitles=filename:original_size=WxH
-  // CRITICAL FIX: Use properly escaped paths (assEsc, fontsDirEsc) not raw paths!
-  // The escaping on lines 1427-1439 handles all special chars (backslashes, colons, commas, quotes)
-  // Using raw paths with only quote escaping causes filter parsing to fail → v_cap never created
-  filter += `;[${current}]subtitles=filename='${assEsc}'${fontsDirExists ? `:fontsdir='${fontsDirEsc}'` : ''}[v_cap]`;
+  // Use ass filter instead of subtitles (FFmpeg 7.1.1 compatibility)
+  // ass filter syntax: ass=filename (no quotes, no fontsdir parameter)
+  // The ass filter automatically searches for fonts in system paths
+  filter += `;[${current}]ass=${assEsc}[v_cap]`;
   current = 'v_cap';
   console.log('[captions] Caption filter added to graph');
 
