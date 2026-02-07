@@ -1443,7 +1443,10 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   
   // Use subtitles filter instead of ass filter (more reliable)
   // subtitles filter syntax: subtitles=filename:original_size=WxH
-  filter += `;[${current}]subtitles=filename='${assPath.replace(/'/g, "'\\\\''")}'${fontsDirExists ? `:fontsdir='${fontsDir.replace(/'/g, "'\\\\''")}'` : ''}[v_cap]`;
+  // CRITICAL FIX: Use properly escaped paths (assEsc, fontsDirEsc) not raw paths!
+  // The escaping on lines 1427-1439 handles all special chars (backslashes, colons, commas, quotes)
+  // Using raw paths with only quote escaping causes filter parsing to fail → v_cap never created
+  filter += `;[${current}]subtitles=filename='${assEsc}'${fontsDirExists ? `:fontsdir='${fontsDirEsc}'` : ''}[v_cap]`;
   current = 'v_cap';
   console.log('[captions] Caption filter added to graph');
 
