@@ -137,9 +137,11 @@ Double-check your output includes all required fields before responding.`;
     };
 
     // Extract title, story, and optionally startingQuestion using regex
-    const titleMatch = response.match(/Title:\s*(.+?)(?:\n|$)/);
-    const storyMatch = response.match(/Story:\s*(.+?)(?:\n|$)/);
-    const startingQuestionMatch = response.match(/StartingQuestion:\s*(.+?)(?:\n|$)/);
+    // CRITICAL FIX: Use [\s\S]*? to capture multi-paragraph stories (including newlines)
+    const titleMatch = response.match(/Title:\s*([^\n]+)/);
+    // Capture everything after "Story:" until "StartingQuestion:" or end of string
+    const storyMatch = response.match(/Story:\s*([\s\S]+?)(?=\n*StartingQuestion:|$)/);
+    const startingQuestionMatch = response.match(/StartingQuestion:\s*([^\n]+)/);
 
     if (!titleMatch || !storyMatch) {
       console.error('Failed to parse story format:', response);
@@ -148,6 +150,9 @@ Double-check your output includes all required fields before responding.`;
 
     story.title = titleMatch[1].trim();
     story.story = storyMatch[1].trim();
+    
+    // Log story length for debugging
+    console.log(`Story length: ${story.story.length} characters, ${story.story.split('\n').length} lines`);
     
     // Extract starting question if present
     if (startingQuestionMatch) {
