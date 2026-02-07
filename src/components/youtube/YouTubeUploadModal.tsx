@@ -42,30 +42,19 @@ const DESCRIPTION_MAX_LENGTH = 5000; // YouTube's description limit
 const MAX_TAGS = 15; // YouTube's tag limit
 
 export function YouTubeUploadModal({ open, onOpenChange, onUpload, isUploading, initialTitle }: YouTubeUploadModalProps) {
+  // Log props on every render for debugging
+  console.log('[YouTube Modal] Render - open:', open, 'initialTitle:', initialTitle);
+  
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [privacyStatus, setPrivacyStatus] = useState<'public' | 'unlisted' | 'private'>('public');
   const [activeCategory, setActiveCategory] = useState<keyof typeof TAG_SUGGESTIONS>('trending');
 
-  // Auto-fill title when modal opens with story title
-  // IMPORTANT: Set title whenever modal opens (not just when title is empty)
-  useEffect(() => {
-    if (open && initialTitle) {
-      // Truncate title to YouTube's 100 char limit
-      const truncatedTitle = initialTitle.length > TITLE_MAX_LENGTH 
-        ? initialTitle.substring(0, TITLE_MAX_LENGTH) 
-        : initialTitle;
-      setTitle(truncatedTitle);
-      console.log('[YouTube Modal] Auto-filled title:', truncatedTitle);
-    } else if (open && !initialTitle) {
-      console.warn('[YouTube Modal] Modal opened but no title provided');
-    }
-  }, [open, initialTitle]);
-
-  // Reset state when modal closes
+  // Reset state when modal closes (must run BEFORE auto-fill)
   useEffect(() => {
     if (!open) {
+      console.log('[YouTube Modal] Resetting state (modal closed)');
       setTitle('');
       setDescription('');
       setSelectedTags([]);
@@ -73,6 +62,25 @@ export function YouTubeUploadModal({ open, onOpenChange, onUpload, isUploading, 
       setActiveCategory('trending');
     }
   }, [open]);
+
+  // Auto-fill title when modal opens with story title
+  // IMPORTANT: This runs AFTER reset, so it will set the title correctly
+  useEffect(() => {
+    console.log('[YouTube Modal] Auto-fill useEffect - open:', open, 'initialTitle:', initialTitle, 'current title state:', title);
+    
+    if (open && initialTitle) {
+      // Truncate title to YouTube's 100 char limit
+      const truncatedTitle = initialTitle.length > TITLE_MAX_LENGTH 
+        ? initialTitle.substring(0, TITLE_MAX_LENGTH) 
+        : initialTitle;
+      console.log('[YouTube Modal] ✅ Setting title to:', truncatedTitle);
+      setTitle(truncatedTitle);
+    } else if (open && !initialTitle) {
+      console.warn('[YouTube Modal] ⚠️ Modal opened but no title provided - initialTitle is:', initialTitle);
+    } else if (!open) {
+      console.log('[YouTube Modal] Modal is closed, not setting title');
+    }
+  }, [open, initialTitle]);
 
   const toggleTag = (tag: string) => {
     if (selectedTags.includes(tag)) {

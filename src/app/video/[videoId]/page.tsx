@@ -45,6 +45,8 @@ export default function VideoPage() {
           const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media';
           videoUrl = `${API_BASE}${videoUrl}`;
         }
+        console.log('[Video Page] API response data:', { status: data.status, title: data.title, hasVideoUrl: !!data.videoUrl });
+        
         setVideoStatus({
           status: uiStatus,
           progress: typeof data.progress === 'number' ? data.progress : (uiStatus === 'ready' ? 100 : 0),
@@ -52,6 +54,8 @@ export default function VideoPage() {
           videoUrl: uiStatus === 'ready' ? videoUrl : undefined,
           title: data.title || undefined // Include story title from backend
         });
+        
+        console.log('[Video Page] videoStatus updated with title:', data.title);
 
         // If still generating, check again in 2 seconds
         if (data.status === 'generating' || data.status === 'processing') {
