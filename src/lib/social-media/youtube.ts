@@ -154,6 +154,8 @@ export class YouTubeAPI {
         controller.abort();
       }, 30000); // 30 second timeout
       
+      let data: any;
+      
       try {
         console.log('Sending request to YouTube channels API...');
         const startTime = Date.now();
@@ -180,7 +182,7 @@ export class YouTubeAPI {
           throw new Error(`Failed to fetch YouTube channel info: ${response.status}`);
         }
 
-        const data = await response.json();
+        data = await response.json();
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
@@ -190,7 +192,7 @@ export class YouTubeAPI {
         throw fetchError;
       }
       
-      if (!data.items || data.items.length === 0) {
+      if (!data || !data.items || data.items.length === 0) {
         throw new Error('No YouTube channel found for this user');
       }
       
