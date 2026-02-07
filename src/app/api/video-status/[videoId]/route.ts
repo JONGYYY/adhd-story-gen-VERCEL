@@ -41,6 +41,9 @@ async function getRailwayVideoStatus(videoId: string) {
 
   const result = await response.json();
   console.log('Railway video status:', JSON.stringify(result, null, 2));
+  console.log('[Video Status API] RAILWAY_API_URL:', RAILWAY_API_URL);
+  console.log('[Video Status API] result.videoUrl:', result.videoUrl);
+  console.log('[Video Status API] result.title:', result.title);
   
   let status = toFrontendStatus(result.status);
   let progress = typeof result.progress === 'number' ? result.progress : (result.status === 'completed' ? 100 : 0);
@@ -48,6 +51,8 @@ async function getRailwayVideoStatus(videoId: string) {
   let videoUrl = result.videoUrl
     ? (result.videoUrl.startsWith('http') ? result.videoUrl : `${RAILWAY_API_URL}${result.videoUrl}`)
     : null;
+  
+  console.log('[Video Status API] Constructed videoUrl:', videoUrl);
 
   // Guard: if status is ready but file not yet accessible (only for Railway-hosted paths), keep generating
   if (status === 'ready' && videoUrl && videoUrl.startsWith(RAILWAY_API_URL)) {
@@ -71,6 +76,7 @@ async function getRailwayVideoStatus(videoId: string) {
     progress,
     error: result.error,
     videoUrl: status === 'ready' ? videoUrl : null,
+    title: result.title || undefined, // Include title for auto-fill
   };
 }
 

@@ -41,9 +41,11 @@ export interface RateLimitConfig {
  * Following OWASP recommendations for API security
  */
 export const RATE_LIMITS = {
-  // Authentication endpoints (most restrictive)
+  // Authentication endpoints
+  // RELAXED: Was 5/15min which was too aggressive for normal page loads/refreshes
+  // Now 100/15min to allow normal usage while still preventing abuse
   AUTH: {
-    maxRequests: 5,
+    maxRequests: 100,
     windowSeconds: 60 * 15, // 15 minutes
     message: 'Too many authentication attempts. Please try again in 15 minutes.'
   },
