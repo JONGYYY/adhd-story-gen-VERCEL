@@ -215,6 +215,8 @@ function spawnWithTimeout(command, args, options = {}, timeoutMs = 5 * 60 * 1000
 // Allow requests from UI service (can be on different Railway service or custom domain)
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'https://taleo.media',
+  'https://taleo.media',
+  'https://www.taleo.media', // Allow both www and non-www
   'http://localhost:3000',
   'http://localhost:3001',
 ];
@@ -233,6 +235,7 @@ app.use(cors({
       return callback(null, true);
     }
     
+    console.log('[CORS] Blocked origin:', origin);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true, // Allow cookies
