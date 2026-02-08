@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -16,6 +17,157 @@ console.log(`Attempting to start server on port: ${PORT}`); // Added log
 const videoStatus = new Map();
 // In-memory font preview job status
 const fontPreviewStatus = new Map();
+
+// ============================================================================
+// CLOUDFLARE R2 & FIRESTORE INTEGRATION
+// ============================================================================
+const { S3Client, PutObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
+const admin = require('firebase-admin');
+
+// Initialize Firebase Admin
+let firestoreDb = null;
+try {
+  if (!admin.apps.length) {
+    const serviceAccount = {
+      type: 'service_account',
+      project_id: process.env.FIREBASE_ADMIN_PROJECT_ID,
+      private_key: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      client_email: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+    };
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log('[firebase-admin] Initialized successfully');
+  }
+  firestoreDb = admin.firestore();
+} catch (error) {
+  console.error('[firebase-admin] Failed to initialize:', error.message);
+}
+
+// Initialize R2 Client (S3-compatible)
+let r2Client = null;
+let r2Config = { bucket: '', publicUrl: '', enabled: false };
+try {
+  if (process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET_NAME) {
+    r2Client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+    });
+    r2Config = {
+      bucket: process.env.R2_BUCKET_NAME,
+      publicUrl: process.env.R2_PUBLIC_URL || '',
+      enabled: true,
+    };
+    console.log('[r2] Client initialized successfully');
+  } else {
+    console.warn('[r2] Missing R2 configuration - videos will use ephemeral storage');
+  }
+} catch (error) {
+  console.error('[r2] Failed to initialize:', error.message);
+}
+
+/**
+ * Upload video to R2 (Cloudflare Object Storage)
+ */
+async function uploadVideoToR2(videoPath, videoId, userId) {
+  if (!r2Client || !r2Config.enabled) {
+    console.warn('[r2] R2 not configured - skipping upload');
+    return null;
+  }
+
+  try {
+    console.log(`[r2] Uploading video ${videoId} for user ${userId}`);
+    const videoBuffer = await fsp.readFile(videoPath);
+    const key = `users/${userId}/videos/${videoId}.mp4`;
+
+    const command = new PutObjectCommand({
+      Bucket: r2Config.bucket,
+      Key: key,
+      Body: videoBuffer,
+      ContentType: 'video/mp4',
+      CacheControl: 'public, max-age=31536000',
+      Metadata: {
+        userId,
+        videoId,
+        uploadedAt: Date.now().toString(),
+      },
+    });
+
+    await r2Client.send(command);
+    const publicUrl = `${r2Config.publicUrl}/${key}`;
+    console.log(`[r2] Upload successful: ${publicUrl}`);
+    return publicUrl;
+  } catch (error) {
+    console.error('[r2] Upload failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Save video metadata to Firestore
+ */
+async function saveVideoMetadata(videoId, userId, data) {
+  if (!firestoreDb) {
+    console.warn('[firestore] Firestore not configured - skipping metadata save');
+    return;
+  }
+
+  try {
+    const now = Date.now();
+    const metadata = {
+      videoId,
+      userId,
+      status: data.status || 'processing',
+      title: data.title || 'Untitled Story',
+      subreddit: data.subreddit || 'r/stories',
+      videoUrl: data.videoUrl || null,
+      error: data.error || null,
+      createdAt: data.createdAt || now,
+      updatedAt: now,
+      metadata: data.metadata || {},
+    };
+
+    await firestoreDb.collection('videos').doc(videoId).set(metadata, { merge: true });
+    console.log(`[firestore] Metadata saved for video ${videoId}`);
+  } catch (error) {
+    console.error('[firestore] Failed to save metadata:', error);
+  }
+}
+
+/**
+ * Get video metadata from Firestore with user validation
+ */
+async function getVideoMetadata(videoId, userId) {
+  if (!firestoreDb) {
+    return null;
+  }
+
+  try {
+    const doc = await firestoreDb.collection('videos').doc(videoId).get();
+    if (!doc.exists) {
+      return null;
+    }
+
+    const data = doc.data();
+    
+    // SECURITY: Verify user owns this video
+    if (data.userId !== userId) {
+      console.warn(`[firestore] Access denied: User ${userId} attempted to access video ${videoId} owned by ${data.userId}`);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('[firestore] Failed to get metadata:', error);
+    return null;
+  }
+}
+
+// ============================================================================
 
 /**
  * Spawn a process with a timeout to prevent hanging
@@ -60,7 +212,32 @@ function spawnWithTimeout(command, args, options = {}, timeoutMs = 5 * 60 * 1000
 }
 
 // Middleware
-app.use(cors());
+// Allow requests from UI service (can be on different Railway service or custom domain)
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'https://taleo.media',
+  'http://localhost:3000',
+  'http://localhost:3001',
+];
+
+// Also allow Railway internal networking (service-to-service)
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (Railway internal, mobile apps, curl)
+    if (!origin) return callback(null, true);
+    
+    // Allow configured origins
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    
+    // Allow Railway internal domains
+    if (origin.includes('.railway.internal') || origin.includes('.up.railway.app')) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true, // Allow cookies
+}));
+app.use(cookieParser()); // Parse cookies for session authentication
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static('public'));
 
@@ -1685,7 +1862,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
 }
 
 // Simple video generation function
-async function generateVideoSimple(options, videoId) {
+async function generateVideoSimple(options, videoId, userId) {
   console.log(`Generating video for ID: ${videoId} with options:`, options); // Added log
   videoStatus.set(videoId, { status: 'processing', progress: 0, message: 'Video generation started.' });
 
@@ -1708,17 +1885,50 @@ async function generateVideoSimple(options, videoId) {
       isCliffhanger: options?.isCliffhanger || false,
       speedMultiplier: options?.background?.speedMultiplier
     }, videoId);
+    
     // Get title from videoStatus (preserve it from initial set)
     const currentStatus = videoStatus.get(videoId);
     const storyTitle = currentStatus?.title || options?.customStory?.title || 'Untitled Story';
     
+    // Upload to R2 if configured
+    let finalVideoUrl = videoUrl; // Default to local ephemeral URL
+    if (userId && r2Config.enabled) {
+      videoStatus.set(videoId, { 
+        status: 'processing', 
+        progress: 90, 
+        message: 'Uploading to cloud storage...',
+        title: storyTitle
+      });
+      
+      const videoPath = path.join(__dirname, 'public', 'videos', `${videoId}.mp4`);
+      const r2Url = await uploadVideoToR2(videoPath, videoId, userId);
+      
+      if (r2Url) {
+        finalVideoUrl = r2Url;
+        console.log(`[r2] Video uploaded successfully: ${r2Url}`);
+      } else {
+        console.warn('[r2] Upload failed, using ephemeral local URL');
+      }
+    }
+    
+    // Update in-memory status (backward compatibility)
     videoStatus.set(videoId, { 
       status: 'completed', 
       progress: 100, 
       message: 'Video generation complete.', 
-      videoUrl,
+      videoUrl: finalVideoUrl,
       title: storyTitle
     });
+    
+    // Update Firestore with completed status and video URL
+    if (userId) {
+      await saveVideoMetadata(videoId, userId, {
+        status: 'completed',
+        videoUrl: finalVideoUrl,
+        title: storyTitle,
+      });
+    }
+    
     console.log(`Video generation completed for ID: ${videoId}`);
   } catch (err) {
     console.error('Video build failed (FFmpeg fallback):', err);
@@ -1729,6 +1939,14 @@ async function generateVideoSimple(options, videoId) {
       error: msg || 'Video build failed',
       title: currentStatus?.title || 'Untitled Story'
     });
+    
+    // Update Firestore with error
+    if (userId) {
+      await saveVideoMetadata(videoId, userId, {
+        status: 'failed',
+        error: msg || 'Video build failed',
+      });
+    }
   }
 }
 
@@ -1870,25 +2088,62 @@ async function generateVideoWithRemotion({ title, story, backgroundCategory, voi
 async function generateVideoHandler(req, res) {
 	try {
 		console.log('Received video generation request.'); // Added log
+		
+		// Extract userId from session cookie (Firebase Admin validation)
+		let userId = null;
+		try {
+			const sessionCookie = req.cookies?.session;
+			if (sessionCookie && firestoreDb) {
+				const auth = admin.auth();
+				const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+				userId = decodedClaims.uid;
+				console.log('[auth] User authenticated:', userId);
+			}
+		} catch (authError) {
+			console.error('[auth] Session verification failed:', authError.message);
+		}
+		
+		// SECURITY: userId is required for persistent storage
+		if (!userId) {
+			console.warn('[auth] No valid session - video will use ephemeral storage only');
+			// Allow generation to continue for backward compatibility, but warn
+		}
+		
 		const { customStory, voice, background, isCliffhanger } = req.body;
+		
 		const videoId = uuidv4();
 
-		// Set initial processing status so /video-status does not 404
-		// Include title for frontend use (auto-fill YouTube upload)
+		// Set initial processing status so /video-status does not 404 (backward compatibility)
 		videoStatus.set(videoId, { 
 			status: 'processing', 
 			progress: 0, 
 			message: 'Video generation started.',
 			title: customStory?.title || 'Untitled Story'
 		});
+		
+		// Save initial metadata to Firestore
+		await saveVideoMetadata(videoId, userId, {
+			status: 'processing',
+			title: customStory?.title || 'Untitled Story',
+			subreddit: customStory?.subreddit || 'r/stories',
+			metadata: {
+				background: background?.category,
+				voice: voice?.id,
+				speedMultiplier: background?.speedMultiplier,
+				isCliffhanger,
+			},
+		});
 
 		// Start video generation in the background (FFmpeg-only; Remotion disabled for production stability)
 		(async () => {
 				try {
-					await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId);
+					await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId, userId);
 			} catch (e) {
 				console.error('FFmpeg generation failed:', e);
-				videoStatus.set(videoId, { status: 'failed', error: (e instanceof Error ? e.message : 'Video build failed') });
+				const errorMsg = e instanceof Error ? e.message : 'Video build failed';
+				videoStatus.set(videoId, { status: 'failed', error: errorMsg });
+				// Update Firestore with error
+				await saveVideoMetadata(videoId, userId, { status: 'failed', error: errorMsg });
 			}
 		})();
 
@@ -1907,11 +2162,29 @@ app.post('/api/generate-video', generateVideoHandler);
 async function videoStatusHandler(req, res) {
   try {
     const { videoId } = req.params;
-    console.log(`Video status requested for ID: ${videoId}`); // Added log
+    const { userId } = req.query; // Get userId from query parameter
+    console.log(`Video status requested for ID: ${videoId}, userId: ${userId}`); // Added log
+    
+    // First check Firestore for persistent storage
+    if (userId && firestoreDb) {
+      const metadata = await getVideoMetadata(videoId, userId);
+      if (metadata) {
+        console.log(`[firestore] Returning metadata for video ${videoId}`);
+        return res.json({
+          status: metadata.status,
+          progress: metadata.status === 'completed' ? 100 : (metadata.status === 'processing' ? 50 : 0),
+          message: metadata.status === 'completed' ? 'Video ready' : (metadata.status === 'failed' ? metadata.error : 'Processing...'),
+          videoUrl: metadata.videoUrl,
+          title: metadata.title,
+          error: metadata.error,
+        });
+      }
+    }
+    
+    // Fallback to in-memory status (backward compatibility for active processing)
     const status = videoStatus.get(videoId);
-
     if (!status) {
-      return res.status(404).json({ success: false, error: 'Video ID not found.' });
+      return res.status(404).json({ success: false, error: 'Video status not found' });
     }
 
     res.json(status);

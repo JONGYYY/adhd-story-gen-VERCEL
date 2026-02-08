@@ -3,6 +3,24 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Proxy API routes to Railway backend
+  async rewrites() {
+    const railwayUrl = process.env.NEXT_PUBLIC_RAILWAY_URL || 'http://localhost:3000';
+    return [
+      {
+        source: '/api/generate-video',
+        destination: `${railwayUrl}/api/generate-video`,
+      },
+      {
+        source: '/api/video-status/:videoId',
+        destination: `${railwayUrl}/api/video-status/:videoId`,
+      },
+      {
+        source: '/videos/:filename',
+        destination: `${railwayUrl}/videos/:filename`,
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       allowedOrigins: ['localhost:3000', 'adhd-story-gen.vercel.app', 'taleo.media'],

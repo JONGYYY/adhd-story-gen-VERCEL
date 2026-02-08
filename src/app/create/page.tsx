@@ -381,6 +381,7 @@ export default function Create() {
             statusResponse = await fetch(`/api/video-status/${data.videoId}`, {
               method: 'GET',
               cache: 'no-cache',
+              credentials: 'include', // Send session cookie for user validation
               headers: {
                 'Cache-Control': 'no-cache',
                 'Pragma': 'no-cache'
