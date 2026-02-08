@@ -52,10 +52,19 @@ export async function POST(request: NextRequest) {
     const timeout = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
     try {
+      // Reddit requires a specific User-Agent format and blocks generic ones
+      // Format: <platform>:<app ID>:<version> (by /u/<username>)
+      // Using a browser-like User-Agent to avoid bot detection
       const response = await fetch(jsonUrl, {
         headers: {
-          'User-Agent': 'Taleo Story Generator v1.0 (Web App)',
-          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Referer': 'https://www.reddit.com/',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
         },
         signal: controller.signal,
       });
@@ -64,8 +73,19 @@ export async function POST(request: NextRequest) {
 
       if (!response.ok) {
         console.error('[reddit-scraper] Reddit API returned:', response.status, response.statusText);
+        
+        // Provide specific error messages for common Reddit blocks
+        let errorMessage = `Failed to fetch Reddit post: ${response.status}`;
+        if (response.status === 403) {
+          errorMessage = 'Reddit is blocking automated requests. Try copying and pasting the story content manually instead.';
+        } else if (response.status === 429) {
+          errorMessage = 'Too many requests to Reddit. Please wait a moment and try again.';
+        } else if (response.status === 404) {
+          errorMessage = 'Reddit post not found. Please check the URL and try again.';
+        }
+        
         return new Response(JSON.stringify({ 
-          error: `Failed to fetch Reddit post: ${response.status} ${response.statusText}` 
+          error: errorMessage
         }), { 
           status: 502,
           headers: { 'Content-Type': 'application/json' }
