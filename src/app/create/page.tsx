@@ -24,6 +24,7 @@ export default function Create() {
   const [storyTitle, setStoryTitle] = useState('');
   const [redditUrl, setRedditUrl] = useState('');
   const [isScrapingReddit, setIsScrapingReddit] = useState(false);
+  const [isEditingRedditContent, setIsEditingRedditContent] = useState(false);
   const [selectedBackground, setSelectedBackground] = useState<string | null>(null);
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
   const [storyLength, setStoryLength] = useState<'1 min+ (Cliffhanger)' | 'Full Story Length'>('1 min+ (Cliffhanger)');
@@ -220,6 +221,7 @@ export default function Create() {
       setStoryTitle(data.title);
       setStoryText(data.story);
       setSelectedSubreddit(data.subreddit || 'r/stories');
+      setIsEditingRedditContent(false); // Reset to preview mode when fetching new content
 
       console.log('[reddit-link] Scraped successfully:', {
         title: data.title.substring(0, 50) + '...',
@@ -661,29 +663,84 @@ export default function Create() {
                       </p>
                     </div>
 
-                    {/* Show scraped content (read-only preview) */}
+                    {/* Show scraped content (preview or edit mode) */}
                     {storyTitle && storyText && (
-                      <div className="space-y-4 p-4 rounded-xl bg-muted/30 border border-border/50">
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Title</label>
-                          <p className="text-sm font-semibold">{storyTitle}</p>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Story Preview</label>
-                          <p className="text-sm text-muted-foreground line-clamp-3">
-                            {storyText}
-                          </p>
-                          <div className="flex items-center justify-between mt-1">
-                            <p className="text-xs text-muted-foreground">
-                              {storyText.length}/5000 characters
-                            </p>
-                            {storyText.length > 5000 && (
-                              <p className="text-xs text-red-400">
-                                ⚠️ Will be truncated
+                      <div className="space-y-4">
+                        {!isEditingRedditContent ? (
+                          // Preview mode (read-only)
+                          <div className="space-y-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-muted-foreground mb-1">Title</label>
+                                <p className="text-sm font-semibold">{storyTitle}</p>
+                              </div>
+                              <Button
+                                onClick={() => setIsEditingRedditContent(true)}
+                                variant="outline"
+                                size="sm"
+                                className="ml-4"
+                              >
+                                Edit
+                              </Button>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Story Preview</label>
+                              <p className="text-sm text-muted-foreground line-clamp-3">
+                                {storyText}
                               </p>
-                            )}
+                              <div className="flex items-center justify-between mt-1">
+                                <p className="text-xs text-muted-foreground">
+                                  {storyText.length}/5000 characters
+                                </p>
+                                {storyText.length > 5000 && (
+                                  <p className="text-xs text-red-400">
+                                    ⚠️ Will be truncated
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          // Edit mode (editable fields)
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Story Title</label>
+                              <input
+                                type="text"
+                                value={storyTitle}
+                                onChange={(e) => setStoryTitle(e.target.value)}
+                                placeholder="Enter your story title"
+                                className="input-elevo"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium mb-2">Story Content</label>
+                              <div className="relative">
+                                <textarea
+                                  value={storyText}
+                                  onChange={(e) => setStoryText(e.target.value)}
+                                  placeholder="Edit your story here..."
+                                  rows={8}
+                                  className="input-elevo resize-none"
+                                />
+                                <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
+                                  {storyText.length}/5000
+                                </div>
+                              </div>
+                              {storyText.length > 5000 && (
+                                <p className="text-xs text-red-400 mt-1">
+                                  ⚠️ Story exceeds 5000 characters. Text will be truncated for TTS.
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              onClick={() => setIsEditingRedditContent(false)}
+                              className="btn-orange"
+                            >
+                              Save Changes
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
