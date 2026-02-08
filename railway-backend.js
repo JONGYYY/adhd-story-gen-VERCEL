@@ -1541,19 +1541,40 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     }
   }
 
+  // OPTIONAL: Apply speed multiplier to video and audio
+  // Set VIDEO_SPEED_MULTIPLIER env var (e.g., 1.3 for 30% faster, 1.5 for 50% faster)
+  // Valid range: 0.5 to 2.0 (lower = slower, higher = faster)
+  const speedMultiplierRaw = parseFloat(process.env.VIDEO_SPEED_MULTIPLIER || '1.3');
+  const speedMultiplier = (isFinite(speedMultiplierRaw) && speedMultiplierRaw >= 0.5 && speedMultiplierRaw <= 2.0) 
+    ? speedMultiplierRaw 
+    : 1.3; // Default to 1.3x speed (30% faster)
+  
+  const applySpeed = speedMultiplier !== 1.0;
+  
+  if (applySpeed) {
+    console.log(`[speed] Applying ${speedMultiplier}x speed to video and audio`);
+    // Apply setpts to video to speed it up
+    filter += `;[${current}]setpts=PTS/${speedMultiplier}[v_speed]`;
+    current = 'v_speed';
+  }
+
   // Audio graph within the same filter_complex
   let haveAudio = false;
   if (openingIdx >= 0 && storyIdx >= 0) {
     haveAudio = true;
-    filter += `;[${openingIdx}:a]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100,asetpts=PTS-STARTPTS[oa];` +
-              `[${storyIdx}:a]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100,asetpts=PTS-STARTPTS[sa];` +
+    // Apply speed to audio using atempo filter (range: 0.5 to 2.0)
+    const atempoFilter = applySpeed ? `,atempo=${speedMultiplier}` : '';
+    filter += `;[${openingIdx}:a]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100,asetpts=PTS-STARTPTS${atempoFilter}[oa];` +
+              `[${storyIdx}:a]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100,asetpts=PTS-STARTPTS${atempoFilter}[sa];` +
               `[oa][sa]concat=n=2:v=0:a=1[aout]`;
   } else if (openingIdx >= 0) {
     haveAudio = true;
-    filter += `;[${openingIdx}:a]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100,asetpts=PTS-STARTPTS[aout]`;
+    const atempoFilter = applySpeed ? `,atempo=${speedMultiplier}` : '';
+    filter += `;[${openingIdx}:a]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100,asetpts=PTS-STARTPTS${atempoFilter}[aout]`;
   } else if (storyIdx >= 0) {
     haveAudio = true;
-    filter += `;[${storyIdx}:a]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100,asetpts=PTS-STARTPTS[aout]`;
+    const atempoFilter = applySpeed ? `,atempo=${speedMultiplier}` : '';
+    filter += `;[${storyIdx}:a]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100,asetpts=PTS-STARTPTS${atempoFilter}[aout]`;
   }
 
   // Apply single filter_complex and proper mapping
@@ -1599,14 +1620,45 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     if (storyBuf) { fallbackArgs.push('-i', storyAudio); }
 
     const audioInputs = openingBuf && storyBuf ? ['1:a', '2:a'] : (openingBuf ? ['1:a'] : (storyBuf ? ['1:a'] : []));
-    const fallbackFilter = audioInputs.length === 2
-      ? `[${audioInputs[0]}]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100[oa];[${audioInputs[1]}]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100[sa];[oa][sa]concat=n=2:v=0:a=1[aout]`
-      : (audioInputs.length === 1 ? `[${audioInputs[0]}]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100[aout]` : 'anullsrc');
+    
+    // Apply same speed settings to fallback
+    const atempoFallback = applySpeed ? `,atempo=${speedMultiplier}` : '';
+    let fallbackFilter = '';
+    
+    if (applySpeed) {
+      // Speed up video in fallback too
+      fallbackFilter = `[0:v]setpts=PTS/${speedMultiplier}[v_speed];`;
+      
+      if (audioInputs.length === 2) {
+        fallbackFilter += `[${audioInputs[0]}]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100${atempoFallback}[oa];` +
+                         `[${audioInputs[1]}]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100${atempoFallback}[sa];` +
+                         `[oa][sa]concat=n=2:v=0:a=1[aout]`;
+      } else if (audioInputs.length === 1) {
+        fallbackFilter += `[${audioInputs[0]}]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100${atempoFallback}[aout]`;
+      }
+    } else {
+      // No speed adjustment
+      if (audioInputs.length === 2) {
+        fallbackFilter = `[${audioInputs[0]}]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100[oa];` +
+                        `[${audioInputs[1]}]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100[sa];` +
+                        `[oa][sa]concat=n=2:v=0:a=1[aout]`;
+      } else if (audioInputs.length === 1) {
+        fallbackFilter = `[${audioInputs[0]}]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100[aout]`;
+      } else {
+        fallbackFilter = 'anullsrc';
+      }
+    }
 
     if (audioInputs.length > 0) {
-      fallbackArgs.push('-filter_complex', fallbackFilter, '-map', '0:v', '-map', '[aout]');
+      const videoMap = applySpeed ? '[v_speed]' : '0:v';
+      fallbackArgs.push('-filter_complex', fallbackFilter, '-map', videoMap, '-map', '[aout]');
     } else {
-      fallbackArgs.push('-map', '0:v');
+      const videoMap = applySpeed ? '[v_speed]' : '0:v';
+      if (applySpeed) {
+        fallbackArgs.push('-filter_complex', fallbackFilter, '-map', videoMap);
+      } else {
+        fallbackArgs.push('-map', '0:v');
+      }
     }
 
     fallbackArgs.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-r', '30', '-pix_fmt', 'yuv420p', 
