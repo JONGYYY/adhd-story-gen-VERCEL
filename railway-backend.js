@@ -874,7 +874,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   return outPath;
 }
 
-async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias, subreddit, author, isCliffhanger }, videoId) {
+async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias, subreddit, author, isCliffhanger, speedMultiplier: requestedSpeed }, videoId) {
   const videosDir = await ensureVideosDir();
   const outPath = path.join(videosDir, `${videoId}.mp4`);
 
@@ -1542,12 +1542,18 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   }
 
   // OPTIONAL: Apply speed multiplier to video and audio
-  // Set VIDEO_SPEED_MULTIPLIER env var (e.g., 1.3 for 30% faster, 1.5 for 50% faster)
+  // Priority: 1) User-selected speed from UI, 2) VIDEO_SPEED_MULTIPLIER env var, 3) Default 1.3x
   // Valid range: 0.5 to 2.0 (lower = slower, higher = faster)
-  const speedMultiplierRaw = parseFloat(process.env.VIDEO_SPEED_MULTIPLIER || '1.3');
-  const speedMultiplier = (isFinite(speedMultiplierRaw) && speedMultiplierRaw >= 0.5 && speedMultiplierRaw <= 2.0) 
-    ? speedMultiplierRaw 
-    : 1.3; // Default to 1.3x speed (30% faster)
+  const envSpeedRaw = parseFloat(process.env.VIDEO_SPEED_MULTIPLIER || '1.3');
+  const envSpeed = (isFinite(envSpeedRaw) && envSpeedRaw >= 0.5 && envSpeedRaw <= 2.0) ? envSpeedRaw : 1.3;
+  
+  // Use requested speed from frontend if provided, otherwise fall back to env var
+  const userSpeed = requestedSpeed !== undefined && isFinite(requestedSpeed) && requestedSpeed >= 0.5 && requestedSpeed <= 2.0
+    ? requestedSpeed
+    : undefined;
+  
+  const speedMultiplier = userSpeed !== undefined ? userSpeed : envSpeed;
+  console.log(`[speed] Using speed: ${speedMultiplier}x (source: ${userSpeed !== undefined ? 'user-selected' : 'env-var/default'})`);
   
   const applySpeed = speedMultiplier !== 1.0;
   
@@ -1699,7 +1705,8 @@ async function generateVideoSimple(options, videoId) {
       voiceAlias: options?.voice?.id || 'adam',
       subreddit: options?.customStory?.subreddit || '',
       author: options?.customStory?.author || 'Anonymous',
-      isCliffhanger: options?.isCliffhanger || false
+      isCliffhanger: options?.isCliffhanger || false,
+      speedMultiplier: options?.background?.speedMultiplier
     }, videoId);
     // Get title from videoStatus (preserve it from initial set)
     const currentStatus = videoStatus.get(videoId);

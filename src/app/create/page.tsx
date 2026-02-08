@@ -6,7 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { ModeToggle } from '@/components/create/ModeToggle';
 import { VideoOptions, VoiceOption, VideoBackground } from '@/lib/video-generator/types';
 import { Progress } from '@/components/ui/progress';
-import { Sparkles, FileText, Image, Mic, Play, Loader2, Check } from 'lucide-react';
+import { Sparkles, FileText, Image, Mic, Play, Loader2, Check, Zap, Clock } from 'lucide-react';
 
 type Voice = {
   id: VoiceOption['id'];
@@ -38,6 +38,7 @@ export default function Create() {
 
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState<string | null>(null);
+  const [videoSpeed, setVideoSpeed] = useState<number>(1.3); // Default 1.3x speed
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const subredditCategories = {
@@ -280,7 +281,7 @@ export default function Create() {
         isCliffhanger: storyLength === '1 min+ (Cliffhanger)',
         background: {
           category: selectedBackground as VideoBackground['category'],
-          speedMultiplier: 1.0,
+          speedMultiplier: videoSpeed,
         },
         voice: {
           id: selectedVoice,
@@ -876,6 +877,98 @@ export default function Create() {
                       )}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Step 4: Video Speed */}
+              <div className="card-elevo">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="number-badge">4</div>
+                  <div>
+                    <h2 className="text-2xl font-bold">Adjust Video Speed</h2>
+                    <p className="text-sm text-muted-foreground">Make your video faster or slower for better engagement</p>
+                  </div>
+                </div>
+
+                {/* Speed Presets */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                  {[
+                    { value: 0.9, label: '0.9x', desc: 'Slower', icon: '🐢' },
+                    { value: 1.0, label: '1.0x', desc: 'Normal', icon: '▶️' },
+                    { value: 1.2, label: '1.2x', desc: 'Smooth', icon: '⚡' },
+                    { value: 1.3, label: '1.3x', desc: 'Recommended', icon: '🔥' },
+                    { value: 1.5, label: '1.5x', desc: 'Fast', icon: '🚀' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.value}
+                      onClick={() => setVideoSpeed(preset.value)}
+                      className={`relative p-4 rounded-xl border-2 transition-all ${
+                        videoSpeed === preset.value
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                          : 'border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <div className="text-2xl mb-1">{preset.icon}</div>
+                      <div className="font-bold text-lg">{preset.label}</div>
+                      <div className="text-xs text-muted-foreground">{preset.desc}</div>
+                      {videoSpeed === preset.value && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Speed Slider */}
+                <div className="space-y-4 p-6 rounded-xl bg-muted/30 border border-border/50">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-primary" />
+                      Custom Speed
+                    </label>
+                    <span className="text-lg font-bold text-primary">{videoSpeed.toFixed(1)}x</span>
+                  </div>
+                  
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2.0"
+                    step="0.1"
+                    value={videoSpeed}
+                    onChange={(e) => setVideoSpeed(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                    style={{
+                      background: `linear-gradient(to right, rgb(var(--primary)) 0%, rgb(var(--primary)) ${((videoSpeed - 0.5) / (2.0 - 0.5)) * 100}%, hsl(var(--muted)) ${((videoSpeed - 0.5) / (2.0 - 0.5)) * 100}%, hsl(var(--muted)) 100%)`
+                    }}
+                  />
+                  
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>0.5x (Half speed)</span>
+                    <span>2.0x (Double speed)</span>
+                  </div>
+
+                  {/* Duration Preview */}
+                  <div className="flex items-center gap-4 pt-4 border-t border-border/50">
+                    <Clock className="w-5 h-5 text-muted-foreground" />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium mb-1">Estimated Duration</div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>60s video → <span className="text-primary font-semibold">{Math.round(60 / videoSpeed)}s</span></span>
+                        <span>•</span>
+                        <span>90s video → <span className="text-primary font-semibold">{Math.round(90 / videoSpeed)}s</span></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Speed Description */}
+                  <div className="text-xs text-muted-foreground bg-background/50 p-3 rounded-lg">
+                    {videoSpeed < 1.0 && '📖 Slower pace for dramatic, emotional stories'}
+                    {videoSpeed === 1.0 && '▶️ Normal speed - original pacing preserved'}
+                    {videoSpeed > 1.0 && videoSpeed < 1.3 && '⚡ Smooth speedup - maintains natural feel'}
+                    {videoSpeed >= 1.3 && videoSpeed < 1.5 && '🔥 Recommended for TikTok/Shorts - maximum engagement'}
+                    {videoSpeed >= 1.5 && '🚀 Fast-paced - great for action stories and highlights'}
+                  </div>
                 </div>
               </div>
 

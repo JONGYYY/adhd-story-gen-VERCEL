@@ -248,3 +248,65 @@
 button, a, input, textarea, select {
   @apply transition-all duration-200;
 }
+
+/* Custom Range Slider Styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 3px solid hsl(var(--background));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 4px hsla(var(--primary), 0.2);
+  transition: all 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 6px hsla(var(--primary), 0.3);
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 3px solid hsl(var(--background));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 4px hsla(var(--primary), 0.2);
+  transition: all 0.15s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 6px hsla(var(--primary), 0.3);
+}
+
+input[type="range"]::-moz-range-thumb:active {
+  transform: scale(1.05);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+}
+
+input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: hsl(var(--muted));
+}
