@@ -2121,18 +2121,20 @@ async function generateVideoHandler(req, res) {
 			title: customStory?.title || 'Untitled Story'
 		});
 		
-		// Save initial metadata to Firestore
-		await saveVideoMetadata(videoId, userId, {
-			status: 'processing',
-			title: customStory?.title || 'Untitled Story',
-			subreddit: customStory?.subreddit || 'r/stories',
-			metadata: {
-				background: background?.category,
-				voice: voice?.id,
-				speedMultiplier: background?.speedMultiplier,
-				isCliffhanger,
-			},
-		});
+		// Save initial metadata to Firestore ONLY if user is authenticated
+		if (userId) {
+			await saveVideoMetadata(videoId, userId, {
+				status: 'processing',
+				title: customStory?.title || 'Untitled Story',
+				subreddit: customStory?.subreddit || 'r/stories',
+				metadata: {
+					background: background?.category,
+					voice: voice?.id,
+					speedMultiplier: background?.speedMultiplier,
+					isCliffhanger,
+				},
+			});
+		}
 
 		// Start video generation in the background (FFmpeg-only; Remotion disabled for production stability)
 		(async () => {
