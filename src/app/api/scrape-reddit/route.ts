@@ -49,43 +49,120 @@ export async function POST(request: NextRequest) {
 
     // Fetch with timeout
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+
+    // Try multiple strategies to avoid Reddit's bot detection
+    let response: Response | null = null;
+    let lastError: string = '';
 
     try {
-      // Reddit requires a specific User-Agent format and blocks generic ones
-      // Format: <platform>:<app ID>:<version> (by /u/<username>)
-      // Using a browser-like User-Agent to avoid bot detection
-      const response = await fetch(jsonUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Referer': 'https://www.reddit.com/',
-          'DNT': '1',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1',
-        },
-        signal: controller.signal,
-      });
+      // Strategy 1: Try old.reddit.com (less aggressive bot detection)
+      const oldRedditUrl = jsonUrl.replace('www.reddit.com', 'old.reddit.com').replace('reddit.com', 'old.reddit.com');
+      console.log('[reddit-scraper] Strategy 1: Trying old.reddit.com:', oldRedditUrl);
+      
+      try {
+        response = await fetch(oldRedditUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/html, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+          },
+          signal: controller.signal,
+        });
+
+        if (response.ok) {
+          console.log('[reddit-scraper] Strategy 1 succeeded');
+        } else {
+          lastError = `old.reddit.com returned ${response.status}`;
+          response = null;
+        }
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : 'old.reddit.com fetch failed';
+        console.log('[reddit-scraper] Strategy 1 failed:', lastError);
+        response = null;
+      }
+
+      // Strategy 2: Try www.reddit.com with different headers
+      if (!response) {
+        console.log('[reddit-scraper] Strategy 2: Trying www.reddit.com with mobile user agent');
+        try {
+          response = await fetch(jsonUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+              'Accept': 'application/json',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Referer': 'https://www.reddit.com/',
+            },
+            signal: controller.signal,
+          });
+
+          if (response.ok) {
+            console.log('[reddit-scraper] Strategy 2 succeeded');
+          } else {
+            lastError = `www.reddit.com returned ${response.status}`;
+            response = null;
+          }
+        } catch (e) {
+          lastError = e instanceof Error ? e.message : 'www.reddit.com fetch failed';
+          console.log('[reddit-scraper] Strategy 2 failed:', lastError);
+          response = null;
+        }
+      }
+
+      // Strategy 3: Try with minimal headers
+      if (!response) {
+        console.log('[reddit-scraper] Strategy 3: Trying with minimal headers');
+        try {
+          response = await fetch(jsonUrl, {
+            headers: {
+              'User-Agent': 'curl/7.68.0',
+            },
+            signal: controller.signal,
+          });
+
+          if (response.ok) {
+            console.log('[reddit-scraper] Strategy 3 succeeded');
+          } else {
+            lastError = `Minimal headers returned ${response.status}`;
+            response = null;
+          }
+        } catch (e) {
+          lastError = e instanceof Error ? e.message : 'Minimal headers fetch failed';
+          console.log('[reddit-scraper] Strategy 3 failed:', lastError);
+          response = null;
+        }
+      }
 
       clearTimeout(timeout);
 
-      if (!response.ok) {
-        console.error('[reddit-scraper] Reddit API returned:', response.status, response.statusText);
-        
-        // Provide specific error messages for common Reddit blocks
-        let errorMessage = `Failed to fetch Reddit post: ${response.status}`;
-        if (response.status === 403) {
-          errorMessage = 'Reddit is blocking automated requests. Try copying and pasting the story content manually instead.';
-        } else if (response.status === 429) {
-          errorMessage = 'Too many requests to Reddit. Please wait a moment and try again.';
-        } else if (response.status === 404) {
-          errorMessage = 'Reddit post not found. Please check the URL and try again.';
-        }
-        
+      // If all strategies failed
+      if (!response) {
+        console.error('[reddit-scraper] All strategies failed. Last error:', lastError);
         return new Response(JSON.stringify({ 
-          error: errorMessage
+          error: 'Reddit is blocking automated requests. Please try:\n1. Copy and paste the story content manually\n2. Wait a few minutes and try again\n3. Use a different Reddit post'
+        }), { 
+          status: 502,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // This should not happen as we already checked response.ok in strategies above
+      // But keeping it for safety
+      if (!response.ok) {
+        console.error('[reddit-scraper] Unexpected error - response not ok:', response.status, response.statusText);
+        return new Response(JSON.stringify({ 
+          error: 'Failed to fetch Reddit post. Please try copying the story manually.'
         }), { 
           status: 502,
           headers: { 'Content-Type': 'application/json' }
