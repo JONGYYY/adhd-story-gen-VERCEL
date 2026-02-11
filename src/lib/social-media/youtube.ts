@@ -96,62 +96,86 @@ export class YouTubeAPI {
       console.log('Exchanging code for tokens...');
       console.log('Redirect URI:', YOUTUBE_OAUTH_CONFIG.redirectUri);
       
-      // Manual token exchange to avoid google-auth-library body serialization bug
-      const tokenEndpoint = 'https://oauth2.googleapis.com/token';
-      const params = new URLSearchParams({
-        code: code,
-        client_id: YOUTUBE_OAUTH_CONFIG.clientId,
-        client_secret: YOUTUBE_OAUTH_CONFIG.clientSecret,
-        redirect_uri: YOUTUBE_OAUTH_CONFIG.redirectUri,
-        grant_type: 'authorization_code'
-      });
-
-      console.log('Token exchange params:', {
-        client_id: YOUTUBE_OAUTH_CONFIG.clientId.substring(0, 20) + '...',
-        redirect_uri: YOUTUBE_OAUTH_CONFIG.redirectUri,
-        grant_type: 'authorization_code',
-        code_length: code.length
-      });
-
-      // Add timeout to prevent hanging (increased to 60s for slow YouTube API)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.error('Token exchange timeout (60s) - aborting');
-        controller.abort();
-      }, 60000); // 60 second timeout
-
+      // Try google-auth-library's native method first (more reliable on Railway)
       try {
-        const response = await fetch(tokenEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: params.toString(),
-          signal: controller.signal
-        });
+        console.log('Attempting native OAuth2Client.getToken()...');
+        const startTime = Date.now();
         
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Token exchange failed:', response.status, errorText);
-          throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
-        }
-
-        const tokens = await response.json();
-        console.log('Tokens received successfully');
+        const { tokens } = await this.oauth2Client.getToken(code);
         
-        // Set credentials on OAuth2 client for future API calls
-        this.oauth2Client.setCredentials(tokens);
+        const elapsed = Date.now() - startTime;
+        console.log(`Native token exchange completed in ${elapsed}ms`);
+        console.log('Tokens received successfully (native method)');
         
         return tokens;
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          console.error('Token exchange timed out after 60 seconds');
-          throw new Error('YouTube authorization is taking too long. Please try again.');
+      } catch (nativeError) {
+        console.error('Native token exchange failed:', nativeError);
+        console.log('Falling back to manual fetch method...');
+        
+        // Fallback: Manual token exchange
+        const tokenEndpoint = 'https://oauth2.googleapis.com/token';
+        const params = new URLSearchParams({
+          code: code,
+          client_id: YOUTUBE_OAUTH_CONFIG.clientId,
+          client_secret: YOUTUBE_OAUTH_CONFIG.clientSecret,
+          redirect_uri: YOUTUBE_OAUTH_CONFIG.redirectUri,
+          grant_type: 'authorization_code'
+        });
+
+        console.log('Token exchange params:', {
+          client_id: YOUTUBE_OAUTH_CONFIG.clientId.substring(0, 20) + '...',
+          redirect_uri: YOUTUBE_OAUTH_CONFIG.redirectUri,
+          grant_type: 'authorization_code',
+          code_length: code.length
+        });
+
+        // Aggressive timeout (20s)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.error('Manual token exchange timeout (20s) - aborting');
+          controller.abort();
+        }, 20000); // 20 second timeout
+
+        try {
+          console.log('Sending manual token exchange request...');
+          const startTime = Date.now();
+          
+          const response = await fetch(tokenEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Accept': 'application/json',
+              'User-Agent': 'adhd-story-gen/1.0',
+            },
+            body: params.toString(),
+            signal: controller.signal,
+          });
+          
+          const elapsed = Date.now() - startTime;
+          clearTimeout(timeoutId);
+          console.log(`Manual token exchange response in ${elapsed}ms, status: ${response.status}`);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Token exchange failed:', response.status, errorText);
+            throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
+          }
+
+          const tokens = await response.json();
+          console.log('Tokens received successfully (manual method)');
+          
+          // Set credentials on OAuth2 client for future API calls
+          this.oauth2Client.setCredentials(tokens);
+          
+          return tokens;
+        } catch (fetchError: any) {
+          clearTimeout(timeoutId);
+          if (fetchError.name === 'AbortError') {
+            console.error('Manual token exchange timed out after 20 seconds');
+            throw new Error('YouTube authorization is taking too long. Railway may be experiencing network issues with Google APIs. Please try again later.');
+          }
+          throw fetchError;
         }
-        throw fetchError;
       }
     } catch (error) {
       console.error('Error in getTokensFromCode:', error);
