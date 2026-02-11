@@ -9,12 +9,12 @@ export const maxDuration = 120; // 120 seconds max for OAuth callback (YouTube A
 
 export async function GET(request: NextRequest) {
   // Wrap entire handler in a timeout to prevent infinite hangs
-  // Increased from 45s to 90s to allow for slow token exchange + getUserInfo
+  // Reduced to 45s since we now use native OAuth method with built-in timeouts
   const handlerTimeout = new Promise((_, reject) => {
     setTimeout(() => {
-      console.error('=== CRITICAL: OAuth callback timeout after 90 seconds ===');
-      reject(new Error('OAuth callback timed out. This may indicate YouTube API is experiencing issues. Please try again.'));
-    }, 90000); // 90 second timeout (allows for slow API calls)
+      console.error('=== CRITICAL: OAuth callback timeout after 45 seconds ===');
+      reject(new Error('OAuth callback timed out. YouTube API is not responding. Please try again or check network connectivity.'));
+    }, 45000); // 45 second timeout
   });
 
   const handler = async () => {
