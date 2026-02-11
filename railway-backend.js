@@ -568,28 +568,21 @@ app.get('/', (req, res) => {
 
 // External background mapping (S3/CDN preferred via BACKGROUND_BASE_URL, fallback to per-category envs, fallback to MDN sample)
 function buildExternalBgMap() {
-  // Public domain / Creative Commons fallback videos
-  const defaultFallbacks = {
-    minecraft: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    subway: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    food: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-    worker: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
-    workers: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
-    random: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
-  };
-  
+  const mdn = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
   const base = (process.env.BACKGROUND_BASE_URL || '').replace(/\/$/, '');
   const defaultFilename = process.env.BACKGROUND_FILENAME || '1.mp4';
+  // Background categories supported by the UI/worker. Note: worker/food use S3 listing + montage.
   const categories = ['minecraft', 'subway', 'food', 'worker', 'workers'];
   
   const map = {};
   for (const cat of categories) {
-    // Priority: explicit category env -> BACKGROUND_BASE_URL/category/filename -> public fallback
+    // Priority: explicit category env -> BACKGROUND_BASE_URL/category/filename -> MDN sample
     const envUrl = process.env[`BG_${cat.toUpperCase()}_URL`];
     const baseUrl = base ? `${base}/${cat}/${defaultFilename}` : null;
-    map[cat] = envUrl || baseUrl || defaultFallbacks[cat];
+    map[cat] = envUrl || baseUrl || mdn;
   }
-  map.random = defaultFallbacks.random;
+  // Random just picks one of the categories at runtime; keep a placeholder
+  map.random = mdn;
   return map;
 }
 const EXTERNAL_BG = buildExternalBgMap();
