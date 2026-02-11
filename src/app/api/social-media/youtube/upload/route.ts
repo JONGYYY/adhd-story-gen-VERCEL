@@ -95,6 +95,26 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('Access token validation passed');
+    
+    // Set up YouTube API client with stored credentials and auto-refresh callback
+    const youtubeApi = new YouTubeAPI();
+    youtubeApi.setStoredCredentials(
+      {
+        accessToken: credentials.accessToken,
+        refreshToken: credentials.refreshToken,
+        expiresAt: credentials.expiresAt
+      },
+      async (newTokens) => {
+        // Callback: Save auto-refreshed tokens to database
+        console.log('Saving auto-refreshed YouTube tokens to database');
+        await setSocialMediaCredentialsServer(userId, 'youtube', {
+          ...credentials,
+          accessToken: newTokens.access_token,
+          refreshToken: newTokens.refresh_token || credentials.refreshToken,
+          expiresAt: newTokens.expiry_date || (Date.now() + 3600000)
+        });
+      }
+    );
 
     // SECURITY: Parse and validate form data
     const formData = await request.formData();

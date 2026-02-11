@@ -72,18 +72,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/settings/social-media?error=No access token received`);
     }
 
+    if (!tokens.refresh_token) {
+      console.warn('No refresh token received - user may have already authorized. Token will expire in 1 hour.');
+    }
+
     console.log('Getting user info...');
     // Get user info
     const userInfo = await youtubeApi.getUserInfo(tokens.access_token);
 
     console.log('YouTube user info:', userInfo);
 
+    // Calculate proper expiry date (Google tokens expire in 1 hour = 3600 seconds)
+    const expiresInMs = (tokens.expires_in || 3600) * 1000;
+    const expiryDate = tokens.expiry_date || (Date.now() + expiresInMs);
+
     // Store credentials in Firebase using server-side function
     const credentials = {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || undefined,
       username: userInfo.username,
-      expiresAt: tokens.expiry_date ?? (Date.now() + 3600000),
+      expiresAt: expiryDate,
       platform: 'youtube' as const,
       userId: userId,
       profileId: userInfo.id ?? undefined

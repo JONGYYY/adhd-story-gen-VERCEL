@@ -17,11 +17,14 @@ export class YouTubeAPI {
   private oauth2Client: OAuth2Client;
 
   constructor() {
-    this.oauth2Client = new google.auth.OAuth2(
-      YOUTUBE_OAUTH_CONFIG.clientId,
-      YOUTUBE_OAUTH_CONFIG.clientSecret,
-      YOUTUBE_OAUTH_CONFIG.redirectUri
-    );
+    this.oauth2Client = new google.auth.OAuth2({
+      clientId: YOUTUBE_OAUTH_CONFIG.clientId,
+      clientSecret: YOUTUBE_OAUTH_CONFIG.clientSecret,
+      redirectUri: YOUTUBE_OAUTH_CONFIG.redirectUri,
+      // Enable automatic token refresh
+      eagerRefreshThresholdMillis: 5 * 60 * 1000, // Refresh 5 minutes before expiry
+      forceRefreshOnFailure: true, // Auto-retry with refresh if request fails
+    });
   }
 
   getAuthUrl(): string {
@@ -30,6 +33,42 @@ export class YouTubeAPI {
       scope: YOUTUBE_OAUTH_CONFIG.scopes,
       prompt: 'consent'
     });
+  }
+
+  /**
+   * Set credentials on OAuth2Client to enable automatic token refresh
+   * Call this before making any API requests
+   * 
+   * @param credentials - User's stored credentials from database
+   * @param onRefresh - Optional callback when token is auto-refreshed
+   */
+  setStoredCredentials(
+    credentials: {
+      accessToken: string;
+      refreshToken?: string;
+      expiresAt?: number;
+    },
+    onRefresh?: (tokens: any) => Promise<void>
+  ) {
+    this.oauth2Client.setCredentials({
+      access_token: credentials.accessToken,
+      refresh_token: credentials.refreshToken,
+      expiry_date: credentials.expiresAt,
+    });
+    
+    // Set up automatic refresh callback to persist new tokens
+    if (onRefresh && credentials.refreshToken) {
+      this.oauth2Client.on('tokens', async (tokens) => {
+        console.log('OAuth2Client auto-refreshed tokens');
+        try {
+          await onRefresh(tokens);
+        } catch (error) {
+          console.error('Failed to persist auto-refreshed tokens:', error);
+        }
+      });
+    }
+    
+    console.log('OAuth2Client credentials set for automatic refresh');
   }
 
   /**
@@ -161,11 +200,28 @@ export class YouTubeAPI {
             throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
           }
 
-          const tokens = await response.json();
+          // Add timeout specifically for JSON parsing (response.json() can hang)
+          console.log('Parsing response JSON...');
+          const jsonParseTimeout = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('JSON parsing timeout')), 10000);
+          });
+          
+          const tokens = await Promise.race([
+            response.json(),
+            jsonParseTimeout
+          ]) as any;
+          
           console.log('Tokens received successfully (manual method)');
           
-          // Set credentials on OAuth2 client for future API calls
-          this.oauth2Client.setCredentials(tokens);
+          // Set credentials on OAuth2 client for automatic refresh
+          // Include refresh_token if present for future auto-refresh
+          this.oauth2Client.setCredentials({
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expiry_date: tokens.expiry_date || (Date.now() + (tokens.expires_in * 1000)),
+            token_type: tokens.token_type,
+            scope: tokens.scope
+          });
           
           return tokens;
         } catch (fetchError: any) {
@@ -190,12 +246,17 @@ export class YouTubeAPI {
     privacyStatus?: 'private' | 'unlisted' | 'public';
   }) {
     try {
-      // Set the credentials on the OAuth2 client
-      this.oauth2Client.setCredentials({
-        access_token: accessToken
-      });
+      // Note: Credentials should already be set via setStoredCredentials()
+      // This just ensures we have at least the access token
+      if (!this.oauth2Client.credentials.access_token) {
+        console.warn('OAuth2Client has no credentials, setting access token only');
+        this.oauth2Client.setCredentials({
+          access_token: accessToken
+        });
+      }
 
       // Create YouTube client with the authenticated OAuth2 client
+      // The OAuth2Client will automatically refresh if needed
       const youtube = google.youtube('v3');
 
       const fileSize = fs.statSync(videoData.filePath).size;
