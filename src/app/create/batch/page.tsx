@@ -303,7 +303,7 @@ export default function BatchCreate() {
             distributedTimes: scheduleConfig.frequency === 'times-per-day' && scheduleConfig.timesPerDay 
               ? calculateDistributedTimes(scheduleConfig.timesPerDay)
               : undefined,
-            videosPerBatch: useRedditUrls ? 1 : numVideos,
+            videosPerBatch: storySource === 'link' ? 1 : numVideos,
             sources: Array.from(selectedSources),
             subreddits: Array.from(selectedSubreddits),
             backgrounds: Array.from(selectedBackgrounds),
@@ -312,7 +312,7 @@ export default function BatchCreate() {
             showRedditUI,
             autoPostToTikTok,
             autoPostToYouTube,
-            useRedditUrls,
+            useRedditUrls: storySource === 'link',
             redditUrls,
             currentUrlIndex: 0,
           }),
@@ -696,36 +696,11 @@ export default function BatchCreate() {
                     <div className="number-badge">1</div>
                     <div>
                       <h2 className="text-2xl font-bold">Choose Story Source</h2>
-                      <p className="text-sm text-muted-foreground">Select a template or customize your own</p>
+                      <p className="text-sm text-muted-foreground">Select how you want to create your content</p>
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {/* Quick Start Templates */}
-                    {CAMPAIGN_TEMPLATES.map((template) => (
-                      <button
-                        key={template.id}
-                        onClick={() => applyTemplate(template.id)}
-                        className={`relative p-6 rounded-2xl border-2 text-left transition-all ${
-                          storySource === 'template' && selectedTemplate === template.id
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/30'
-                        }`}
-                      >
-                        <div className="text-3xl mb-3">{template.icon}</div>
-                        <h3 className="font-semibold mb-2">{template.templateName}</h3>
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{template.description}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>🎬 {template.videosPerBatch}</span>
-                          <span>•</span>
-                          <span>📅 {template.frequency === 'daily' ? 'Daily' : '2x'}</span>
-                        </div>
-                        {storySource === 'template' && selectedTemplate === template.id && (
-                          <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
-                        )}
-                      </button>
-                    ))}
-                    
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* AI Generation */}
                     <button
                       onClick={() => {
@@ -746,7 +721,7 @@ export default function BatchCreate() {
                         Create unique stories with AI
                       </p>
                       {storySource === 'ai' && (
-                        <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                        <Check className="absolute top-4 right-4 w-6 h-6 text-primary" />
                       )}
                     </button>
 
@@ -770,7 +745,7 @@ export default function BatchCreate() {
                         Use trending Reddit content
                       </p>
                       {storySource === 'reddit' && (
-                        <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                        <Check className="absolute top-4 right-4 w-6 h-6 text-primary" />
                       )}
                     </button>
 
@@ -789,198 +764,254 @@ export default function BatchCreate() {
                       }`}
                     >
                       <div className="w-8 h-8 mb-3 flex items-center justify-center text-2xl">🔗</div>
-                      <h3 className="font-semibold mb-2">Reddit Link List</h3>
+                      <h3 className="font-semibold mb-2">Reddit Link</h3>
                       <p className="text-sm text-muted-foreground">
-                        Paste specific Reddit URLs
+                        Paste a Reddit post URL
                       </p>
                       {storySource === 'link' && (
-                        <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                        <Check className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                      )}
+                    </button>
+
+                    {/* Templates */}
+                    <button
+                      onClick={() => {
+                        setStorySource('template');
+                      }}
+                      className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
+                        storySource === 'template'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <Wand2 className="w-8 h-8 mb-3 text-primary" />
+                      <h3 className="font-semibold mb-2">Templates</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Use quick start presets
+                      </p>
+                      {storySource === 'template' && (
+                        <Check className="absolute top-4 right-4 w-6 h-6 text-primary" />
                       )}
                     </button>
                   </div>
 
-                  {storySource === 'template' && selectedTemplate && (
-                    <div className="mt-4 p-4 rounded-xl bg-primary/10 border border-primary/20">
-                      <p className="text-sm text-muted-foreground">
-                        ✓ Template applied! You can customize the settings below or start the campaign now.
-                      </p>
+                  {/* Expanded: Subreddit Selection for AI/Reddit */}
+                  {(storySource === 'ai' || storySource === 'reddit') && (
+                    <div className="mt-6">
+                      <label className="block text-sm font-medium mb-3">Select Subreddit</label>
+                      <div className="space-y-4">
+                        {Object.entries(subredditCategories).map(([category, subs]) => (
+                          <div key={category}>
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-2">{category}</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                              {subs.map((sub) => (
+                                <button
+                                  key={sub.name}
+                                  onClick={() => {
+                                    setSelectedSubreddits(new Set([sub.name]));
+                                  }}
+                                  className={`p-3 rounded-xl border text-left transition-all ${
+                                    selectedSubreddits.has(sub.name)
+                                      ? 'border-primary bg-primary/5'
+                                      : 'border-border hover:border-primary/30'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-lg">{sub.icon}</span>
+                                    <span className="text-sm font-medium">{sub.name}</span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium mb-2">Story Length</label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <button
+                            onClick={() => setStoryLength('1 min+ (Cliffhanger)')}
+                            className={`p-4 rounded-xl border-2 transition-all ${
+                              storyLength === '1 min+ (Cliffhanger)'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/30'
+                            }`}
+                          >
+                            <h4 className="font-semibold mb-1">Cliffhanger (1 min+)</h4>
+                            <p className="text-xs text-muted-foreground">Perfect for engagement</p>
+                          </button>
+                          <button
+                            onClick={() => setStoryLength('Full Story Length')}
+                            className={`p-4 rounded-xl border-2 transition-all ${
+                              storyLength === 'Full Story Length'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/30'
+                            }`}
+                          >
+                            <h4 className="font-semibold mb-1">Full Story</h4>
+                            <p className="text-xs text-muted-foreground">Complete narrative</p>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expanded: Reddit URL Input */}
+                  {storySource === 'link' && (
+                    <div className="mt-6">
+                      <RedditUrlInput
+                        value={redditUrls}
+                        onChange={setRedditUrls}
+                        maxUrls={50}
+                      />
+                    </div>
+                  )}
+
+                  {/* Expanded: Template Selection */}
+                  {storySource === 'template' && (
+                    <div className="mt-6">
+                      <label className="block text-sm font-medium mb-3">Select Template</label>
+                      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {CAMPAIGN_TEMPLATES.map((template) => (
+                          <button
+                            key={template.id}
+                            onClick={() => applyTemplate(template.id)}
+                            className={`relative p-6 rounded-2xl border-2 text-left transition-all ${
+                              selectedTemplate === template.id
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/30'
+                            }`}
+                          >
+                            <div className="text-3xl mb-3">{template.icon}</div>
+                            <h3 className="font-semibold mb-2">{template.templateName}</h3>
+                            <p className="text-sm text-muted-foreground mb-3">{template.description}</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>🎬 {template.videosPerBatch} videos</span>
+                              <span>•</span>
+                              <span>📅 {template.frequency === 'daily' ? 'Daily' : 'Twice daily'}</span>
+                            </div>
+                            {selectedTemplate === template.id && (
+                              <Check className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Campaign Name - Only show if source is selected */}
                 {storySource && (
-                  <>
-                    <div className="card-elevo">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="number-badge">2</div>
-                        <div>
-                          <h2 className="text-2xl font-bold">Campaign Name</h2>
-                          <p className="text-sm text-muted-foreground">Give your auto-pilot campaign a memorable name</p>
-                        </div>
-                      </div>
-                      
-                      <input
-                        type="text"
-                        value={campaignName}
-                        onChange={(e) => setCampaignName(e.target.value)}
-                        placeholder="e.g., Daily Horror Mix"
-                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border focus:border-primary focus:outline-none transition-colors"
-                      />
-                    </div>
-
-                    {/* Scheduling */}
-                    <div className="card-elevo">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="number-badge">3</div>
-                        <div>
-                          <h2 className="text-2xl font-bold">Schedule & Frequency</h2>
-                          <p className="text-sm text-muted-foreground">When and how often to generate videos</p>
-                        </div>
-                      </div>
-
-                      <AdvancedScheduler
-                        value={scheduleConfig}
-                        onChange={setScheduleConfig}
-                      />
-
-                      {/* Batch Size */}
-                      <div className="mt-6">
-                        <label className="block text-sm font-medium mb-3">
-                          {storySource === 'link' ? 'Videos per post (1 URL = 1 video)' : 'Videos per batch'}
-                        </label>
-                        {storySource === 'link' ? (
-                          <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-xl border border-blue-200 dark:border-blue-800">
-                            <p className="text-sm text-blue-800 dark:text-blue-200">
-                              <span className="font-semibold">1 video</span> will be generated per scheduled run using the next URL from your list.
-                            </p>
-                          </div>
-                        ) : (
-                          <>
-                            <input
-                              type="range"
-                              min="1"
-                              max="10"
-                              value={numVideos}
-                              onChange={(e) => setNumVideos(parseInt(e.target.value))}
-                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                            />
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="text-sm text-muted-foreground">1 video</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-2xl font-bold text-primary">{numVideos}</span>
-                                <span className="text-muted-foreground">videos</span>
-                              </div>
-                              <span className="text-sm text-muted-foreground">10 videos</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Content Configuration - Reddit Link */}
-                {storySource === 'link' && (
                   <div className="card-elevo">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="number-badge">4</div>
+                      <div className="number-badge">2</div>
                       <div>
-                        <h2 className="text-2xl font-bold">Reddit URL List</h2>
-                        <p className="text-sm text-muted-foreground">Paste your Reddit story URLs</p>
+                        <h2 className="text-2xl font-bold">Campaign Name</h2>
+                        <p className="text-sm text-muted-foreground">Give your auto-pilot campaign a memorable name</p>
                       </div>
                     </div>
-
-                    <RedditUrlInput
-                      value={redditUrls}
-                      onChange={setRedditUrls}
-                      maxUrls={50}
+                    
+                    <input
+                      type="text"
+                      value={campaignName}
+                      onChange={(e) => setCampaignName(e.target.value)}
+                      placeholder="e.g., Daily Horror Mix"
+                      className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border focus:border-primary focus:outline-none transition-colors"
                     />
                   </div>
                 )}
 
-                {/* Content Configuration - AI/Reddit Subreddits */}
-                {(storySource === 'ai' || storySource === 'reddit') && (
+                {/* Scheduling */}
+                {storySource && (
                   <div className="card-elevo">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="number-badge">4</div>
+                      <div className="number-badge">3</div>
                       <div>
-                        <h2 className="text-2xl font-bold">Select Subreddits</h2>
-                        <p className="text-sm text-muted-foreground">Choose story categories</p>
+                        <h2 className="text-2xl font-bold">Schedule & Frequency</h2>
+                        <p className="text-sm text-muted-foreground">When and how often to generate videos</p>
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      {Object.entries(subredditCategories).map(([category, subs]) => (
-                        <div key={category}>
-                          <h4 className="text-xs font-semibold text-muted-foreground mb-2">{category}</h4>
-                          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                            {subs.map((sub) => (
-                              <button
-                                key={sub.name}
-                                onClick={() => {
-                                  const newSelection = new Set(selectedSubreddits);
-                                  if (newSelection.has(sub.name)) {
-                                    newSelection.delete(sub.name);
-                                  } else {
-                                    newSelection.add(sub.name);
-                                  }
-                                  setSelectedSubreddits(newSelection);
-                                }}
-                                className={`p-3 rounded-xl border transition-all text-left relative ${
-                                  selectedSubreddits.has(sub.name)
-                                    ? 'border-primary bg-primary/5'
-                                    : 'border-border hover:border-primary/30'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className="text-lg">{sub.icon}</span>
-                                  <span className="text-sm font-medium">{sub.name}</span>
-                                  {selectedSubreddits.has(sub.name) && (
-                                    <CheckCircle2 className="absolute top-2 right-2 w-5 h-5 text-primary" />
-                                  )}
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <AdvancedScheduler
+                      value={scheduleConfig}
+                      onChange={setScheduleConfig}
+                    />
 
-                    {/* Optional Content Rotation Toggle */}
-                    <div className="mt-6 pt-6 border-t border-border">
-                      <button
-                        onClick={() => setShowContentRotation(!showContentRotation)}
-                        className="w-full p-4 rounded-xl border-2 border-border hover:border-primary/30 transition-all text-left"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-semibold mb-1">Content Rotation (Optional)</h4>
-                            <p className="text-xs text-muted-foreground">
-                              {showContentRotation ? 'Customize rotation settings' : 'Add variety with multiple sources'}
-                            </p>
-                          </div>
-                          <div className={`w-12 h-6 rounded-full transition-colors ${
-                            showContentRotation ? 'bg-primary' : 'bg-muted'
-                          }`}>
-                            <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
-                              showContentRotation ? 'translate-x-6' : 'translate-x-0.5'
-                            } mt-0.5`} />
-                          </div>
+                    {/* Batch Size */}
+                    <div className="mt-6">
+                      <label className="block text-sm font-medium mb-3">
+                        {storySource === 'link' ? 'Videos per post (1 URL = 1 video)' : 'Videos per batch'}
+                      </label>
+                      {storySource === 'link' ? (
+                        <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-xl border border-blue-200 dark:border-blue-800">
+                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                            <span className="font-semibold">1 video</span> will be generated per scheduled run using the next URL from your list.
+                          </p>
                         </div>
-                      </button>
+                      ) : (
+                        <>
+                          <input
+                            type="range"
+                            min="1"
+                            max="10"
+                            value={numVideos}
+                            onChange={(e) => setNumVideos(parseInt(e.target.value))}
+                            className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                          />
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-sm text-muted-foreground">1 video</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-2xl font-bold text-primary">{numVideos}</span>
+                              <span className="text-muted-foreground">videos</span>
+                            </div>
+                            <span className="text-sm text-muted-foreground">10 videos</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
 
+                {/* Optional Content Rotation */}
+                {storySource && storySource !== 'link' && (
+                  <div className="card-elevo">
+                    <button
+                      onClick={() => setShowContentRotation(!showContentRotation)}
+                      className="w-full p-6 rounded-2xl border-2 border-border hover:border-primary/30 transition-all text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Settings2 className="w-6 h-6 text-primary" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold mb-1">Content Rotation (Optional)</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {showContentRotation ? 'Customize rotation settings below' : 'Add variety with multiple sources, subreddits, backgrounds & voices'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full transition-colors ${
+                          showContentRotation ? 'bg-primary' : 'bg-muted'
+                        }`}>
+                          <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
+                            showContentRotation ? 'translate-x-6' : 'translate-x-0.5'
+                          } mt-0.5`} />
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+
                 {/* Content Rotation Settings */}
-                {showContentRotation && (storySource === 'ai' || storySource === 'reddit') && (
+                {showContentRotation && storySource && storySource !== 'link' && (
                   <div className="card-elevo">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="number-badge">5</div>
+                      <div className="number-badge">4</div>
                       <div>
                         <h2 className="text-2xl font-bold">Content Rotation</h2>
-                        <p className="text-sm text-muted-foreground">Add variety with multiple sources</p>
+                        <p className="text-sm text-muted-foreground">Select multiple options for variety</p>
                       </div>
                     </div>
 
@@ -1059,51 +1090,242 @@ export default function BatchCreate() {
                 </div>
                 )}
 
-                {/* Backgrounds & Voices (combined) */}
-                <div className="card-elevo">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="number-badge">{useRedditUrls ? '3' : '4'}</div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Media Selection</h2>
-                      <p className="text-sm text-muted-foreground">Backgrounds and voices</p>
+                {/* Select Background */}
+                {storySource && (
+                  <div className="card-elevo">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="number-badge">{showContentRotation ? '5' : '4'}</div>
+                      <div>
+                        <h2 className="text-2xl font-bold">Select Background</h2>
+                        <p className="text-sm text-muted-foreground">Choose visual content{showContentRotation ? ' (select multiple for rotation)' : ''}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      {backgrounds.map((bg) => (
+                        <button
+                          key={bg.id}
+                          onClick={() => toggleBackground(bg.id)}
+                          className={`relative group rounded-2xl overflow-hidden border-2 transition-all ${
+                            selectedBackgrounds.has(bg.id)
+                              ? 'border-primary ring-2 ring-primary/20'
+                              : 'border-border hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="aspect-video relative">
+                            <img src={bg.thumbnail} alt={bg.name} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                            <div className="absolute bottom-0 left-0 right-0 p-3">
+                              <h4 className="font-semibold text-white text-sm">{bg.name}</h4>
+                            </div>
+                            {selectedBackgrounds.has(bg.id) && (
+                              <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                                <Check className="w-4 h-4 text-white" />
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   </div>
+                )}
 
-                  <div className="space-y-6">
-          {/* Backgrounds */}
-          <div>
-                      <label className="block text-sm font-medium mb-3">Backgrounds</label>
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {backgrounds.map((bg) => (
-                <button
-                  key={bg.id}
-                  onClick={() => toggleBackground(bg.id)}
-                            className={`relative group rounded-2xl overflow-hidden border-2 transition-all ${
-                    selectedBackgrounds.has(bg.id)
-                                ? 'border-primary ring-2 ring-primary/20'
-                                : 'border-border hover:border-primary/30'
-                  }`}
-                >
-                            <div className="aspect-video relative">
-                              <img src={bg.thumbnail} alt={bg.name} className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                              <div className="absolute bottom-0 left-0 right-0 p-3">
-                                <h4 className="font-semibold text-white text-sm">{bg.name}</h4>
-                              </div>
-                              {selectedBackgrounds.has(bg.id) && (
-                                <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                                  <Check className="w-4 h-4 text-white" />
-                                </div>
-                    )}
+                {/* Select Voice */}
+                {storySource && (
+                  <div className="card-elevo">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="number-badge">{showContentRotation ? '6' : '5'}</div>
+                      <div>
+                        <h2 className="text-2xl font-bold">Select Voice</h2>
+                        <p className="text-sm text-muted-foreground">Choose narrator{showContentRotation ? ' (select multiple for rotation)' : ''}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {voices.map((voice) => (
+                        <button
+                          key={voice.id}
+                          onClick={() => toggleVoice(voice.id)}
+                          className={`relative p-5 rounded-2xl border-2 text-left transition-all ${
+                            selectedVoices.has(voice.id)
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/30'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Mic className="w-5 h-5 text-primary" />
+                            </div>
+                            {selectedVoices.has(voice.id) && (
+                              <CheckCircle2 className="w-5 h-5 text-primary" />
+                            )}
+                          </div>
+                          <h3 className="font-semibold mb-1">{voice.name}</h3>
+                          <p className="text-xs text-muted-foreground">{voice.description}</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </button>
-              ))}
-            </div>
-          </div>
+                )}
 
-          {/* Voices */}
-          <div>
-                      <label className="block text-sm font-medium mb-3">Voices</label>
+                {/* Video Settings */}
+                {storySource && storySource !== 'link' && (
+                  <div className="card-elevo">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="number-badge">{showContentRotation ? '7' : '6'}</div>
+                      <div>
+                        <h2 className="text-2xl font-bold">Video Settings</h2>
+                        <p className="text-sm text-muted-foreground">Configure video options</p>
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Story Length</label>
+                        <div className="grid grid-cols-1 gap-3">
+                          <button
+                            onClick={() => setStoryLength('1 min+ (Cliffhanger)')}
+                            className={`p-4 rounded-xl border-2 text-left transition-all ${
+                              storyLength === '1 min+ (Cliffhanger)'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/30'
+                            }`}
+                          >
+                            <h4 className="font-semibold mb-1">Cliffhanger (1 min+)</h4>
+                            <p className="text-xs text-muted-foreground">Perfect for engagement</p>
+                          </button>
+                          <button
+                            onClick={() => setStoryLength('Full Story Length')}
+                            className={`p-4 rounded-xl border-2 text-left transition-all ${
+                              storyLength === 'Full Story Length'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border hover:border-primary/30'
+                            }`}
+                          >
+                            <h4 className="font-semibold mb-1">Full Story</h4>
+                            <p className="text-xs text-muted-foreground">Complete narrative</p>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Reddit UI Overlay</label>
+                        <button
+                          onClick={() => setShowRedditUI(!showRedditUI)}
+                          className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                            showRedditUI
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-semibold mb-1">Show Reddit Banner</h4>
+                              <p className="text-xs text-muted-foreground">Display subreddit info</p>
+                            </div>
+                            <div className={`w-12 h-6 rounded-full transition-colors ${
+                              showRedditUI ? 'bg-primary' : 'bg-muted'
+                            }`}>
+                              <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
+                                showRedditUI ? 'translate-x-6' : 'translate-x-0.5'
+                              } mt-0.5`} />
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Auto-Posting Options */}
+                {storySource && (
+                  <div className="card-elevo">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="number-badge">{showContentRotation ? '8' : storySource === 'link' ? '5' : '7'}</div>
+                      <div>
+                        <h2 className="text-2xl font-bold">Auto-Posting</h2>
+                        <p className="text-sm text-muted-foreground">Automatically post to platforms</p>
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <button
+                        onClick={() => setAutoPostToTikTok(!autoPostToTikTok)}
+                        className={`p-6 rounded-2xl border-2 text-left transition-all ${
+                          autoPostToTikTok
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
+                              📱
+                            </div>
+                            <div>
+                              <h3 className="font-semibold mb-1">Auto-Post to TikTok</h3>
+                              <p className="text-xs text-muted-foreground">Upload to TikTok</p>
+                            </div>
+                          </div>
+                          <div className={`w-12 h-6 rounded-full transition-colors ${
+                            autoPostToTikTok ? 'bg-primary' : 'bg-muted'
+                          }`}>
+                            <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
+                              autoPostToTikTok ? 'translate-x-6' : 'translate-x-0.5'
+                            } mt-0.5`} />
+                          </div>
+                        </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => setAutoPostToYouTube(!autoPostToYouTube)}
+                        className={`p-6 rounded-2xl border-2 text-left transition-all ${
+                          autoPostToYouTube
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
+                              📺
+                            </div>
+                            <div>
+                              <h3 className="font-semibold mb-1">Auto-Post to YouTube</h3>
+                              <p className="text-xs text-muted-foreground">Upload to YouTube</p>
+                            </div>
+                          </div>
+                          <div className={`w-12 h-6 rounded-full transition-colors ${
+                            autoPostToYouTube ? 'bg-primary' : 'bg-muted'
+                          }`}>
+                            <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
+                              autoPostToYouTube ? 'translate-x-6' : 'translate-x-0.5'
+                            } mt-0.5`} />
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Start Campaign Button */}
+                {storySource && (
+                  <Button 
+                    onClick={handleGenerateBatch}
+                    className="w-full py-8 text-lg font-semibold btn-orange"
+                    disabled={
+                      !storySource ||
+                      !campaignName.trim() ||
+                      (storySource === 'link' ? redditUrls.length === 0 : 
+                        (storySource !== 'template' && selectedSubreddits.size === 0)) ||
+                      selectedBackgrounds.size === 0 ||
+                      selectedVoices.size === 0
+                    }
+                  >
+                    <Zap className="w-5 h-5 mr-2" />
+                    Start Auto-Pilot Campaign
+                  </Button>
+                )}
                       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {voices.map((voice) => (
                           <button
@@ -1132,77 +1354,9 @@ export default function BatchCreate() {
                   </div>
                 </div>
 
-                {/* Auto-Posting Options */}
-                <div className="card-elevo">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="number-badge">6</div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Auto-Posting</h2>
-                      <p className="text-sm text-muted-foreground">Automatically post to platforms</p>
-            </div>
-          </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <button
-                      onClick={() => setAutoPostToTikTok(!autoPostToTikTok)}
-                      className={`p-6 rounded-2xl border-2 text-left transition-all ${
-                        autoPostToTikTok
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
-                            📱
-                          </div>
-                          <div>
-                            <h3 className="font-semibold mb-1">Auto-Post to TikTok</h3>
-                            <p className="text-xs text-muted-foreground">Upload to TikTok</p>
-                          </div>
-                        </div>
-                        <div className={`w-12 h-6 rounded-full transition-colors ${
-                          autoPostToTikTok ? 'bg-primary' : 'bg-muted'
-                        }`}>
-                          <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
-                            autoPostToTikTok ? 'translate-x-6' : 'translate-x-0.5'
-                          } mt-0.5`} />
-                        </div>
-                      </div>
-                    </button>
-                    
-                    <button
-                      onClick={() => setAutoPostToYouTube(!autoPostToYouTube)}
-                      className={`p-6 rounded-2xl border-2 text-left transition-all ${
-                        autoPostToYouTube
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
-                            📺
-                          </div>
-                          <div>
-                            <h3 className="font-semibold mb-1">Auto-Post to YouTube</h3>
-                            <p className="text-xs text-muted-foreground">Upload to YouTube</p>
-                          </div>
-                        </div>
-                        <div className={`w-12 h-6 rounded-full transition-colors ${
-                          autoPostToYouTube ? 'bg-primary' : 'bg-muted'
-                        }`}>
-                          <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
-                            autoPostToYouTube ? 'translate-x-6' : 'translate-x-0.5'
-                          } mt-0.5`} />
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-          </div>
-
                 {/* Start Campaign Button */}
-                <Button 
+                {storySource && (
+                  <Button 
                   onClick={handleGenerateBatch}
                   className="w-full py-8 text-lg font-semibold btn-orange"
                   disabled={
@@ -1214,9 +1368,10 @@ export default function BatchCreate() {
                     selectedVoices.size === 0
                   }
                 >
-                  <Zap className="w-5 h-5 mr-2" />
-                  Start Auto-Pilot Campaign
-          </Button>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Start Auto-Pilot Campaign
+                  </Button>
+                )}
               </TabsContent>
             </Tabs>
           )}
