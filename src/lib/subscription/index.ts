@@ -43,6 +43,10 @@ export async function getUserSubscription(userId: string): Promise<UserSubscript
  * Check if user has Pro access
  */
 export async function hasProAccess(userId: string): Promise<boolean> {
+  // TESTING: Always return true to disable pro plan checks
+  return true;
+  
+  /* Original logic (commented out for testing)
   const subscription = await getUserSubscription(userId);
   
   if (!subscription) {
@@ -64,6 +68,7 @@ export async function hasProAccess(userId: string): Promise<boolean> {
   }
   
   return subscription.tier === 'pro' || subscription.tier === 'enterprise';
+  */
 }
 
 /**
@@ -113,6 +118,10 @@ export async function canCreateBatch(userId: string, batchSize: number): Promise
   allowed: boolean;
   reason?: string;
 }> {
+  // TESTING: Always allow batch creation
+  return { allowed: true };
+  
+  /* Original logic (commented out for testing)
   const subscription = await getUserSubscription(userId);
   
   if (!subscription) {
@@ -139,6 +148,7 @@ export async function canCreateBatch(userId: string, batchSize: number): Promise
   }
   
   return { allowed: true };
+  */
 }
 
 /**
@@ -148,6 +158,10 @@ export async function canUseAutoPilot(userId: string): Promise<{
   allowed: boolean;
   reason?: string;
 }> {
+  // TESTING: Always allow auto-pilot
+  return { allowed: true };
+  
+  /* Original logic (commented out for testing)
   const subscription = await getUserSubscription(userId);
   
   if (!subscription) {
@@ -167,6 +181,7 @@ export async function canUseAutoPilot(userId: string): Promise<{
   }
   
   return { allowed: true };
+  */
 }
 
 /**
