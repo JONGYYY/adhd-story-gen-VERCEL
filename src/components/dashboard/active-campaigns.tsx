@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Zap, Clock, Pause, Play, Edit, Trash2 } from 'lucide-react';
 import { CampaignConfig } from '@/lib/campaigns/types';
+import { formatCampaignFrequencyShort } from '@/lib/campaigns/format';
 import { Button } from '@/components/ui/button';
 
 export function ActiveCampaigns() {
@@ -163,7 +164,7 @@ export function ActiveCampaigns() {
                   <h3 className="font-semibold text-lg mb-1">{campaign.name}</h3>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span>🎬 {campaign.videosPerBatch} videos per batch</span>
-                    <span>📅 {campaign.frequency === 'daily' ? 'Daily' : 'Twice daily'}</span>
+                    <span>📅 {formatCampaignFrequencyShort(campaign)}</span>
                     <span>🔄 {campaign.totalVideosGenerated} generated</span>
                   </div>
                 </div>

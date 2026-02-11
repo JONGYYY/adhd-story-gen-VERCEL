@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Footer } from '@/components/layout/Footer';
 import { CampaignConfig, CampaignRun } from '@/lib/campaigns/types';
+import { formatCampaignFrequency } from '@/lib/campaigns/format';
 import { 
   Zap, 
   TrendingUp, 
@@ -235,7 +236,7 @@ export default function CampaignsPage() {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" />
-                            {selectedCampaign.frequency === 'daily' ? 'Daily' : 'Twice Daily'} at {selectedCampaign.scheduleTime}
+                            {formatCampaignFrequency(selectedCampaign)}
                           </span>
                           <span className="flex items-center gap-1">
                             <Video className="w-4 h-4" />
