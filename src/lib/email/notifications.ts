@@ -148,6 +148,61 @@ export async function sendCampaignFailureEmail(options: {
     return { success: false, error: 'Email not configured' };
   }
 
+  // Detect if this is a YouTube/token-related error
+  const errorLower = options.error.toLowerCase();
+  const isYouTubeError = errorLower.includes('youtube') || errorLower.includes('token');
+  const isTokenExpired = errorLower.includes('expired') || errorLower.includes('refresh');
+  
+  // Generate appropriate next steps based on error type
+  let nextStepsHtml = '';
+  if (isYouTubeError && isTokenExpired) {
+    nextStepsHtml = `
+      <div style="background: #fef2f2; padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444; margin: 20px 0;">
+        <h3 style="color: #991b1b; margin-top: 0;">📺 YouTube Connection Issue Detected</h3>
+        <p style="color: #7f1d1d; margin: 0 0 15px 0;">
+          Your YouTube access token has expired or could not be refreshed automatically.
+        </p>
+      </div>
+
+      <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3 style="color: #dc2626; margin-top: 0;">How to Fix</h3>
+        <ol style="color: #333; margin: 0; padding-left: 20px;">
+          <li style="margin-bottom: 15px;">
+            <strong>Reconnect your YouTube account:</strong>
+            <ul style="margin-top: 5px; color: #666;">
+              <li>Go to Settings → Social Media</li>
+              <li>Disconnect your YouTube account</li>
+              <li>Connect it again to get a fresh token</li>
+            </ul>
+          </li>
+          <li style="margin-bottom: 15px;">
+            <strong>Resume your campaign:</strong><br/>
+            <span style="color: #666;">After reconnecting YouTube, go to Campaigns and resume this campaign</span>
+          </li>
+        </ol>
+      </div>
+
+      <div style="background: #eff6ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="color: #1e40af; margin: 0; font-size: 13px;">
+          <strong>💡 Tip:</strong> YouTube access tokens expire periodically for security. This is normal behavior.
+          Reconnecting will provide a new token with automatic refresh enabled.
+        </p>
+      </div>
+    `;
+  } else {
+    nextStepsHtml = `
+      <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3 style="color: #dc2626; margin-top: 0;">Next Steps</h3>
+        <ol style="color: #333; margin: 0; padding-left: 20px;">
+          <li style="margin-bottom: 10px;">Review the error message above</li>
+          <li style="margin-bottom: 10px;">If using Reddit URL list, check that all URLs are valid and accessible</li>
+          <li style="margin-bottom: 10px;">Check your Railway service logs for more details</li>
+          <li>Resume your campaign when ready</li>
+        </ol>
+      </div>
+    `;
+  }
+
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -175,18 +230,15 @@ export async function sendCampaignFailureEmail(options: {
                 </p>
               </div>
 
-              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h3 style="color: #dc2626; margin-top: 0;">Next Steps</h3>
-                <ol style="color: #333; margin: 0; padding-left: 20px;">
-                  <li style="margin-bottom: 10px;">Review the error message above</li>
-                  <li style="margin-bottom: 10px;">If using Reddit URL list, check that all URLs are valid and accessible</li>
-                  <li style="margin-bottom: 10px;">Check your Railway service logs for more details</li>
-                  <li>Resume your campaign when ready</li>
-                </ol>
-              </div>
+              ${nextStepsHtml}
 
               <div style="margin-top: 30px; text-align: center;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://taleo.media'}/campaigns" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 500; margin-right: 10px;">
+                ${isYouTubeError && isTokenExpired ? `
+                  <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://taleo.media'}/settings?tab=social-media" style="display: inline-block; background: #ef4444; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 500; margin-right: 10px;">
+                    Reconnect YouTube
+                  </a>
+                ` : ''}
+                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://taleo.media'}/campaigns" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 500;">
                   View Campaigns
                 </a>
               </div>

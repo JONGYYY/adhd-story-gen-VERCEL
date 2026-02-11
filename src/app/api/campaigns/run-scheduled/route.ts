@@ -160,8 +160,68 @@ export async function POST(request: NextRequest) {
               railwayApiUrl
             );
             console.log(`[Campaign Scheduler] YouTube posting complete: ${youtubePostResults.successCount}/${result.videoIds.length} succeeded`);
+            
+            // Check for token-related failures in batch results
+            const tokenFailures = youtubePostResults.results.filter(
+              r => !r.success && (r.errorType === 'TOKEN_EXPIRED' || r.errorType === 'TOKEN_REFRESH_FAILED')
+            );
+            
+            if (tokenFailures.length > 0) {
+              // Pause campaign if any video failed due to token issues
+              const errorMessage = tokenFailures[0].error || 'YouTube token expired or refresh failed';
+              console.error(`[Campaign Scheduler] YouTube token failure detected: ${errorMessage}`);
+              
+              await updateCampaign(campaign.id, {
+                status: 'paused',
+                lastFailureAt: Date.now(),
+                failureReason: errorMessage,
+              });
+              
+              // Update campaign run as failed
+              await updateCampaignRun(runId, {
+                status: 'failed',
+                videoIds: result.videoIds,
+                completedVideos: youtubePostResults.successCount,
+                failedVideos: tokenFailures.length,
+                completedAt: Date.now(),
+                errors: tokenFailures.map((failure, index) => ({
+                  videoIndex: index,
+                  error: failure.error || 'YouTube token error',
+                  timestamp: Date.now(),
+                })),
+              });
+              
+              // Send failure notification
+              const userEmail = await getUserEmail(campaign.userId);
+              if (userEmail) {
+                await sendCampaignFailureEmail({
+                  to: userEmail,
+                  campaignName: campaign.name,
+                  error: errorMessage,
+                  campaignId: campaign.id,
+                });
+                console.log(`[Campaign Scheduler] YouTube failure email sent to ${userEmail}`);
+              }
+              
+              results.push({
+                campaignId: campaign.id,
+                campaignName: campaign.name,
+                success: false,
+                error: errorMessage,
+              });
+              
+              continue; // Skip to next campaign
+            }
+            
+            // Log other non-token failures but don't pause campaign (may be transient)
+            const otherFailures = youtubePostResults.results.filter(r => !r.success && r.errorType !== 'TOKEN_EXPIRED' && r.errorType !== 'TOKEN_REFRESH_FAILED');
+            if (otherFailures.length > 0) {
+              console.warn(`[Campaign Scheduler] ${otherFailures.length} videos failed to upload to YouTube (non-token errors):`, 
+                otherFailures.map(f => `${f.videoId}: ${f.error}`).join(', '));
+            }
           } catch (youtubeError) {
-            console.error('[Campaign Scheduler] YouTube auto-posting failed:', youtubeError);
+            console.error('[Campaign Scheduler] YouTube auto-posting catastrophic error:', youtubeError);
+            // Don't pause campaign for catastrophic errors - may be temporary infrastructure issues
           }
         }
 
