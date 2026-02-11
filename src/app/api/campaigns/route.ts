@@ -84,8 +84,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'At least one story source is required' }, { status: 400 });
     }
 
-    if (!body.subreddits || body.subreddits.length === 0) {
+    // Only require subreddits if not using Reddit URLs
+    if (!body.useRedditUrls && (!body.subreddits || body.subreddits.length === 0)) {
       return NextResponse.json({ error: 'At least one subreddit is required' }, { status: 400 });
+    }
+
+    // Require Reddit URLs if using Reddit URL mode
+    if (body.useRedditUrls && (!body.redditUrls || body.redditUrls.length === 0)) {
+      return NextResponse.json({ error: 'At least one Reddit URL is required' }, { status: 400 });
     }
 
     if (!body.backgrounds || body.backgrounds.length === 0) {

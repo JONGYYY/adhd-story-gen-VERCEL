@@ -104,9 +104,18 @@ export async function PATCH(
       );
     }
 
-    if (updates.subreddits && updates.subreddits.length === 0) {
+    // Only require subreddits if not using Reddit URLs
+    if (!updates.useRedditUrls && updates.subreddits && updates.subreddits.length === 0) {
       return NextResponse.json(
         { error: 'At least one subreddit is required' },
+        { status: 400 }
+      );
+    }
+
+    // Require Reddit URLs if using Reddit URL mode
+    if (updates.useRedditUrls && updates.redditUrls && updates.redditUrls.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one Reddit URL is required' },
         { status: 400 }
       );
     }
