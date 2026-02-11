@@ -121,35 +121,51 @@ export async function POST(request: NextRequest) {
 
     // Create campaign
     const now = Date.now();
-    const campaignId = await createCampaign({
+    
+    // Build campaign object, filtering out undefined values
+    const campaignData: any = {
       userId,
       name: body.name.trim(),
       status: 'active',
       frequency: body.frequency,
-      scheduleTime: body.scheduleTime,
-      customScheduleTimes: body.customScheduleTimes,
+      scheduleTime: body.scheduleTime || '09:00',
       videosPerBatch: body.videosPerBatch,
       sources: body.sources,
-      subreddits: body.subreddits,
+      subreddits: body.subreddits || [],
       backgrounds: body.backgrounds,
       voices: body.voices,
       storyLength: body.storyLength,
-      showRedditUI: body.showRedditUI,
-      autoPostToTikTok: body.autoPostToTikTok,
-      autoPostToYouTube: body.autoPostToYouTube,
-      redditUrls: body.redditUrls,
-      useRedditUrls: body.useRedditUrls,
+      showRedditUI: body.showRedditUI ?? false,
+      autoPostToTikTok: body.autoPostToTikTok ?? false,
+      autoPostToYouTube: body.autoPostToYouTube ?? false,
+      useRedditUrls: body.useRedditUrls ?? false,
       currentUrlIndex: 0,
-      intervalHours: body.intervalHours,
-      timesPerDay: body.timesPerDay,
-      distributedTimes: body.distributedTimes,
       createdAt: now,
       updatedAt: now,
       nextRunAt,
       totalVideosGenerated: 0,
       totalVideosPosted: 0,
       failedGenerations: 0,
-    });
+    };
+
+    // Add optional fields only if they have values
+    if (body.customScheduleTimes && body.customScheduleTimes.length > 0) {
+      campaignData.customScheduleTimes = body.customScheduleTimes;
+    }
+    if (body.intervalHours !== undefined && body.intervalHours !== null) {
+      campaignData.intervalHours = body.intervalHours;
+    }
+    if (body.timesPerDay !== undefined && body.timesPerDay !== null) {
+      campaignData.timesPerDay = body.timesPerDay;
+    }
+    if (body.distributedTimes && body.distributedTimes.length > 0) {
+      campaignData.distributedTimes = body.distributedTimes;
+    }
+    if (body.redditUrls && body.redditUrls.length > 0) {
+      campaignData.redditUrls = body.redditUrls;
+    }
+
+    const campaignId = await createCampaign(campaignData);
 
     return NextResponse.json({
       success: true,

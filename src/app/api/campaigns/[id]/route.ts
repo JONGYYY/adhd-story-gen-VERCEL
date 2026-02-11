@@ -155,11 +155,17 @@ export async function PATCH(
       );
     }
 
-    // Update campaign
-    await updateCampaign(params.id, {
-      ...updates,
-      nextRunAt,
+    // Filter out undefined values from updates (Firestore doesn't allow undefined)
+    const cleanUpdates: any = { nextRunAt };
+    Object.keys(updates).forEach((key) => {
+      const value = (updates as any)[key];
+      if (value !== undefined) {
+        cleanUpdates[key] = value;
+      }
     });
+
+    // Update campaign
+    await updateCampaign(params.id, cleanUpdates);
 
     // Get updated campaign
     const updatedCampaign = await getCampaign(params.id);
