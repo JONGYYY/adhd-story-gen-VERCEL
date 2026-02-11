@@ -112,21 +112,9 @@ export function calculateNextRunTime(
     }
   }
   
-  if (frequency === 'custom' && customScheduleTimes) {
-    // Find next scheduled time
-    const times = customScheduleTimes.map(time => {
-      const [h, m] = time.split(':').map(Number);
-      const scheduledTime = new Date();
-      scheduledTime.setHours(h, m, 0, 0);
-      
-      if (scheduledTime <= now) {
-        scheduledTime.setDate(scheduledTime.getDate() + 1);
-      }
-      
-      return scheduledTime.getTime();
-    });
-    
-    return Math.min(...times);
+  if (frequency === 'custom' && customScheduleTimes && customScheduleTimes.length > 0) {
+    // Use the same logic as findNextDistributedTime for consistency
+    return findNextDistributedTime(customScheduleTimes);
   }
   
   // Default: 24 hours from now
