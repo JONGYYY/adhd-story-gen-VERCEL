@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireCurrentUser } from '@/lib/auth/get-user';
 import { getUserVideos } from '@/lib/storage/video-metadata';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * Get user's video library from Firestore
  * Returns only videos owned by the authenticated user

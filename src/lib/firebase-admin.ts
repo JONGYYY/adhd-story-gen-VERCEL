@@ -89,4 +89,9 @@ export async function createSessionCookie(idToken: string, expiresIn: number) {
 export async function getAdminFirestore() {
   const { firestore } = await initFirebaseAdmin();
   return firestore;
+}
+
+export async function getAdminAuth() {
+  const { auth } = await initFirebaseAdmin();
+  return auth;
 } 
