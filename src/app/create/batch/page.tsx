@@ -1326,52 +1326,6 @@ export default function BatchCreate() {
                     Start Auto-Pilot Campaign
                   </Button>
                 )}
-                      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {voices.map((voice) => (
-                          <button
-                  key={voice.id}
-                            onClick={() => toggleVoice(voice.id)}
-                            className={`relative p-5 rounded-2xl border-2 text-left transition-all ${
-                    selectedVoices.has(voice.id)
-                      ? 'border-primary bg-primary/5'
-                                : 'border-border hover:border-primary/30'
-                  }`}
-                >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Mic className="w-5 h-5 text-primary" />
-                              </div>
-                              {selectedVoices.has(voice.id) && (
-                                <CheckCircle2 className="w-5 h-5 text-primary" />
-                              )}
-                            </div>
-                            <h3 className="font-semibold mb-1">{voice.name}</h3>
-                            <p className="text-xs text-muted-foreground">{voice.description}</p>
-                    </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Start Campaign Button */}
-                {storySource && (
-                  <Button 
-                  onClick={handleGenerateBatch}
-                  className="w-full py-8 text-lg font-semibold btn-orange"
-                  disabled={
-                    !storySource ||
-                    !campaignName.trim() ||
-                    (storySource === 'link' ? redditUrls.length === 0 : 
-                      (storySource !== 'template' && selectedSubreddits.size === 0)) ||
-                    selectedBackgrounds.size === 0 ||
-                    selectedVoices.size === 0
-                  }
-                >
-                    <Zap className="w-5 h-5 mr-2" />
-                    Start Auto-Pilot Campaign
-                  </Button>
-                )}
               </TabsContent>
             </Tabs>
           )}
