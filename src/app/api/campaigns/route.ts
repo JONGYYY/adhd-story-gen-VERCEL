@@ -107,7 +107,10 @@ export async function POST(request: NextRequest) {
     const nextRunAt = calculateNextRunTime(
       body.frequency,
       body.scheduleTime,
-      body.customScheduleTimes
+      body.customScheduleTimes,
+      body.intervalHours,
+      body.timesPerDay,
+      body.distributedTimes
     );
 
     // Create campaign
@@ -127,6 +130,13 @@ export async function POST(request: NextRequest) {
       storyLength: body.storyLength,
       showRedditUI: body.showRedditUI,
       autoPostToTikTok: body.autoPostToTikTok,
+      autoPostToYouTube: body.autoPostToYouTube,
+      redditUrls: body.redditUrls,
+      useRedditUrls: body.useRedditUrls,
+      currentUrlIndex: 0,
+      intervalHours: body.intervalHours,
+      timesPerDay: body.timesPerDay,
+      distributedTimes: body.distributedTimes,
       createdAt: now,
       updatedAt: now,
       nextRunAt,

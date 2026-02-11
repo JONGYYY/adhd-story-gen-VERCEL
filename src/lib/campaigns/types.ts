@@ -44,6 +44,7 @@ export interface CampaignConfig {
   
   // Auto-posting
   autoPostToTikTok: boolean;
+  autoPostToYouTube: boolean;
   
   // Timestamps
   createdAt: number;
@@ -104,6 +105,7 @@ export interface CreateCampaignRequest {
   storyLength: '1 min+ (Cliffhanger)' | 'Full Story Length';
   showRedditUI: boolean;
   autoPostToTikTok: boolean;
+  autoPostToYouTube: boolean;
   
   // Reddit URL list support
   redditUrls?: string[];
@@ -128,6 +130,7 @@ export interface UpdateCampaignRequest {
   storyLength?: '1 min+ (Cliffhanger)' | 'Full Story Length';
   showRedditUI?: boolean;
   autoPostToTikTok?: boolean;
+  autoPostToYouTube?: boolean;
   status?: CampaignStatus;
   
   // Reddit URL list support

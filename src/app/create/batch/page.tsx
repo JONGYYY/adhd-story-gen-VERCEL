@@ -54,6 +54,7 @@ export default function BatchCreate() {
   const [frequency, setFrequency] = useState<CampaignFrequency>('daily');
   const [scheduleTime, setScheduleTime] = useState('09:00');
   const [autoPostToTikTok, setAutoPostToTikTok] = useState(false);
+  const [autoPostToYouTube, setAutoPostToYouTube] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   
   // New: Reddit URL list support
@@ -95,6 +96,7 @@ export default function BatchCreate() {
     setStoryLength(template.storyLength);
     setShowRedditUI(template.showRedditUI);
     setAutoPostToTikTok(template.autoPostToTikTok);
+    setAutoPostToYouTube(false);  // Templates don't have YouTube yet
     setUseRedditUrls(false);  // Reset to subreddit mode
     setRedditUrls([]);  // Clear any URLs
   };
@@ -305,6 +307,7 @@ export default function BatchCreate() {
             storyLength,
             showRedditUI,
             autoPostToTikTok,
+            autoPostToYouTube,
             useRedditUrls,
             redditUrls,
             currentUrlIndex: 0,
@@ -1011,33 +1014,63 @@ export default function BatchCreate() {
             </div>
           </div>
 
-                  <button
-                    onClick={() => setAutoPostToTikTok(!autoPostToTikTok)}
-                    className={`w-full p-6 rounded-2xl border-2 text-left transition-all ${
-                      autoPostToTikTok
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
-                          📱
-              </div>
-              <div>
-                          <h3 className="font-semibold mb-1">Auto-Post to TikTok</h3>
-                          <p className="text-xs text-muted-foreground">Automatically upload videos to TikTok</p>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <button
+                      onClick={() => setAutoPostToTikTok(!autoPostToTikTok)}
+                      className={`p-6 rounded-2xl border-2 text-left transition-all ${
+                        autoPostToTikTok
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
+                            📱
+                          </div>
+                          <div>
+                            <h3 className="font-semibold mb-1">Auto-Post to TikTok</h3>
+                            <p className="text-xs text-muted-foreground">Upload to TikTok</p>
+                          </div>
                         </div>
-              </div>
-                      <div className={`w-12 h-6 rounded-full transition-colors ${
-                        autoPostToTikTok ? 'bg-primary' : 'bg-muted'
-                      }`}>
-                        <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
-                          autoPostToTikTok ? 'translate-x-6' : 'translate-x-0.5'
-                        } mt-0.5`} />
-              </div>
-            </div>
-                  </button>
+                        <div className={`w-12 h-6 rounded-full transition-colors ${
+                          autoPostToTikTok ? 'bg-primary' : 'bg-muted'
+                        }`}>
+                          <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
+                            autoPostToTikTok ? 'translate-x-6' : 'translate-x-0.5'
+                          } mt-0.5`} />
+                        </div>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => setAutoPostToYouTube(!autoPostToYouTube)}
+                      className={`p-6 rounded-2xl border-2 text-left transition-all ${
+                        autoPostToYouTube
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
+                            📺
+                          </div>
+                          <div>
+                            <h3 className="font-semibold mb-1">Auto-Post to YouTube</h3>
+                            <p className="text-xs text-muted-foreground">Upload to YouTube</p>
+                          </div>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full transition-colors ${
+                          autoPostToYouTube ? 'bg-primary' : 'bg-muted'
+                        }`}>
+                          <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
+                            autoPostToYouTube ? 'translate-x-6' : 'translate-x-0.5'
+                          } mt-0.5`} />
+                        </div>
+                      </div>
+                    </button>
+                  </div>
           </div>
 
                 {/* Start Campaign Button */}

@@ -19,6 +19,7 @@ import {
 } from '@/lib/campaigns/db';
 import { generateBatch, BatchGenerationConfig } from '@/lib/campaigns/batch-generator';
 import { postBatchToTikTok } from '@/lib/campaigns/tiktok-autopost';
+import { postBatchToYouTube } from '@/lib/campaigns/youtube-autopost';
 import { 
   sendCampaignCompletionEmail, 
   sendCampaignFailureEmail,
@@ -148,6 +149,22 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Auto-post to YouTube if enabled and videos were generated
+        let youtubePostResults;
+        if (campaign.autoPostToYouTube && result.videoIds.length > 0) {
+          console.log(`[Campaign Scheduler] Auto-posting ${result.videoIds.length} videos to YouTube...`);
+          try {
+            youtubePostResults = await postBatchToYouTube(
+              campaign.userId,
+              result.videoIds,
+              railwayApiUrl
+            );
+            console.log(`[Campaign Scheduler] YouTube posting complete: ${youtubePostResults.successCount}/${result.videoIds.length} succeeded`);
+          } catch (youtubeError) {
+            console.error('[Campaign Scheduler] YouTube auto-posting failed:', youtubeError);
+          }
+        }
+
         // Check for failures
         if (result.failedVideos > 0 || result.videoIds.length === 0) {
           // Pause campaign and notify user
@@ -226,11 +243,12 @@ export async function POST(request: NextRequest) {
         );
 
         // Update campaign
+        const totalPosted = (tiktokPostResults?.successCount || 0) + (youtubePostResults?.successCount || 0);
         await updateCampaign(campaign.id, {
           lastRunAt: Date.now(),
           nextRunAt,
           totalVideosGenerated: campaign.totalVideosGenerated + result.videoIds.length,
-          totalVideosPosted: campaign.totalVideosPosted + (tiktokPostResults?.successCount || 0),
+          totalVideosPosted: campaign.totalVideosPosted + totalPosted,
           failedGenerations: campaign.failedGenerations + result.failedVideos,
         });
 
@@ -238,12 +256,13 @@ export async function POST(request: NextRequest) {
         try {
           const userEmail = await getUserEmail(campaign.userId);
           if (userEmail) {
+            const totalPostedForEmail = (tiktokPostResults?.successCount || 0) + (youtubePostResults?.successCount || 0);
             await sendCampaignCompletionEmail({
               to: userEmail,
               campaignName: campaign.name,
               videosGenerated: result.videoIds.length,
               videosFailed: result.failedVideos,
-              videosPosted: tiktokPostResults?.successCount || 0,
+              videosPosted: totalPostedForEmail,
               nextRunAt,
             });
             console.log(`[Campaign Scheduler] Email notification sent to ${userEmail}`);
