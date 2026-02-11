@@ -568,21 +568,28 @@ app.get('/', (req, res) => {
 
 // External background mapping (S3/CDN preferred via BACKGROUND_BASE_URL, fallback to per-category envs, fallback to MDN sample)
 function buildExternalBgMap() {
-  const mdn = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+  // Public domain / Creative Commons fallback videos
+  const defaultFallbacks = {
+    minecraft: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    subway: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+    food: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+    worker: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+    workers: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+    random: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+  };
+  
   const base = (process.env.BACKGROUND_BASE_URL || '').replace(/\/$/, '');
   const defaultFilename = process.env.BACKGROUND_FILENAME || '1.mp4';
-  // Background categories supported by the UI/worker. Note: worker/food use S3 listing + montage.
   const categories = ['minecraft', 'subway', 'food', 'worker', 'workers'];
   
   const map = {};
   for (const cat of categories) {
-    // Priority: explicit category env -> BACKGROUND_BASE_URL/category/filename -> MDN sample
+    // Priority: explicit category env -> BACKGROUND_BASE_URL/category/filename -> public fallback
     const envUrl = process.env[`BG_${cat.toUpperCase()}_URL`];
     const baseUrl = base ? `${base}/${cat}/${defaultFilename}` : null;
-    map[cat] = envUrl || baseUrl || mdn;
+    map[cat] = envUrl || baseUrl || defaultFallbacks[cat];
   }
-  // Random just picks one of the categories at runtime; keep a placeholder
-  map.random = mdn;
+  map.random = defaultFallbacks.random;
   return map;
 }
 const EXTERNAL_BG = buildExternalBgMap();
@@ -2167,8 +2174,22 @@ app.post('/api/generate-video', generateVideoHandler);
 async function videoStatusHandler(req, res) {
   try {
     const { videoId } = req.params;
-    const { userId } = req.query; // Get userId from query parameter
-    console.log(`Video status requested for ID: ${videoId}, userId: ${userId}`); // Added log
+    
+    // Extract userId from session cookie (same method as generateVideoHandler)
+    let userId = null;
+    try {
+      const sessionCookie = req.cookies?.session;
+      if (sessionCookie && firestoreDb) {
+        const auth = admin.auth();
+        const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+        userId = decodedClaims.uid;
+        console.log(`[auth] Video status requested by authenticated user: ${userId}`);
+      }
+    } catch (authError) {
+      console.log(`[auth] Session verification failed in video-status: ${authError.message}`);
+    }
+    
+    console.log(`Video status requested for ID: ${videoId}, userId: ${userId || 'unauthenticated'}`);
     
     // First check Firestore for persistent storage
     if (userId && firestoreDb) {
