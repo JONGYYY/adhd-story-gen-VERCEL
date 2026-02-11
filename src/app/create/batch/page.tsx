@@ -6,7 +6,12 @@ import { Footer } from '@/components/layout/Footer';
 import { ModeToggle } from '@/components/create/ModeToggle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { CAMPAIGN_TEMPLATES, getTemplateById } from '@/lib/campaigns/templates';
+import { RedditUrlInput } from '@/components/campaigns/RedditUrlInput';
+import { AdvancedScheduler } from '@/components/campaigns/AdvancedScheduler';
+import { CampaignFrequency } from '@/lib/campaigns/types';
 import { 
   Sparkles, 
   FileText, 
@@ -45,10 +50,26 @@ export default function BatchCreate() {
   
   // Auto-pilot specific states
   const [campaignName, setCampaignName] = useState('');
-  const [frequency, setFrequency] = useState<'daily' | 'twice-daily' | 'custom'>('daily');
+  const [frequency, setFrequency] = useState<CampaignFrequency>('daily');
   const [scheduleTime, setScheduleTime] = useState('09:00');
   const [autoPostToTikTok, setAutoPostToTikTok] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  
+  // New: Reddit URL list support
+  const [useRedditUrls, setUseRedditUrls] = useState(false);
+  const [redditUrls, setRedditUrls] = useState<string[]>([]);
+  
+  // New: Advanced scheduling
+  const [scheduleConfig, setScheduleConfig] = useState<{
+    frequency: CampaignFrequency;
+    scheduleTime?: string;
+    intervalHours?: number;
+    timesPerDay?: number;
+    customScheduleTimes?: string[];
+  }>({
+    frequency: 'daily',
+    scheduleTime: '09:00'
+  });
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,8 +82,10 @@ export default function BatchCreate() {
 
     setSelectedTemplate(templateId);
     setCampaignName(template.templateName);
-    setFrequency(template.frequency);
-    setScheduleTime(template.scheduleTime);
+    setScheduleConfig({
+      frequency: template.frequency,
+      scheduleTime: template.scheduleTime
+    });
     setNumVideos(template.videosPerBatch);
     setSelectedSources(new Set(template.sources));
     setSelectedSubreddits(new Set(template.subreddits));
@@ -71,6 +94,8 @@ export default function BatchCreate() {
     setStoryLength(template.storyLength);
     setShowRedditUI(template.showRedditUI);
     setAutoPostToTikTok(template.autoPostToTikTok);
+    setUseRedditUrls(false);  // Reset to subreddit mode
+    setRedditUrls([]);  // Clear any URLs
   };
 
   const subredditCategories = {
@@ -263,9 +288,15 @@ export default function BatchCreate() {
           credentials: 'include',
           body: JSON.stringify({
             name: campaignName,
-            frequency,
-            scheduleTime,
-            videosPerBatch: numVideos,
+            frequency: scheduleConfig.frequency,
+            scheduleTime: scheduleConfig.scheduleTime || '09:00',
+            customScheduleTimes: scheduleConfig.customScheduleTimes,
+            intervalHours: scheduleConfig.intervalHours,
+            timesPerDay: scheduleConfig.timesPerDay,
+            distributedTimes: scheduleConfig.frequency === 'times-per-day' && scheduleConfig.timesPerDay 
+              ? require('@/lib/campaigns/db').calculateDistributedTimes(scheduleConfig.timesPerDay)
+              : undefined,
+            videosPerBatch: useRedditUrls ? 1 : numVideos,
             sources: Array.from(selectedSources),
             subreddits: Array.from(selectedSubreddits),
             backgrounds: Array.from(selectedBackgrounds),
@@ -273,6 +304,9 @@ export default function BatchCreate() {
             storyLength,
             showRedditUI,
             autoPostToTikTok,
+            useRedditUrls,
+            redditUrls,
+            currentUrlIndex: 0,
           }),
         });
 
@@ -717,95 +751,106 @@ export default function BatchCreate() {
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Frequency */}
-                    <div>
-                      <label className="block text-sm font-medium mb-3">Frequency</label>
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => setFrequency('daily')}
-                          className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
-                            frequency === 'daily'
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/30'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-5 h-5" />
-                            <div>
-                              <h4 className="font-semibold">Daily</h4>
-                              <p className="text-xs text-muted-foreground">Once per day</p>
-                            </div>
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => setFrequency('twice-daily')}
-                          className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
-                            frequency === 'twice-daily'
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/30'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-5 h-5" />
-                            <div>
-                              <h4 className="font-semibold">Twice Daily</h4>
-                              <p className="text-xs text-muted-foreground">12 hours apart</p>
-                            </div>
-                          </div>
-              </button>
-            </div>
-          </div>
-
-                    {/* Time */}
-            <div>
-                      <label className="block text-sm font-medium mb-3">Time</label>
-                      <input
-                        type="time"
-                        value={scheduleTime}
-                        onChange={(e) => setScheduleTime(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border focus:border-primary focus:outline-none transition-colors"
-                      />
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {frequency === 'twice-daily' 
-                          ? 'First run time (second run will be 12 hours later)'
-                          : 'Daily run time'
-                        }
-                      </p>
-                    </div>
-                  </div>
+                  <AdvancedScheduler
+                    value={scheduleConfig}
+                    onChange={setScheduleConfig}
+                  />
 
                   {/* Batch Size */}
                   <div className="mt-6">
-                    <label className="block text-sm font-medium mb-3">Videos per batch</label>
-              <input
-                type="range"
-                min="1"
-                      max="10"
-                value={numVideos}
-                onChange={(e) => setNumVideos(parseInt(e.target.value))}
-                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-sm text-muted-foreground">1 video</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold text-primary">{numVideos}</span>
-                        <span className="text-muted-foreground">videos</span>
+                    <label className="block text-sm font-medium mb-3">
+                      {useRedditUrls ? 'Videos per post (1 URL = 1 video)' : 'Videos per batch'}
+                    </label>
+                    {useRedditUrls ? (
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-xl border border-blue-200 dark:border-blue-800">
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <span className="font-semibold">1 video</span> will be generated per scheduled run using the next URL from your list.
+                        </p>
                       </div>
-                      <span className="text-sm text-muted-foreground">10 videos</span>
-                    </div>
+                    ) : (
+                      <>
+                        <input
+                          type="range"
+                          min="1"
+                          max="10"
+                          value={numVideos}
+                          onChange={(e) => setNumVideos(parseInt(e.target.value))}
+                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-sm text-muted-foreground">1 video</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl font-bold text-primary">{numVideos}</span>
+                            <span className="text-muted-foreground">videos</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">10 videos</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                {/* Content Selection (same as manual) */}
+                {/* Content Source Selection */}
                 <div className="card-elevo">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="number-badge">2</div>
                     <div>
-                      <h2 className="text-2xl font-bold">Content Rotation</h2>
-                      <p className="text-sm text-muted-foreground">Select multiple options for variety</p>
-              </div>
-            </div>
+                      <h2 className="text-2xl font-bold">Content Source</h2>
+                      <p className="text-sm text-muted-foreground">Choose how to source your stories</p>
+                    </div>
+                  </div>
+
+                  <RadioGroup 
+                    value={useRedditUrls ? 'urls' : 'subreddits'} 
+                    onValueChange={(v) => setUseRedditUrls(v === 'urls')}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <RadioGroupItem value="subreddits" id="subreddits-source" className="mt-1" />
+                      <div className="flex-1">
+                        <Label htmlFor="subreddits-source" className="text-base font-semibold cursor-pointer">
+                          AI Generated (Select Subreddits)
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Generate unique stories from selected subreddit categories
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <RadioGroupItem value="urls" id="urls-source" className="mt-1" />
+                      <div className="flex-1">
+                        <Label htmlFor="urls-source" className="text-base font-semibold cursor-pointer">
+                          Reddit URL List (Specific Stories)
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Use specific Reddit posts in sequential order
+                        </p>
+                      </div>
+                    </div>
+                  </RadioGroup>
+
+                  {useRedditUrls ? (
+                    <div className="mt-6">
+                      <RedditUrlInput
+                        value={redditUrls}
+                        onChange={setRedditUrls}
+                        maxUrls={50}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Content Rotation (only show if not using URL list) */}
+                {!useRedditUrls && (
+                  <div className="card-elevo">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="number-badge">3</div>
+                      <div>
+                        <h2 className="text-2xl font-bold">Content Rotation</h2>
+                        <p className="text-sm text-muted-foreground">Select multiple options for variety</p>
+                      </div>
+                    </div>
 
           {/* Story Sources */}
                   <div className="mb-6">
@@ -880,11 +925,12 @@ export default function BatchCreate() {
             </div>
           )}
                 </div>
+                )}
 
                 {/* Backgrounds & Voices (combined) */}
                 <div className="card-elevo">
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="number-badge">3</div>
+                    <div className="number-badge">{useRedditUrls ? '3' : '4'}</div>
                     <div>
                       <h2 className="text-2xl font-bold">Media Selection</h2>
                       <p className="text-sm text-muted-foreground">Backgrounds and voices</p>
@@ -999,8 +1045,10 @@ export default function BatchCreate() {
                   className="w-full py-8 text-lg font-semibold btn-orange"
                   disabled={
                     !campaignName.trim() ||
-                    selectedSources.size === 0 ||
-                    selectedSubreddits.size === 0 ||
+                    (useRedditUrls ? redditUrls.length === 0 : (
+                      selectedSources.size === 0 ||
+                      selectedSubreddits.size === 0
+                    )) ||
                     selectedBackgrounds.size === 0 ||
                     selectedVoices.size === 0
                   }

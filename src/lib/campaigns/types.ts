@@ -2,7 +2,12 @@
  * Campaign types for auto-pilot video generation
  */
 
-export type CampaignFrequency = 'daily' | 'twice-daily' | 'custom';
+export type CampaignFrequency = 
+  | 'daily' 
+  | 'twice-daily' 
+  | 'custom'
+  | 'interval'        // Every X hours
+  | 'times-per-day';  // X times daily
 
 export type CampaignStatus = 'active' | 'paused' | 'completed' | 'failed';
 
@@ -27,6 +32,16 @@ export interface CampaignConfig {
   storyLength: '1 min+ (Cliffhanger)' | 'Full Story Length';
   showRedditUI: boolean;
   
+  // Reddit URL list support
+  redditUrls?: string[];           // List of Reddit URLs to use
+  currentUrlIndex?: number;        // Track which URL to use next
+  useRedditUrls?: boolean;         // true = use URL list, false = use subreddits
+  
+  // Advanced scheduling
+  intervalHours?: number;          // For 'interval' frequency (e.g., 4 = every 4 hours)
+  timesPerDay?: number;            // For 'times-per-day' frequency (e.g., 3 = 3x daily)
+  distributedTimes?: string[];     // Auto-calculated times for 'times-per-day'
+  
   // Auto-posting
   autoPostToTikTok: boolean;
   
@@ -40,6 +55,14 @@ export interface CampaignConfig {
   totalVideosGenerated: number;
   totalVideosPosted: number;
   failedGenerations: number;
+  
+  // Failure handling
+  lastFailureAt?: number;
+  failureReason?: string;
+  notificationsSent?: {
+    lastFailureNotification?: number;
+    lastCompletionNotification?: number;
+  };
 }
 
 export interface CampaignRun {
@@ -81,6 +104,15 @@ export interface CreateCampaignRequest {
   storyLength: '1 min+ (Cliffhanger)' | 'Full Story Length';
   showRedditUI: boolean;
   autoPostToTikTok: boolean;
+  
+  // Reddit URL list support
+  redditUrls?: string[];
+  useRedditUrls?: boolean;
+  
+  // Advanced scheduling
+  intervalHours?: number;
+  timesPerDay?: number;
+  distributedTimes?: string[];
 }
 
 export interface UpdateCampaignRequest {
@@ -97,5 +129,19 @@ export interface UpdateCampaignRequest {
   showRedditUI?: boolean;
   autoPostToTikTok?: boolean;
   status?: CampaignStatus;
+  
+  // Reddit URL list support
+  redditUrls?: string[];
+  useRedditUrls?: boolean;
+  currentUrlIndex?: number;
+  
+  // Advanced scheduling
+  intervalHours?: number;
+  timesPerDay?: number;
+  distributedTimes?: string[];
+  
+  // Failure handling
+  lastFailureAt?: number;
+  failureReason?: string;
 }
 

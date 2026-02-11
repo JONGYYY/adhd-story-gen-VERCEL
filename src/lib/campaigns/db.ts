@@ -119,14 +119,77 @@ export async function deleteCampaign(campaignId: string): Promise<void> {
 }
 
 /**
+ * Calculate evenly distributed times for times-per-day frequency
+ */
+export function calculateDistributedTimes(timesPerDay: number): string[] {
+  const interval = 24 / timesPerDay;
+  const times: string[] = [];
+  
+  for (let i = 0; i < timesPerDay; i++) {
+    const hours = Math.floor(i * interval);
+    const minutes = 0;
+    times.push(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
+  }
+  
+  return times;
+}
+
+/**
+ * Find next distributed time from a list of times
+ */
+function findNextDistributedTime(distributedTimes: string[]): number {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  
+  // Convert times to minutes and find the next one
+  const timesInMinutes = distributedTimes.map(time => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  });
+  
+  // Find next time today
+  const nextTime = timesInMinutes.find(t => t > currentMinutes);
+  
+  if (nextTime !== undefined) {
+    // Next time is today
+    const nextRun = new Date();
+    nextRun.setHours(Math.floor(nextTime / 60), nextTime % 60, 0, 0);
+    return nextRun.getTime();
+  } else {
+    // All times passed today, use first time tomorrow
+    const firstTime = timesInMinutes[0];
+    const nextRun = new Date();
+    nextRun.setDate(nextRun.getDate() + 1);
+    nextRun.setHours(Math.floor(firstTime / 60), firstTime % 60, 0, 0);
+    return nextRun.getTime();
+  }
+}
+
+/**
  * Calculate next run time based on frequency
  */
 export function calculateNextRunTime(
   frequency: CampaignConfig['frequency'],
   scheduleTime: string,
-  customScheduleTimes?: string[]
+  customScheduleTimes?: string[],
+  intervalHours?: number,
+  timesPerDay?: number,
+  distributedTimes?: string[],
+  lastRunAt?: number
 ): number {
   const now = new Date();
+  
+  // Interval: Add X hours to last run time
+  if (frequency === 'interval' && intervalHours) {
+    const base = lastRunAt ? new Date(lastRunAt) : now;
+    return base.getTime() + (intervalHours * 60 * 60 * 1000);
+  }
+  
+  // Times per day: Find next distributed time
+  if (frequency === 'times-per-day' && distributedTimes) {
+    return findNextDistributedTime(distributedTimes);
+  }
+  
   const [hours, minutes] = scheduleTime.split(':').map(Number);
   
   if (frequency === 'daily') {
@@ -236,5 +299,41 @@ export async function getUserRecentRuns(userId: string, limit = 20): Promise<Cam
     id: doc.id,
     ...doc.data(),
   })) as CampaignRun[];
+}
+
+/**
+ * Get next Reddit URL for campaign (sequential)
+ */
+export async function getNextRedditUrl(campaignId: string): Promise<string | null> {
+  const campaign = await getCampaign(campaignId);
+  
+  if (!campaign?.redditUrls || campaign.redditUrls.length === 0) {
+    return null;
+  }
+  
+  const currentIndex = campaign.currentUrlIndex || 0;
+  
+  // Check if we've exhausted the list
+  if (currentIndex >= campaign.redditUrls.length) {
+    return null;
+  }
+  
+  return campaign.redditUrls[currentIndex];
+}
+
+/**
+ * Increment URL index after successful generation
+ */
+export async function incrementUrlIndex(campaignId: string): Promise<void> {
+  const campaign = await getCampaign(campaignId);
+  if (!campaign) {
+    throw new Error('Campaign not found');
+  }
+  
+  const newIndex = (campaign.currentUrlIndex || 0) + 1;
+  
+  await updateCampaign(campaignId, {
+    currentUrlIndex: newIndex
+  });
 }
 

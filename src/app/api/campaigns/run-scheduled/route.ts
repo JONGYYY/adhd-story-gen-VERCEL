@@ -13,10 +13,18 @@ import {
   calculateNextRunTime,
   createCampaignRun,
   updateCampaignRun,
+  getNextRedditUrl,
+  incrementUrlIndex,
+  updateCampaignStatus,
 } from '@/lib/campaigns/db';
 import { generateBatch, BatchGenerationConfig } from '@/lib/campaigns/batch-generator';
 import { postBatchToTikTok } from '@/lib/campaigns/tiktok-autopost';
-import { sendCampaignCompletionEmail, getUserEmail } from '@/lib/email/notifications';
+import { 
+  sendCampaignCompletionEmail, 
+  sendCampaignFailureEmail,
+  sendCampaignCompletedEmail,
+  getUserEmail 
+} from '@/lib/email/notifications';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -57,13 +65,52 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`[Campaign Scheduler] Running campaign: ${campaign.name} (${campaign.id})`);
 
+        let redditUrl: string | undefined;
+        
+        // Get next Reddit URL if campaign uses URL list
+        if (campaign.useRedditUrls && campaign.redditUrls) {
+          redditUrl = await getNextRedditUrl(campaign.id);
+          
+          // Check if URL list is exhausted
+          if (!redditUrl) {
+            console.log(`[Campaign Scheduler] Campaign ${campaign.id} completed - all URLs used`);
+            
+            await updateCampaignStatus(campaign.id, 'completed');
+            
+            // Send completion email
+            const userEmail = await getUserEmail(campaign.userId);
+            if (userEmail) {
+              await sendCampaignCompletedEmail({
+                to: userEmail,
+                campaignName: campaign.name,
+                totalVideos: campaign.totalVideosGenerated,
+                reason: 'All Reddit URLs have been used'
+              });
+              console.log(`[Campaign Scheduler] Completion email sent to ${userEmail}`);
+            }
+            
+            results.push({
+              campaignId: campaign.id,
+              campaignName: campaign.name,
+              success: true,
+              videosGenerated: 0,
+              videosFailed: 0,
+              completed: true,
+            });
+            
+            continue; // Skip to next campaign
+          }
+          
+          console.log(`[Campaign Scheduler] Using Reddit URL: ${redditUrl}`);
+        }
+
         // Create campaign run record
         const runId = await createCampaignRun({
           campaignId: campaign.id,
           userId: campaign.userId,
           status: 'generating',
           videoIds: [],
-          totalVideos: campaign.videosPerBatch,
+          totalVideos: campaign.useRedditUrls ? 1 : campaign.videosPerBatch,
           completedVideos: 0,
           failedVideos: 0,
           startedAt: Date.now(),
@@ -72,13 +119,14 @@ export async function POST(request: NextRequest) {
         // Build batch configuration
         const config: BatchGenerationConfig = {
           userId: campaign.userId,
-          videosPerBatch: campaign.videosPerBatch,
+          videosPerBatch: campaign.useRedditUrls ? 1 : campaign.videosPerBatch, // Generate one video per run when using URL list
           sources: campaign.sources,
           subreddits: campaign.subreddits,
           backgrounds: campaign.backgrounds,
           voices: campaign.voices,
           storyLength: campaign.storyLength,
           showRedditUI: campaign.showRedditUI,
+          redditUrl, // Pass the specific URL if available
         };
 
         // Generate batch
@@ -100,9 +148,56 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Check for failures
+        if (result.failedVideos > 0 || result.videoIds.length === 0) {
+          // Pause campaign and notify user
+          const errorMessage = result.errors[0]?.error || 'Unknown error';
+          
+          await updateCampaign(campaign.id, {
+            status: 'paused',
+            lastFailureAt: Date.now(),
+            failureReason: errorMessage
+          });
+          
+          // Update campaign run as failed
+          await updateCampaignRun(runId, {
+            status: 'failed',
+            videoIds: result.videoIds,
+            completedVideos: result.videoIds.length,
+            failedVideos: result.failedVideos,
+            completedAt: Date.now(),
+            errors: result.errors.map(e => ({
+              videoIndex: e.index,
+              error: e.error,
+              timestamp: Date.now(),
+            })),
+          });
+          
+          // Send failure notification
+          const userEmail = await getUserEmail(campaign.userId);
+          if (userEmail) {
+            await sendCampaignFailureEmail({
+              to: userEmail,
+              campaignName: campaign.name,
+              error: errorMessage,
+              campaignId: campaign.id
+            });
+            console.log(`[Campaign Scheduler] Failure email sent to ${userEmail}`);
+          }
+          
+          results.push({
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+            success: false,
+            error: errorMessage,
+          });
+          
+          continue; // Skip scheduling next run
+        }
+        
         // Update campaign run
         await updateCampaignRun(runId, {
-          status: result.success ? 'completed' : 'failed',
+          status: 'completed',
           videoIds: result.videoIds,
           completedVideos: result.videoIds.length,
           failedVideos: result.failedVideos,
@@ -113,12 +208,21 @@ export async function POST(request: NextRequest) {
             timestamp: Date.now(),
           })),
         });
+        
+        // Increment URL index if using URL list
+        if (campaign.useRedditUrls && redditUrl) {
+          await incrementUrlIndex(campaign.id);
+        }
 
-        // Calculate next run time
+        // Calculate next run time with new frequency support
         const nextRunAt = calculateNextRunTime(
           campaign.frequency,
           campaign.scheduleTime,
-          campaign.customScheduleTimes
+          campaign.customScheduleTimes,
+          campaign.intervalHours,
+          campaign.timesPerDay,
+          campaign.distributedTimes,
+          Date.now() // Pass current time as lastRunAt
         );
 
         // Update campaign
@@ -161,24 +265,38 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error(`[Campaign Scheduler] Failed to run campaign ${campaign.id}:`, error);
         
-        // Mark campaign as failed and reschedule
-        const nextRunAt = calculateNextRunTime(
-          campaign.frequency,
-          campaign.scheduleTime,
-          campaign.customScheduleTimes
-        );
+        // Pause campaign on error
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         
         await updateCampaign(campaign.id, {
+          status: 'paused',
           lastRunAt: Date.now(),
-          nextRunAt,
-          failedGenerations: campaign.failedGenerations + campaign.videosPerBatch,
+          lastFailureAt: Date.now(),
+          failureReason: errorMessage,
+          failedGenerations: campaign.failedGenerations + (campaign.useRedditUrls ? 1 : campaign.videosPerBatch),
         });
+
+        // Send failure notification
+        try {
+          const userEmail = await getUserEmail(campaign.userId);
+          if (userEmail) {
+            await sendCampaignFailureEmail({
+              to: userEmail,
+              campaignName: campaign.name,
+              error: errorMessage,
+              campaignId: campaign.id
+            });
+            console.log(`[Campaign Scheduler] Error email sent to ${userEmail}`);
+          }
+        } catch (emailError) {
+          console.error('[Campaign Scheduler] Failed to send error notification:', emailError);
+        }
 
         results.push({
           campaignId: campaign.id,
           campaignName: campaign.name,
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: errorMessage,
         });
       }
     }

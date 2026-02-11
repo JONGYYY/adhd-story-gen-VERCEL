@@ -13,6 +13,7 @@ export interface BatchGenerationConfig {
   voices: string[];
   storyLength: '1 min+ (Cliffhanger)' | 'Full Story Length';
   showRedditUI: boolean;
+  redditUrl?: string;  // If provided, use this specific URL instead of generating
 }
 
 export interface BatchGenerationResult {
@@ -57,9 +58,47 @@ export async function generateBatch(
 
   for (let i = 0; i < config.videosPerBatch; i++) {
     try {
+      let customStory;
+      
+      // If Reddit URL provided, scrape it
+      if (config.redditUrl) {
+        console.log(`[Batch Generator] Scraping Reddit URL: ${config.redditUrl}`);
+        
+        try {
+          const scrapeResponse = await fetch(`${railwayApiUrl}/api/scrape-reddit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: config.redditUrl })
+          });
+          
+          if (!scrapeResponse.ok) {
+            const errorText = await scrapeResponse.text();
+            throw new Error(`Failed to scrape Reddit URL: ${scrapeResponse.status} ${errorText}`);
+          }
+          
+          const scrapeData = await scrapeResponse.json();
+          
+          if (!scrapeData.success) {
+            throw new Error(scrapeData.error || 'Failed to scrape Reddit URL');
+          }
+          
+          customStory = {
+            title: scrapeData.title,
+            story: scrapeData.story,
+            subreddit: scrapeData.subreddit,
+            author: scrapeData.author
+          };
+          
+          console.log(`[Batch Generator] Successfully scraped story: "${scrapeData.title}"`);
+        } catch (scrapeError) {
+          console.error('[Batch Generator] Reddit scraping failed:', scrapeError);
+          throw new Error(`Reddit scraping failed: ${scrapeError instanceof Error ? scrapeError.message : 'Unknown error'}`);
+        }
+      }
+      
       // Rotate through selected options
       const source = getRotatingItem(config.sources, i);
-      const subreddit = getRotatingItem(config.subreddits, i);
+      const subreddit = customStory?.subreddit || getRotatingItem(config.subreddits, i);
       const background = getRotatingItem(config.backgrounds, i);
       const voiceId = getRotatingItem(config.voices, i);
 
@@ -67,6 +106,7 @@ export async function generateBatch(
       const options: VideoOptions = {
         subreddit: subreddit.startsWith('r/') ? subreddit : `r/${subreddit}`,
         isCliffhanger: config.storyLength === '1 min+ (Cliffhanger)',
+        customStory,  // Include scraped story if available
         background: {
           category: background as VideoBackground['category'],
           speedMultiplier: 1.0,
@@ -154,9 +194,47 @@ export async function generateBatchWithPolling(
 
   for (let i = 0; i < config.videosPerBatch; i++) {
     try {
+      let customStory;
+      
+      // If Reddit URL provided, scrape it
+      if (config.redditUrl) {
+        console.log(`[Batch Generator] Scraping Reddit URL: ${config.redditUrl}`);
+        
+        try {
+          const scrapeResponse = await fetch(`${railwayApiUrl}/api/scrape-reddit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: config.redditUrl })
+          });
+          
+          if (!scrapeResponse.ok) {
+            const errorText = await scrapeResponse.text();
+            throw new Error(`Failed to scrape Reddit URL: ${scrapeResponse.status} ${errorText}`);
+          }
+          
+          const scrapeData = await scrapeResponse.json();
+          
+          if (!scrapeData.success) {
+            throw new Error(scrapeData.error || 'Failed to scrape Reddit URL');
+          }
+          
+          customStory = {
+            title: scrapeData.title,
+            story: scrapeData.story,
+            subreddit: scrapeData.subreddit,
+            author: scrapeData.author
+          };
+          
+          console.log(`[Batch Generator] Successfully scraped story: "${scrapeData.title}"`);
+        } catch (scrapeError) {
+          console.error('[Batch Generator] Reddit scraping failed:', scrapeError);
+          throw new Error(`Reddit scraping failed: ${scrapeError instanceof Error ? scrapeError.message : 'Unknown error'}`);
+        }
+      }
+      
       // Rotate through selected options
       const source = getRotatingItem(config.sources, i);
-      const subreddit = getRotatingItem(config.subreddits, i);
+      const subreddit = customStory?.subreddit || getRotatingItem(config.subreddits, i);
       const background = getRotatingItem(config.backgrounds, i);
       const voiceId = getRotatingItem(config.voices, i);
 
@@ -164,6 +242,7 @@ export async function generateBatchWithPolling(
       const options: VideoOptions = {
         subreddit: subreddit.startsWith('r/') ? subreddit : `r/${subreddit}`,
         isCliffhanger: config.storyLength === '1 min+ (Cliffhanger)',
+        customStory,  // Include scraped story if available
         background: {
           category: background as VideoBackground['category'],
           speedMultiplier: 1.0,
