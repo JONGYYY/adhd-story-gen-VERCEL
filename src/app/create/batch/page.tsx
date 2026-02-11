@@ -50,12 +50,14 @@ export default function BatchCreate() {
   const [showRedditUI, setShowRedditUI] = useState(true);
   
   // Auto-pilot specific states
+  const [storySource, setStorySource] = useState<'ai' | 'reddit' | 'link' | 'template' | null>(null);
   const [campaignName, setCampaignName] = useState('');
   const [frequency, setFrequency] = useState<CampaignFrequency>('daily');
   const [scheduleTime, setScheduleTime] = useState('09:00');
   const [autoPostToTikTok, setAutoPostToTikTok] = useState(false);
   const [autoPostToYouTube, setAutoPostToYouTube] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [showContentRotation, setShowContentRotation] = useState(false);
   
   // New: Reddit URL list support
   const [useRedditUrls, setUseRedditUrls] = useState(false);
@@ -82,6 +84,7 @@ export default function BatchCreate() {
     const template = getTemplateById(templateId);
     if (!template) return;
 
+    setStorySource('template');
     setSelectedTemplate(templateId);
     setCampaignName(template.templateName);
     setScheduleConfig({
@@ -99,6 +102,7 @@ export default function BatchCreate() {
     setAutoPostToYouTube(false);  // Templates don't have YouTube yet
     setUseRedditUrls(false);  // Reset to subreddit mode
     setRedditUrls([]);  // Clear any URLs
+    setShowContentRotation(false);  // Templates have their own rotation
   };
 
   const subredditCategories = {
@@ -686,43 +690,116 @@ export default function BatchCreate() {
 
               {/* Auto-Pilot Tab */}
               <TabsContent value="autopilot" className="space-y-8">
-                {/* Templates Quick Start */}
+                {/* Step 1: Choose Story Source */}
                 <div className="card-elevo">
                   <div className="flex items-center gap-3 mb-6">
-                    <Wand2 className="w-6 h-6 text-primary" />
+                    <div className="number-badge">1</div>
                     <div>
-                      <h2 className="text-2xl font-bold">Quick Start Templates</h2>
-                      <p className="text-sm text-muted-foreground">Choose a preset or customize your own</p>
+                      <h2 className="text-2xl font-bold">Choose Story Source</h2>
+                      <p className="text-sm text-muted-foreground">Select a template or customize your own</p>
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {/* Quick Start Templates */}
                     {CAMPAIGN_TEMPLATES.map((template) => (
                       <button
                         key={template.id}
                         onClick={() => applyTemplate(template.id)}
                         className={`relative p-6 rounded-2xl border-2 text-left transition-all ${
-                          selectedTemplate === template.id
+                          storySource === 'template' && selectedTemplate === template.id
                             ? 'border-primary bg-primary/5'
                             : 'border-border hover:border-primary/30'
                         }`}
                       >
                         <div className="text-3xl mb-3">{template.icon}</div>
                         <h3 className="font-semibold mb-2">{template.templateName}</h3>
-                        <p className="text-sm text-muted-foreground mb-3">{template.description}</p>
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{template.description}</p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>🎬 {template.videosPerBatch} videos</span>
+                          <span>🎬 {template.videosPerBatch}</span>
                           <span>•</span>
-                          <span>📅 {template.frequency === 'daily' ? 'Daily' : 'Twice daily'}</span>
+                          <span>📅 {template.frequency === 'daily' ? 'Daily' : '2x'}</span>
                         </div>
-                        {selectedTemplate === template.id && (
+                        {storySource === 'template' && selectedTemplate === template.id && (
                           <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
                         )}
                       </button>
                     ))}
+                    
+                    {/* AI Generation */}
+                    <button
+                      onClick={() => {
+                        setStorySource('ai');
+                        setSelectedTemplate(null);
+                        setUseRedditUrls(false);
+                        setSelectedSources(new Set(['ai']));
+                      }}
+                      className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
+                        storySource === 'ai'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <Sparkles className="w-8 h-8 mb-3 text-primary" />
+                      <h3 className="font-semibold mb-2">AI Generation</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Create unique stories with AI
+                      </p>
+                      {storySource === 'ai' && (
+                        <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                      )}
+                    </button>
+
+                    {/* Reddit Stories */}
+                    <button
+                      onClick={() => {
+                        setStorySource('reddit');
+                        setSelectedTemplate(null);
+                        setUseRedditUrls(false);
+                        setSelectedSources(new Set(['reddit']));
+                      }}
+                      className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
+                        storySource === 'reddit'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <div className="w-8 h-8 mb-3 flex items-center justify-center text-2xl">📱</div>
+                      <h3 className="font-semibold mb-2">Reddit Stories</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Use trending Reddit content
+                      </p>
+                      {storySource === 'reddit' && (
+                        <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                      )}
+                    </button>
+
+                    {/* Reddit Link */}
+                    <button
+                      onClick={() => {
+                        setStorySource('link');
+                        setSelectedTemplate(null);
+                        setUseRedditUrls(true);
+                        setSelectedSources(new Set(['reddit']));
+                      }}
+                      className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
+                        storySource === 'link'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/30'
+                      }`}
+                    >
+                      <div className="w-8 h-8 mb-3 flex items-center justify-center text-2xl">🔗</div>
+                      <h3 className="font-semibold mb-2">Reddit Link List</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Paste specific Reddit URLs
+                      </p>
+                      {storySource === 'link' && (
+                        <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
+                      )}
+                    </button>
                   </div>
 
-                  {selectedTemplate && (
+                  {storySource === 'template' && selectedTemplate && (
                     <div className="mt-4 p-4 rounded-xl bg-primary/10 border border-primary/20">
                       <p className="text-sm text-muted-foreground">
                         ✓ Template applied! You can customize the settings below or start the campaign now.
@@ -731,128 +808,179 @@ export default function BatchCreate() {
                   )}
                 </div>
 
-                {/* Campaign Name */}
-                <div className="card-elevo">
-                  <h2 className="text-2xl font-bold mb-2">Campaign Name</h2>
-                  <p className="text-sm text-muted-foreground mb-6">Give your auto-pilot campaign a memorable name</p>
-                  
-                  <input
-                    type="text"
-                    value={campaignName}
-                    onChange={(e) => setCampaignName(e.target.value)}
-                    placeholder="e.g., Daily Horror Mix"
-                    className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border focus:border-primary focus:outline-none transition-colors"
-                  />
-                </div>
-
-                {/* Scheduling */}
-                <div className="card-elevo">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="number-badge">1</div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Schedule & Frequency</h2>
-                      <p className="text-sm text-muted-foreground">When and how often to generate videos</p>
-                    </div>
-                  </div>
-
-                  <AdvancedScheduler
-                    value={scheduleConfig}
-                    onChange={setScheduleConfig}
-                  />
-
-                  {/* Batch Size */}
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium mb-3">
-                      {useRedditUrls ? 'Videos per post (1 URL = 1 video)' : 'Videos per batch'}
-                    </label>
-                    {useRedditUrls ? (
-                      <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-xl border border-blue-200 dark:border-blue-800">
-                        <p className="text-sm text-blue-800 dark:text-blue-200">
-                          <span className="font-semibold">1 video</span> will be generated per scheduled run using the next URL from your list.
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <input
-                          type="range"
-                          min="1"
-                          max="10"
-                          value={numVideos}
-                          onChange={(e) => setNumVideos(parseInt(e.target.value))}
-                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                        />
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-sm text-muted-foreground">1 video</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl font-bold text-primary">{numVideos}</span>
-                            <span className="text-muted-foreground">videos</span>
-                          </div>
-                          <span className="text-sm text-muted-foreground">10 videos</span>
+                {/* Campaign Name - Only show if source is selected */}
+                {storySource && (
+                  <>
+                    <div className="card-elevo">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="number-badge">2</div>
+                        <div>
+                          <h2 className="text-2xl font-bold">Campaign Name</h2>
+                          <p className="text-sm text-muted-foreground">Give your auto-pilot campaign a memorable name</p>
                         </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Content Source Selection */}
-                <div className="card-elevo">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="number-badge">2</div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Content Source</h2>
-                      <p className="text-sm text-muted-foreground">Choose how to source your stories</p>
-                    </div>
-                  </div>
-
-                  <RadioGroup 
-                    value={useRedditUrls ? 'urls' : 'subreddits'} 
-                    onValueChange={(v) => setUseRedditUrls(v === 'urls')}
-                    className="space-y-4"
-                  >
-                    <div className="flex items-start space-x-3">
-                      <RadioGroupItem value="subreddits" id="subreddits-source" className="mt-1" />
-                      <div className="flex-1">
-                        <Label htmlFor="subreddits-source" className="text-base font-semibold cursor-pointer">
-                          AI Generated (Select Subreddits)
-                        </Label>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Generate unique stories from selected subreddit categories
-                        </p>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-start space-x-3">
-                      <RadioGroupItem value="urls" id="urls-source" className="mt-1" />
-                      <div className="flex-1">
-                        <Label htmlFor="urls-source" className="text-base font-semibold cursor-pointer">
-                          Reddit URL List (Specific Stories)
-                        </Label>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Use specific Reddit posts in sequential order
-                        </p>
-                      </div>
-                    </div>
-                  </RadioGroup>
-
-                  {useRedditUrls ? (
-                    <div className="mt-6">
-                      <RedditUrlInput
-                        value={redditUrls}
-                        onChange={setRedditUrls}
-                        maxUrls={50}
+                      
+                      <input
+                        type="text"
+                        value={campaignName}
+                        onChange={(e) => setCampaignName(e.target.value)}
+                        placeholder="e.g., Daily Horror Mix"
+                        className="w-full px-4 py-3 rounded-xl bg-muted/30 border border-border focus:border-primary focus:outline-none transition-colors"
                       />
                     </div>
-                  ) : null}
-                </div>
 
-                {/* Content Rotation (only show if not using URL list) */}
-                {!useRedditUrls && (
+                    {/* Scheduling */}
+                    <div className="card-elevo">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="number-badge">3</div>
+                        <div>
+                          <h2 className="text-2xl font-bold">Schedule & Frequency</h2>
+                          <p className="text-sm text-muted-foreground">When and how often to generate videos</p>
+                        </div>
+                      </div>
+
+                      <AdvancedScheduler
+                        value={scheduleConfig}
+                        onChange={setScheduleConfig}
+                      />
+
+                      {/* Batch Size */}
+                      <div className="mt-6">
+                        <label className="block text-sm font-medium mb-3">
+                          {storySource === 'link' ? 'Videos per post (1 URL = 1 video)' : 'Videos per batch'}
+                        </label>
+                        {storySource === 'link' ? (
+                          <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-xl border border-blue-200 dark:border-blue-800">
+                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                              <span className="font-semibold">1 video</span> will be generated per scheduled run using the next URL from your list.
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <input
+                              type="range"
+                              min="1"
+                              max="10"
+                              value={numVideos}
+                              onChange={(e) => setNumVideos(parseInt(e.target.value))}
+                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="text-sm text-muted-foreground">1 video</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-2xl font-bold text-primary">{numVideos}</span>
+                                <span className="text-muted-foreground">videos</span>
+                              </div>
+                              <span className="text-sm text-muted-foreground">10 videos</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Content Configuration - Reddit Link */}
+                {storySource === 'link' && (
                   <div className="card-elevo">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="number-badge">3</div>
+                      <div className="number-badge">4</div>
+                      <div>
+                        <h2 className="text-2xl font-bold">Reddit URL List</h2>
+                        <p className="text-sm text-muted-foreground">Paste your Reddit story URLs</p>
+                      </div>
+                    </div>
+
+                    <RedditUrlInput
+                      value={redditUrls}
+                      onChange={setRedditUrls}
+                      maxUrls={50}
+                    />
+                  </div>
+                )}
+
+                {/* Content Configuration - AI/Reddit Subreddits */}
+                {(storySource === 'ai' || storySource === 'reddit') && (
+                  <div className="card-elevo">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="number-badge">4</div>
+                      <div>
+                        <h2 className="text-2xl font-bold">Select Subreddits</h2>
+                        <p className="text-sm text-muted-foreground">Choose story categories</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {Object.entries(subredditCategories).map(([category, subs]) => (
+                        <div key={category}>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-2">{category}</h4>
+                          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                            {subs.map((sub) => (
+                              <button
+                                key={sub.name}
+                                onClick={() => {
+                                  const newSelection = new Set(selectedSubreddits);
+                                  if (newSelection.has(sub.name)) {
+                                    newSelection.delete(sub.name);
+                                  } else {
+                                    newSelection.add(sub.name);
+                                  }
+                                  setSelectedSubreddits(newSelection);
+                                }}
+                                className={`p-3 rounded-xl border transition-all text-left relative ${
+                                  selectedSubreddits.has(sub.name)
+                                    ? 'border-primary bg-primary/5'
+                                    : 'border-border hover:border-primary/30'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-lg">{sub.icon}</span>
+                                  <span className="text-sm font-medium">{sub.name}</span>
+                                  {selectedSubreddits.has(sub.name) && (
+                                    <CheckCircle2 className="absolute top-2 right-2 w-5 h-5 text-primary" />
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Optional Content Rotation Toggle */}
+                    <div className="mt-6 pt-6 border-t border-border">
+                      <button
+                        onClick={() => setShowContentRotation(!showContentRotation)}
+                        className="w-full p-4 rounded-xl border-2 border-border hover:border-primary/30 transition-all text-left"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold mb-1">Content Rotation (Optional)</h4>
+                            <p className="text-xs text-muted-foreground">
+                              {showContentRotation ? 'Customize rotation settings' : 'Add variety with multiple sources'}
+                            </p>
+                          </div>
+                          <div className={`w-12 h-6 rounded-full transition-colors ${
+                            showContentRotation ? 'bg-primary' : 'bg-muted'
+                          }`}>
+                            <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
+                              showContentRotation ? 'translate-x-6' : 'translate-x-0.5'
+                            } mt-0.5`} />
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Content Rotation Settings */}
+                {showContentRotation && (storySource === 'ai' || storySource === 'reddit') && (
+                  <div className="card-elevo">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="number-badge">5</div>
                       <div>
                         <h2 className="text-2xl font-bold">Content Rotation</h2>
-                        <p className="text-sm text-muted-foreground">Select multiple options for variety</p>
+                        <p className="text-sm text-muted-foreground">Add variety with multiple sources</p>
                       </div>
                     </div>
 
@@ -894,10 +1022,10 @@ export default function BatchCreate() {
             </div>
           </div>
 
-                  {/* Subreddits */}
+                  {/* Additional Subreddits for rotation */}
                   {(selectedSources.has('ai') || selectedSources.has('reddit')) && (
             <div>
-                      <label className="block text-sm font-medium mb-3">Subreddits</label>
+                      <label className="block text-sm font-medium mb-3">Additional Subreddits for Rotation</label>
                       <div className="space-y-4">
                         {Object.entries(subredditCategories).map(([category, subs]) => (
                           <div key={category}>
@@ -1007,7 +1135,7 @@ export default function BatchCreate() {
                 {/* Auto-Posting Options */}
                 <div className="card-elevo">
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="number-badge">4</div>
+                    <div className="number-badge">6</div>
                     <div>
                       <h2 className="text-2xl font-bold">Auto-Posting</h2>
                       <p className="text-sm text-muted-foreground">Automatically post to platforms</p>
@@ -1078,11 +1206,10 @@ export default function BatchCreate() {
                   onClick={handleGenerateBatch}
                   className="w-full py-8 text-lg font-semibold btn-orange"
                   disabled={
+                    !storySource ||
                     !campaignName.trim() ||
-                    (useRedditUrls ? redditUrls.length === 0 : (
-                      selectedSources.size === 0 ||
-                      selectedSubreddits.size === 0
-                    )) ||
+                    (storySource === 'link' ? redditUrls.length === 0 : 
+                      (storySource !== 'template' && selectedSubreddits.size === 0)) ||
                     selectedBackgrounds.size === 0 ||
                     selectedVoices.size === 0
                   }
