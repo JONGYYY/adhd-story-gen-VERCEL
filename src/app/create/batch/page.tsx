@@ -12,6 +12,7 @@ import { CAMPAIGN_TEMPLATES, getTemplateById } from '@/lib/campaigns/templates';
 import { RedditUrlInput } from '@/components/campaigns/RedditUrlInput';
 import { AdvancedScheduler } from '@/components/campaigns/AdvancedScheduler';
 import { CampaignFrequency } from '@/lib/campaigns/types';
+import { calculateDistributedTimes } from '@/lib/campaigns/scheduling-utils';
 import { 
   Sparkles, 
   FileText, 
@@ -294,7 +295,7 @@ export default function BatchCreate() {
             intervalHours: scheduleConfig.intervalHours,
             timesPerDay: scheduleConfig.timesPerDay,
             distributedTimes: scheduleConfig.frequency === 'times-per-day' && scheduleConfig.timesPerDay 
-              ? require('@/lib/campaigns/db').calculateDistributedTimes(scheduleConfig.timesPerDay)
+              ? calculateDistributedTimes(scheduleConfig.timesPerDay)
               : undefined,
             videosPerBatch: useRedditUrls ? 1 : numVideos,
             sources: Array.from(selectedSources),

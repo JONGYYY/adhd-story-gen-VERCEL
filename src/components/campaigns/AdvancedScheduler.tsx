@@ -6,7 +6,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Calendar, Plus, X } from 'lucide-react';
-import { calculateDistributedTimes, calculateNextRunTime } from '@/lib/campaigns/db';
+import { calculateDistributedTimes, calculateNextRunTime } from '@/lib/campaigns/scheduling-utils';
 import { CampaignFrequency } from '@/lib/campaigns/types';
 
 interface ScheduleConfig {
