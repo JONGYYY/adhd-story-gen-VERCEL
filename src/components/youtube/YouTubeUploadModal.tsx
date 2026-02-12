@@ -14,7 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Tag, Globe, Lock, Eye, Sparkles } from 'lucide-react';
+import { ToastNotification } from '@/components/ui/toast-notification';
+import { Loader2, Tag, Globe, Lock, Eye, Sparkles, X } from 'lucide-react';
 
 interface YouTubeUploadModalProps {
   open: boolean;
@@ -50,6 +51,7 @@ export function YouTubeUploadModal({ open, onOpenChange, onUpload, isUploading, 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [privacyStatus, setPrivacyStatus] = useState<'public' | 'unlisted' | 'private'>('public');
   const [activeCategory, setActiveCategory] = useState<keyof typeof TAG_SUGGESTIONS>('trending');
+  const [showToast, setShowToast] = useState(false);
 
   // Reset state when modal closes (must run BEFORE auto-fill)
   useEffect(() => {
@@ -111,17 +113,37 @@ export function YouTubeUploadModal({ open, onOpenChange, onUpload, isUploading, 
 
   const handleUpload = () => {
     if (isTitleOverLimit || isDescriptionOverLimit || !title.trim()) return;
+    
+    // Trigger the upload
     onUpload({
       title: title.trim(),
       description: description.trim(),
       tags: selectedTags,
       privacyStatus
     });
+    
+    // Wait 2 seconds, then show notification and close modal
+    setTimeout(() => {
+      setShowToast(true);
+      onOpenChange(false);
+      
+      // Auto-hide toast after 8 seconds
+      setTimeout(() => {
+        setShowToast(false);
+      }, 8000);
+    }, 2000);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-red-500/20 max-h-[90vh] overflow-y-auto">
+    <>
+      <ToastNotification
+        message="🎬 Upload in progress! Check your YouTube channel in 3-5 minutes."
+        show={showToast}
+        onClose={() => setShowToast(false)}
+      />
+      
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-red-500/20 max-h-[90vh] overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -400,5 +422,6 @@ export function YouTubeUploadModal({ open, onOpenChange, onUpload, isUploading, 
         </motion.div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
