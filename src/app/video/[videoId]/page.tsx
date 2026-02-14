@@ -132,7 +132,15 @@ export default function VideoPage() {
     }
   };
 
-  const handleTikTokUpload = async (data: { caption: string; hashtags: string[]; privacyLevel: 'PUBLIC' | 'SELF_ONLY' }) => {
+  const handleTikTokUpload = async (data: { 
+    caption: string;
+    privacyLevel: string;
+    disableComment: boolean;
+    disableDuet: boolean;
+    disableStitch: boolean;
+    brandContentToggle: boolean;
+    brandOrganicType?: 'YOUR_BRAND' | 'BRANDED_CONTENT' | 'BOTH';
+  }) => {
     if (!videoStatus.videoUrl) return;
     
     setIsUploading(true);
@@ -149,6 +157,13 @@ export default function VideoPage() {
       formData.append('video', videoBlob, `video_${videoId}.mp4`);
       formData.append('title', data.caption);
       formData.append('privacy_level', data.privacyLevel);
+      formData.append('disable_comment', data.disableComment.toString());
+      formData.append('disable_duet', data.disableDuet.toString());
+      formData.append('disable_stitch', data.disableStitch.toString());
+      formData.append('brand_content_toggle', data.brandContentToggle.toString());
+      if (data.brandOrganicType) {
+        formData.append('brand_organic_type', data.brandOrganicType);
+      }
       
       // Upload to TikTok
       const uploadResponse = await fetch('/api/social-media/tiktok/upload', {
@@ -170,9 +185,14 @@ export default function VideoPage() {
       setShowUploadModal(false);
       
       // Show appropriate success message based on privacy level
-      const message = data.privacyLevel === 'PUBLIC' 
+      const privacyLabel = data.privacyLevel === 'PUBLIC_TO_EVERYONE' 
+        ? 'PUBLIC' 
+        : data.privacyLevel === 'MUTUAL_FOLLOW_FRIENDS'
+        ? 'FRIENDS'
+        : 'PRIVATE';
+      const message = data.privacyLevel === 'PUBLIC_TO_EVERYONE' 
         ? 'Video uploaded to TikTok as PUBLIC! It should appear on your profile shortly.' 
-        : 'Video uploaded to TikTok as PRIVATE. You can change the privacy settings in TikTok.';
+        : `Video uploaded to TikTok as ${privacyLabel}. You can change the privacy settings in TikTok.`;
       
       alert(message);
       
@@ -304,6 +324,7 @@ export default function VideoPage() {
         onOpenChange={setShowUploadModal}
         onUpload={handleTikTokUpload}
         isUploading={isUploading}
+        videoUrl={videoStatus.videoUrl}
       />
       
       <YouTubeUploadModal

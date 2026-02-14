@@ -292,10 +292,117 @@ export class TikTokAPI {
     }
   }
 
+  async getPublishStatus(accessToken: string, publishId: string) {
+    console.log('Getting publish status...');
+    
+    // In test mode, return mock status
+    if (TEST_MODE) {
+      console.log('TikTok TEST MODE: Returning mock publish status');
+      return {
+        status: 'PUBLISH_COMPLETE',
+        fail_reason: null,
+        publiclyAvailable: true,
+        uploaded_bytes: 1024000
+      };
+    }
+    
+    try {
+      const statusUrl = 'https://open.tiktokapis.com/v2/post/publish/status/fetch/';
+      console.log('Status endpoint:', statusUrl);
+
+      const response = await fetch(statusUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          publish_id: publishId
+        })
+      });
+
+      const data = await response.json();
+      console.log('Publish status response status:', response.status);
+
+      if (!response.ok) {
+        console.error('Publish status error response:', data);
+        throw new Error(`TikTok API error: ${data.error?.message || data.message || 'Failed to get publish status'}`);
+      }
+
+      if (!data.data) {
+        console.error('Invalid publish status response:', data);
+        throw new Error('TikTok API returned invalid publish status response');
+      }
+
+      console.log('Successfully obtained publish status');
+      return data.data;
+    } catch (error) {
+      console.error('Error getting publish status:', error);
+      throw error;
+    }
+  }
+
+  async getCreatorInfo(accessToken: string) {
+    console.log('Getting creator info...');
+    
+    // In test mode, return mock creator info
+    if (TEST_MODE) {
+      console.log('TikTok TEST MODE: Returning mock creator info');
+      return {
+        creator_avatar_url: 'https://example.com/avatar.jpg',
+        creator_username: 'testuser',
+        creator_nickname: 'Test User',
+        privacy_level_options: ['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'SELF_ONLY'],
+        comment_disabled: false,
+        duet_disabled: false,
+        stitch_disabled: false,
+        max_video_post_duration_sec: 600
+      };
+    }
+    
+    try {
+      const creatorInfoUrl = 'https://open.tiktokapis.com/v2/post/publish/creator_info/query/';
+      console.log('Creator info endpoint:', creatorInfoUrl);
+
+      const response = await fetch(creatorInfoUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+      });
+
+      const data = await response.json();
+      console.log('Creator info response status:', response.status);
+
+      if (!response.ok) {
+        console.error('Creator info error response:', data);
+        throw new Error(`TikTok API error: ${data.error?.message || data.message || 'Failed to get creator info'}`);
+      }
+
+      if (!data.data) {
+        console.error('Invalid creator info response:', data);
+        throw new Error('TikTok API returned invalid creator info response');
+      }
+
+      console.log('Successfully obtained creator info');
+      return data.data;
+    } catch (error) {
+      console.error('Error getting creator info:', error);
+      throw error;
+    }
+  }
+
   async uploadVideo(accessToken: string, videoData: {
     title: string;
     video_file: Buffer;
-    privacy_level?: 'PUBLIC' | 'SELF_ONLY' | 'MUTUAL_FOLLOW';
+    privacy_level?: 'PUBLIC_TO_EVERYONE' | 'SELF_ONLY' | 'MUTUAL_FOLLOW_FRIENDS';
+    disable_comment?: boolean;
+    disable_duet?: boolean;
+    disable_stitch?: boolean;
+    brand_content_toggle?: boolean;
+    brand_organic_type?: 'YOUR_BRAND' | 'BRANDED_CONTENT' | 'BOTH';
   }) {
     console.log('Uploading video to TikTok...');
     
@@ -320,14 +427,14 @@ export class TikTokAPI {
       // - Sandbox/Inbox endpoint: POST /v2/post/publish/inbox/video/init/ (for drafts/private)
       // Note: Using the production endpoint for PUBLIC uploads, sandbox for SELF_ONLY
       const videoSize = videoData.video_file.length;
-      const privacyLevel = videoData.privacy_level || 'PUBLIC';
+      const privacyLevel = videoData.privacy_level || 'PUBLIC_TO_EVERYONE';
       
       // Use production endpoint for PUBLIC, sandbox/inbox for SELF_ONLY
-      const initEndpoint = privacyLevel === 'PUBLIC' 
+      const initEndpoint = privacyLevel === 'PUBLIC_TO_EVERYONE' 
         ? 'https://open.tiktokapis.com/v2/post/publish/video/init/'
         : 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/';
       
-      console.log(`Using ${privacyLevel === 'PUBLIC' ? 'PRODUCTION' : 'SANDBOX/INBOX'} endpoint for ${privacyLevel} video`);
+      console.log(`Using ${privacyLevel === 'PUBLIC_TO_EVERYONE' ? 'PRODUCTION' : 'SANDBOX/INBOX'} endpoint for ${privacyLevel} video`);
       console.log(`Video size: ${(videoSize / 1024 / 1024).toFixed(2)} MB`);
       console.log(`Access token length: ${accessToken.length}, starts with: ${accessToken.substring(0, 10)}...`);
       console.log(`Init endpoint: ${initEndpoint}`);
@@ -353,11 +460,13 @@ export class TikTokAPI {
             post_info: {
               title: videoData.title,
               privacy_level: privacyLevel,
-              ...(privacyLevel === 'PUBLIC' && {
-                disable_duet: false,
-                disable_comment: false,
-                disable_stitch: false,
-                video_cover_timestamp_ms: 1000,
+              disable_comment: videoData.disable_comment ?? false,
+              disable_duet: videoData.disable_duet ?? false,
+              disable_stitch: videoData.disable_stitch ?? false,
+              video_cover_timestamp_ms: 1000,
+              ...(videoData.brand_content_toggle && videoData.brand_organic_type && {
+                brand_content_toggle: true,
+                brand_organic_type: videoData.brand_organic_type,
               }),
             },
             source_info: {
@@ -491,7 +600,7 @@ export class TikTokAPI {
           }
 
           // Log success based on privacy level
-          const uploadMode = privacyLevel === 'PUBLIC' ? 'public post' : 'inbox draft';
+          const uploadMode = privacyLevel === 'PUBLIC_TO_EVERYONE' ? 'public post' : 'inbox draft';
           console.log(`Video uploaded successfully (${uploadMode})`, {
             publish_id,
             upload_id,

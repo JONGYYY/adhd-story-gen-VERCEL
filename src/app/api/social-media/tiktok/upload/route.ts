@@ -67,12 +67,23 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const title = formData.get('title') as string;
     const videoFile = formData.get('video') as File;
-    const privacyLevel = (formData.get('privacy_level') as 'PUBLIC' | 'SELF_ONLY') || 'SELF_ONLY';
+    const privacyLevel = formData.get('privacy_level') as string;
+    const disableComment = formData.get('disable_comment') === 'true';
+    const disableDuet = formData.get('disable_duet') === 'true';
+    const disableStitch = formData.get('disable_stitch') === 'true';
+    const brandContentToggle = formData.get('brand_content_toggle') === 'true';
+    const brandOrganicType = formData.get('brand_organic_type') as string | null;
 
     // SECURITY: Required field validation
     if (!title || !videoFile) {
       return secureJsonResponse({ 
         error: 'Missing required fields: title and video file' 
+      }, 400);
+    }
+    
+    if (!privacyLevel) {
+      return secureJsonResponse({ 
+        error: 'Privacy level is required' 
       }, 400);
     }
     
@@ -82,10 +93,28 @@ export async function POST(request: NextRequest) {
     }
     
     // SECURITY: Privacy level validation
-    if (!['PUBLIC', 'SELF_ONLY'].includes(privacyLevel)) {
+    const validPrivacyLevels = ['PUBLIC_TO_EVERYONE', 'SELF_ONLY', 'MUTUAL_FOLLOW_FRIENDS'];
+    if (!validPrivacyLevels.includes(privacyLevel)) {
       return secureJsonResponse({ 
-        error: 'Invalid privacy level. Must be PUBLIC or SELF_ONLY' 
+        error: 'Invalid privacy level. Must be PUBLIC_TO_EVERYONE, SELF_ONLY, or MUTUAL_FOLLOW_FRIENDS' 
       }, 400);
+    }
+    
+    // SECURITY: Commercial content validation
+    if (brandContentToggle) {
+      const validBrandTypes = ['YOUR_BRAND', 'BRANDED_CONTENT', 'BOTH'];
+      if (!brandOrganicType || !validBrandTypes.includes(brandOrganicType)) {
+        return secureJsonResponse({ 
+          error: 'When brand content toggle is enabled, a valid brand_organic_type is required' 
+        }, 400);
+      }
+      
+      // Branded content cannot be private
+      if (brandOrganicType !== 'YOUR_BRAND' && privacyLevel === 'SELF_ONLY') {
+        return secureJsonResponse({ 
+          error: 'Branded content cannot be set to private. Please use PUBLIC or FRIENDS privacy.' 
+        }, 400);
+      }
     }
     
     // SECURITY: File validation (type, size, extension)
@@ -110,11 +139,16 @@ export async function POST(request: NextRequest) {
     // Initialize TikTok API
     const tiktokApi = new TikTokAPI();
 
-    // SECURITY: Upload video with sanitized title
+    // SECURITY: Upload video with sanitized title and all metadata
     const result = await tiktokApi.uploadVideo(credentials.accessToken, {
       title: sanitizedTitle,
       video_file: videoBuffer,
-      privacy_level: privacyLevel
+      privacy_level: privacyLevel as 'PUBLIC_TO_EVERYONE' | 'SELF_ONLY' | 'MUTUAL_FOLLOW_FRIENDS',
+      disable_comment: disableComment,
+      disable_duet: disableDuet,
+      disable_stitch: disableStitch,
+      brand_content_toggle: brandContentToggle,
+      brand_organic_type: brandOrganicType as 'YOUR_BRAND' | 'BRANDED_CONTENT' | 'BOTH' | undefined
     });
 
     console.log('Video upload successful:', result);
