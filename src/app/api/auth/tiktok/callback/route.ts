@@ -142,48 +142,56 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    console.log('Getting user info...');
+    console.log('Getting creator info (for username and profile details)...');
     
-    // CRITICAL CHECK: Log what scopes were actually granted by TikTok
+    // CRITICAL: TikTok moved 'username' to user.info.profile scope (Feb 2024)
+    // We use Creator Info API instead, which only needs video.publish scope
     console.log('=== SCOPE CHECK ===');
-    console.log('Requested scopes: user.info.basic,video.upload,video.publish');
-    console.log('Granted scopes from token:', tokens.scope || 'NOT PROVIDED BY TIKTOK');
-    if (tokens.scope && !tokens.scope.includes('user.info.basic')) {
-      console.log('ℹ️  INFO: user.info.basic NOT in granted scopes - will use default username');
-    }
+    console.log('Requested scopes:', tokens.scope || 'NOT PROVIDED BY TIKTOK');
     
-    let userInfo;
+    let creatorInfo;
     try {
-      userInfo = await tiktokApi.getUserInfo(tokens.access_token);
-      console.log('✅ User info received successfully!');
-      console.log('Username:', userInfo.username);
-      console.log('Display name:', userInfo.display_name);
-      console.log('Open ID:', userInfo.open_id);
+      // Use Creator Info API (requires video.publish scope only)
+      // This is the recommended way for Content Posting API clients
+      creatorInfo = await tiktokApi.getCreatorInfo(tokens.access_token);
+      console.log('✅ Creator info received successfully!');
+      console.log('Creator Username:', creatorInfo.creator_username);
+      console.log('Creator Nickname:', creatorInfo.creator_nickname);
+      console.log('Privacy Options:', creatorInfo.privacy_level_options);
     } catch (error) {
-      console.log('⚠️  getUserInfo failed (non-fatal) - using default username');
-      console.log('Error:', error instanceof Error ? error.message : String(error));
-      console.log('Reason: user.info.basic scope not granted or not approved yet');
-      console.log('Note: Video uploads will still work! Username will show as "TikTok User"');
+      console.error('❌ getCreatorInfo failed - this may prevent uploads');
+      console.error('Error:', error instanceof Error ? error.message : String(error));
+      console.error('This could mean:');
+      console.error('1. video.publish scope not granted');
+      console.error('2. TikTok account is not eligible for Content Posting API');
+      console.error('3. Network/API issue');
       
-      // Use fallback user info - this is NOT a fatal error
-      userInfo = {
-        open_id: 'user_' + Date.now(),
-        username: 'TikTok User',
-        display_name: 'TikTok User'
+      // Use fallback creator info
+      creatorInfo = {
+        creator_username: 'tiktokuser',
+        creator_nickname: 'TikTok User',
+        privacy_level_options: ['PUBLIC_TO_EVERYONE', 'SELF_ONLY'],
+        comment_disabled: false,
+        duet_disabled: false,
+        stitch_disabled: false,
+        max_video_post_duration_sec: 600
       };
+      
+      console.log('⚠️  Using fallback creator info - uploads may not work correctly');
     }
     
-    console.log('TikTok user info:', userInfo);
+    console.log('Storing TikTok credentials with username:', creatorInfo.creator_nickname || creatorInfo.creator_username);
 
     // Store credentials in Firebase using server-side function
+    // Store creator_nickname as username for display (it's the friendly name like "John Doe")
     const credentials = {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || undefined,
-      username: userInfo.username || 'TikTok User',
+      username: creatorInfo.creator_nickname || creatorInfo.creator_username || 'TikTok User',
       expiresAt: tokens.expires_in ? Date.now() + (tokens.expires_in * 1000) : Date.now() + 3600000,
       platform: 'tiktok' as const,
       userId: userId,
-      profileId: userInfo.open_id || 'unknown'
+      profileId: creatorInfo.creator_username || 'unknown'
     };
 
     console.log('Saving credentials to Firebase...');
