@@ -131,9 +131,16 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
     setCreatorInfoError(null);
     
     try {
+      // Add timeout to prevent infinite loading
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch('/api/social-media/tiktok/creator-info', {
-        credentials: 'include'
+        credentials: 'include',
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       const data = await response.json();
       
@@ -144,7 +151,24 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
       setCreatorInfo(data.data);
     } catch (error) {
       console.error('Failed to fetch creator info:', error);
-      setCreatorInfoError(error instanceof Error ? error.message : 'Failed to load creator info');
+      
+      // Provide fallback defaults so upload can still work
+      const errorMessage = error instanceof Error && error.name === 'AbortError'
+        ? 'Request timed out - using default settings'
+        : error instanceof Error ? error.message : 'Failed to load creator info';
+      
+      setCreatorInfoError(errorMessage);
+      
+      // Set fallback creator info so user can still upload
+      setCreatorInfo({
+        creator_username: 'TikTok User',
+        creator_nickname: 'TikTok User',
+        privacy_level_options: ['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'SELF_ONLY'],
+        comment_disabled: false,
+        duet_disabled: false,
+        stitch_disabled: false,
+        max_video_post_duration_sec: 600
+      });
     } finally {
       setLoadingCreatorInfo(false);
     }

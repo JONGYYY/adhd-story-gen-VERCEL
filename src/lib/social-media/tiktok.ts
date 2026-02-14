@@ -364,14 +364,24 @@ export class TikTokAPI {
       const creatorInfoUrl = 'https://open.tiktokapis.com/v2/post/publish/creator_info/query/';
       console.log('Creator info endpoint:', creatorInfoUrl);
 
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('Creator info request timed out after 8 seconds');
+        controller.abort();
+      }, 8000); // 8 second timeout
+
       const response = await fetch(creatorInfoUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({}),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
       console.log('Creator info response status:', response.status);
@@ -390,6 +400,12 @@ export class TikTokAPI {
       return data.data;
     } catch (error) {
       console.error('Error getting creator info:', error);
+      
+      // Provide more context for abort errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('TikTok API request timed out. Please try again.');
+      }
+      
       throw error;
     }
   }
