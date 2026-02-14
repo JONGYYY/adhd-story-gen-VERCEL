@@ -75,10 +75,10 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
   const [caption, setCaption] = useState('');
   const [privacyLevel, setPrivacyLevel] = useState<string>(''); // NO DEFAULT!
   
-  // Interaction settings (default ALL unchecked)
-  const [allowComments, setAllowComments] = useState(false);
-  const [allowDuet, setAllowDuet] = useState(false);
-  const [allowStitch, setAllowStitch] = useState(false);
+  // Interaction settings (default ALL enabled for user convenience)
+  const [allowComments, setAllowComments] = useState(true);
+  const [allowDuet, setAllowDuet] = useState(true);
+  const [allowStitch, setAllowStitch] = useState(true);
   
   // Commercial content
   const [commercialContentToggle, setCommercialContentToggle] = useState(false);
@@ -100,9 +100,9 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
     if (!open) {
       setCaption('');
       setPrivacyLevel('');
-      setAllowComments(false);
-      setAllowDuet(false);
-      setAllowStitch(false);
+      setAllowComments(true);
+      setAllowDuet(true);
+      setAllowStitch(true);
       setCommercialContentToggle(false);
       setYourBrand(false);
       setBrandedContent(false);
@@ -375,7 +375,7 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
               {/* Interaction Settings */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Interaction Settings</Label>
-                <p className="text-xs text-muted-foreground">Manually enable these features (all off by default)</p>
+                <p className="text-xs text-muted-foreground">Control who can interact with your video (enabled by default)</p>
                 
                 <div className="space-y-2">
                   {/* Allow Comments */}

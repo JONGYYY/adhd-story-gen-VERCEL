@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
     const userId = decodedClaims.uid;
     console.log('User authenticated:', userId);
     
-    // SECURITY: Rate limiting (more lenient for status checks)
-    const rateLimitResponse = await rateLimit(request, RATE_LIMITS.API, userId);
+    // SECURITY: Rate limiting (use READ limit for status checks)
+    const rateLimitResponse = await rateLimit(request, RATE_LIMITS.READ, userId);
     if (rateLimitResponse) return rateLimitResponse;
 
     // SECURITY: Get TikTok credentials
