@@ -131,35 +131,44 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
     setCreatorInfoError(null);
     
     try {
-      // Add timeout to prevent infinite loading
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch('/api/social-media/tiktok/creator-info', {
-        credentials: 'include',
-        signal: controller.signal
+      // Step 1: First fetch stored credentials (fast, always works)
+      console.log('Fetching stored TikTok credentials...');
+      const storedResponse = await fetch('/api/social-media/tiktok/credentials', {
+        credentials: 'include'
       });
       
-      clearTimeout(timeoutId);
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch creator info');
+      if (storedResponse.ok) {
+        const storedData = await storedResponse.json();
+        console.log('Stored credentials loaded:', storedData.data.username);
+        
+        // Set creator info from stored data immediately
+        setCreatorInfo({
+          creator_username: storedData.data.profileId || storedData.data.username,
+          creator_nickname: storedData.data.username,
+          privacy_level_options: storedData.data.privacy_level_options,
+          comment_disabled: storedData.data.comment_disabled,
+          duet_disabled: storedData.data.duet_disabled,
+          stitch_disabled: storedData.data.stitch_disabled,
+          max_video_post_duration_sec: storedData.data.max_video_post_duration_sec
+        });
+        
+        setLoadingCreatorInfo(false);
+        
+        // Step 2: Try to fetch live data from TikTok API in background (optional)
+        // This updates with real-time upload limits, but doesn't block the UI
+        console.log('Fetching live TikTok API data in background...');
+        fetchLiveCreatorInfo();
+        
+        return; // Success with stored data
       }
       
-      setCreatorInfo(data.data);
+      throw new Error('Failed to load stored credentials');
+      
     } catch (error) {
       console.error('Failed to fetch creator info:', error);
+      setCreatorInfoError('Failed to load TikTok info');
       
-      // Provide fallback defaults so upload can still work
-      const errorMessage = error instanceof Error && error.name === 'AbortError'
-        ? 'Request timed out - using default settings'
-        : error instanceof Error ? error.message : 'Failed to load creator info';
-      
-      setCreatorInfoError(errorMessage);
-      
-      // Set fallback creator info so user can still upload
+      // Set absolute fallback if even stored credentials fail
       setCreatorInfo({
         creator_username: 'TikTok User',
         creator_nickname: 'TikTok User',
@@ -169,8 +178,38 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
         stitch_disabled: false,
         max_video_post_duration_sec: 600
       });
-    } finally {
       setLoadingCreatorInfo(false);
+    }
+  };
+  
+  // Fetch live creator info from TikTok API (background, non-blocking)
+  const fetchLiveCreatorInfo = async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for background fetch
+      
+      const response = await fetch('/api/social-media/tiktok/creator-info', {
+        credentials: 'include',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Live TikTok API data loaded successfully');
+        
+        // Update with live data if we got it
+        setCreatorInfo(prevInfo => ({
+          ...prevInfo!,
+          ...data.data, // Merge live data (might have updated limits)
+        }));
+      } else {
+        console.log('Live TikTok API fetch failed, using stored data');
+      }
+    } catch (error) {
+      // Silently fail - we already have stored data showing
+      console.log('Background TikTok API fetch failed (non-critical):', error);
     }
   };
 

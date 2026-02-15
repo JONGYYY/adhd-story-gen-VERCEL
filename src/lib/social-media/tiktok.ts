@@ -364,12 +364,12 @@ export class TikTokAPI {
       const creatorInfoUrl = 'https://open.tiktokapis.com/v2/post/publish/creator_info/query/';
       console.log('Creator info endpoint:', creatorInfoUrl);
 
-      // Add timeout to prevent hanging
+      // Add timeout to prevent hanging (increased to 20s as TikTok API can be slow)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log('Creator info request timed out after 8 seconds');
+        console.log('Creator info request timed out after 20 seconds');
         controller.abort();
-      }, 8000); // 8 second timeout
+      }, 20000); // 20 second timeout
 
       const response = await fetch(creatorInfoUrl, {
         method: 'POST',
