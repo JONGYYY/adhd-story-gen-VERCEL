@@ -228,12 +228,45 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
     return true;
   };
 
-  // Get compliance declaration text
-  const getComplianceText = () => {
+  // Get compliance declaration with clickable links
+  const getComplianceDeclaration = () => {
     if (brandedContent) {
-      return "By posting, you agree to TikTok's Branded Content Policy and Music Usage Confirmation";
+      return (
+        <p className="text-sm text-blue-800 dark:text-blue-200">
+          By posting, you agree to TikTok's{' '}
+          <a 
+            href="https://www.tiktok.com/community-guidelines/en/branded-content/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="underline hover:text-blue-600 dark:hover:text-blue-300 font-semibold"
+          >
+            Branded Content Policy
+          </a>
+          {' '}and{' '}
+          <a 
+            href="https://www.tiktok.com/community-guidelines/en/music-usage-confirmation/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="underline hover:text-blue-600 dark:hover:text-blue-300 font-semibold"
+          >
+            Music Usage Confirmation
+          </a>
+        </p>
+      );
     }
-    return "By posting, you agree to TikTok's Music Usage Confirmation";
+    return (
+      <p className="text-sm text-blue-800 dark:text-blue-200">
+        By posting, you agree to TikTok's{' '}
+        <a 
+          href="https://www.tiktok.com/community-guidelines/en/music-usage-confirmation/" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="underline hover:text-blue-600 dark:hover:text-blue-300 font-semibold"
+        >
+          Music Usage Confirmation
+        </a>
+      </p>
+    );
   };
 
   // Get brand organic type
@@ -409,7 +442,7 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
                       <motion.button
                         key={option}
                         onClick={() => !isDisabled && setPrivacyLevel(option)}
-                        className={`p-4 rounded-xl border-2 transition-all relative ${
+                        className={`p-4 rounded-xl border-2 transition-all relative group ${
                           isSelected
                             ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20'
                             : isDisabled
@@ -425,9 +458,17 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
                         <div className="text-sm font-semibold">{config.label}</div>
                         <div className="text-xs text-muted-foreground mt-1">{config.description}</div>
                         {isDisabled && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Lock className="w-4 h-4 text-muted-foreground" />
-                          </div>
+                          <>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Lock className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap z-50 shadow-lg">
+                                Branded content cannot be private
+                                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black"></div>
+                              </div>
+                            </div>
+                          </>
                         )}
                       </motion.button>
                     );
@@ -597,12 +638,15 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
                           <Badge variant="secondary" className="bg-purple-500/10 text-purple-500 border-purple-500/20">
                             Your video will be labeled as "Paid partnership"
                           </Badge>
-                          {privacyLevel === 'SELF_ONLY' && (
-                            <p className="text-xs text-amber-500 flex items-center gap-1">
-                              <AlertCircle className="w-3 h-3" />
-                              Privacy automatically switched to Public (branded content cannot be private)
+                          <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                            <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                              <span>
+                                <strong>Privacy Restriction:</strong> Branded content can only be set to Public or Friends. 
+                                {privacyLevel === 'SELF_ONLY' && ' Privacy has been automatically switched to Public.'}
+                              </span>
                             </p>
-                          )}
+                          </div>
                         </motion.div>
                       )}
                     </div>
@@ -612,9 +656,7 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
 
               {/* Compliance Declaration */}
               <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  {getComplianceText()}
-                </p>
+                {getComplianceDeclaration()}
               </div>
 
               {/* Action Buttons */}
