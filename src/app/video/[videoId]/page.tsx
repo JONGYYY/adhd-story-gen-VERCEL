@@ -200,41 +200,69 @@ export default function VideoPage() {
       
       // Point 5e: Poll publish status API to show users the status of their post
       if (result.result?.publish_id) {
-        console.log('Polling TikTok publish status...');
+        console.log('Starting TikTok publish status polling for publish_id:', result.result.publish_id);
         
-        // Poll status after a short delay (TikTok needs time to process)
-        setTimeout(async () => {
+        // Poll status multiple times until video is processed or fails
+        const pollTikTokStatus = async (publishId: string, attempt = 1, maxAttempts = 20) => {
           try {
+            console.log(`TikTok status poll attempt ${attempt}/${maxAttempts}`);
+            
             const statusResponse = await fetch('/api/social-media/tiktok/status', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ publishId: result.result.publish_id })
+              body: JSON.stringify({ publishId })
             });
             
-            if (statusResponse.ok) {
-              const statusData = await statusResponse.json();
-              const status = statusData.data?.status || 'UNKNOWN';
-              
-              let statusMessage = '';
-              if (status === 'PUBLISH_COMPLETE') {
-                statusMessage = '✅ Your video is now live on TikTok!';
-              } else if (status === 'PROCESSING_DOWNLOAD' || status === 'PROCESSING_UPLOAD') {
-                statusMessage = '⏳ Your video is still processing. Check your TikTok profile in a few minutes.';
-              } else if (status === 'FAILED') {
-                const failReason = statusData.data?.fail_reason || 'Unknown error';
-                statusMessage = `❌ Upload failed: ${failReason}`;
-              } else {
-                statusMessage = `Status: ${status}. Check your TikTok profile shortly.`;
+            if (!statusResponse.ok) {
+              console.error('Status check failed:', statusResponse.status);
+              return;
+            }
+            
+            const statusData = await statusResponse.json();
+            const status = statusData.data?.status || 'UNKNOWN';
+            console.log(`TikTok publish status (attempt ${attempt}):`, status);
+            
+            // Terminal states - stop polling
+            if (status === 'PUBLISH_COMPLETE') {
+              alert('✅ Your video is now live on TikTok!');
+              return;
+            } else if (status === 'FAILED') {
+              const failReason = statusData.data?.fail_reason || 'Unknown error';
+              alert(`❌ TikTok upload failed: ${failReason}`);
+              return;
+            }
+            
+            // Processing states - continue polling
+            if (status === 'PROCESSING_DOWNLOAD' || status === 'PROCESSING_UPLOAD' || status === 'PUBLISH_VIDEO_SUCCESS') {
+              if (attempt === 1) {
+                alert('⏳ Your video is uploading to TikTok. You\'ll be notified when it\'s live. Processing may take a few minutes.');
               }
               
-              console.log('TikTok publish status:', status);
-              alert(statusMessage);
+              // Continue polling if we haven't reached max attempts
+              if (attempt < maxAttempts) {
+                // Exponential backoff: 3s, 5s, 8s, 10s, 10s...
+                const delay = Math.min(3000 + (attempt * 1000), 10000);
+                setTimeout(() => pollTikTokStatus(publishId, attempt + 1, maxAttempts), delay);
+              } else {
+                alert('⏰ Your video is still processing on TikTok. Check your profile in a few minutes.');
+              }
+              return;
             }
+            
+            // Unknown status - show info and continue polling
+            console.warn('Unknown TikTok status:', status);
+            if (attempt < maxAttempts) {
+              setTimeout(() => pollTikTokStatus(publishId, attempt + 1, maxAttempts), 5000);
+            }
+            
           } catch (statusError) {
             console.error('Failed to check TikTok status:', statusError);
             // Don't show error to user - upload was successful, status check is just extra info
           }
-        }, 3000); // Wait 3 seconds before checking status
+        };
+        
+        // Start polling after 3 seconds (give TikTok time to initialize)
+        setTimeout(() => pollTikTokStatus(result.result.publish_id), 3000);
       }
       
     } catch (error) {

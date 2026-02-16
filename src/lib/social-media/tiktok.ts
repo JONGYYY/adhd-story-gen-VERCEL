@@ -540,12 +540,32 @@ export class TikTokAPI {
         console.log('Init response status:', initResponse.status);
         console.log('Init response headers:', JSON.stringify(Object.fromEntries(initResponse.headers.entries())).substring(0, 300));
 
-        // CRITICAL: Check for 401 BEFORE reading body
-        // TikTok 401 responses have hanging body streams that timeout
+        // CRITICAL: Check for 401/403 BEFORE reading body
+        // TikTok error responses can have hanging body streams that timeout
         if (initResponse.status === 401) {
           console.error('Init returned 401 Unauthorized - access token is invalid or expired');
           throw new Error(
-            `TikTok access token is invalid or expired. Please go to Settings → Social Media → Disconnect and then Reconnect your TikTok account. (Note: Making your profile public doesn't fix this - you need to reconnect the app authorization)`
+            `TikTok access token is invalid or expired. Please go to Settings → Social Media → Disconnect and then Reconnect your TikTok account.`
+          );
+        }
+        
+        if (initResponse.status === 403) {
+          console.error('Init returned 403 Forbidden - permission denied');
+          // Try to get error details with a short timeout
+          let errorDetails = 'Permission denied';
+          try {
+            const errorText = await Promise.race([
+              initResponse.text(),
+              new Promise<string>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+            ]);
+            console.error('403 error body:', errorText);
+            const errorData = JSON.parse(errorText);
+            errorDetails = errorData.error?.message || errorData.message || 'Permission denied';
+          } catch (e) {
+            console.error('Could not parse 403 error body:', e);
+          }
+          throw new Error(
+            `TikTok upload permission denied (403): ${errorDetails}. Please reconnect your TikTok account in Settings → Social Media.`
           );
         }
 
