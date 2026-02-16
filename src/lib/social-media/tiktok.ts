@@ -478,18 +478,18 @@ export class TikTokAPI {
       
       // 1. Initialize upload
       // TikTok Content Posting API:
-      // - Production endpoint: POST /v2/post/publish/video/init/ (for PUBLIC videos)
-      // - Sandbox/Inbox endpoint: POST /v2/post/publish/inbox/video/init/ (for drafts/private)
-      // Note: Using the production endpoint for PUBLIC uploads, sandbox for SELF_ONLY
+      // - Production endpoint: POST /v2/post/publish/video/init/ (for PUBLIC videos - requires approval)
+      // - Inbox endpoint: POST /v2/post/publish/inbox/video/init/ (for drafts - works immediately)
+      // Note: Using INBOX mode for testing until TikTok application is approved
       const videoSize = videoData.video_file.length;
       const privacyLevel = videoData.privacy_level || 'PUBLIC_TO_EVERYONE';
       
-      // Use production endpoint for PUBLIC, sandbox/inbox for SELF_ONLY
-      const initEndpoint = privacyLevel === 'PUBLIC_TO_EVERYONE' 
-        ? 'https://open.tiktokapis.com/v2/post/publish/video/init/'
-        : 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/';
+      // TEMPORARY: Use INBOX endpoint for all uploads during application testing
+      // This sends videos to your TikTok Drafts instead of publishing publicly
+      // After TikTok approves your application, switch back to production endpoint for PUBLIC videos
+      const initEndpoint = 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/';
       
-      console.log(`Using ${privacyLevel === 'PUBLIC_TO_EVERYONE' ? 'PRODUCTION' : 'SANDBOX/INBOX'} endpoint for ${privacyLevel} video`);
+      console.log(`Using INBOX/DRAFT endpoint for testing (privacy: ${privacyLevel})`);
       console.log(`Video size: ${(videoSize / 1024 / 1024).toFixed(2)} MB`);
       console.log(`Access token length: ${accessToken.length}, starts with: ${accessToken.substring(0, 10)}...`);
       console.log(`Init endpoint: ${initEndpoint}`);
