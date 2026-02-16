@@ -235,7 +235,7 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
         <p className="text-sm text-blue-800 dark:text-blue-200">
           By posting, you agree to TikTok's{' '}
           <a 
-            href="https://www.tiktok.com/community-guidelines/en/branded-content/" 
+            href="https://www.tiktok.com/legal/page/global/bc-policy/en" 
             target="_blank" 
             rel="noopener noreferrer"
             className="underline hover:text-blue-600 dark:hover:text-blue-300 font-semibold"
@@ -244,7 +244,7 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
           </a>
           {' '}and{' '}
           <a 
-            href="https://www.tiktok.com/community-guidelines/en/music-usage-confirmation/" 
+            href="https://support.tiktok.com/en/business-and-creator/creator-and-business-accounts/commercial-use-of-music-on-tiktok" 
             target="_blank" 
             rel="noopener noreferrer"
             className="underline hover:text-blue-600 dark:hover:text-blue-300 font-semibold"
@@ -258,7 +258,7 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
       <p className="text-sm text-blue-800 dark:text-blue-200">
         By posting, you agree to TikTok's{' '}
         <a 
-          href="https://www.tiktok.com/community-guidelines/en/music-usage-confirmation/" 
+          href="https://support.tiktok.com/en/business-and-creator/creator-and-business-accounts/commercial-use-of-music-on-tiktok" 
           target="_blank" 
           rel="noopener noreferrer"
           className="underline hover:text-blue-600 dark:hover:text-blue-300 font-semibold"
