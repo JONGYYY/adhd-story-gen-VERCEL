@@ -28,11 +28,20 @@ export function findNextDistributedTime(distributedTimes: string[]): number {
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   
+  console.log('findNextDistributedTime called:');
+  console.log('  Input times:', distributedTimes);
+  console.log('  Current time:', now.toLocaleTimeString(), `(${currentMinutes} minutes)`);
+  
   // Convert times to minutes and find the next one
   const timesInMinutes = distributedTimes.map(time => {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
   });
+  
+  // Sort times to ensure proper ordering
+  timesInMinutes.sort((a, b) => a - b);
+  
+  console.log('  Times in minutes (sorted):', timesInMinutes);
   
   // Find next time today
   const nextTime = timesInMinutes.find(t => t > currentMinutes);
@@ -41,6 +50,7 @@ export function findNextDistributedTime(distributedTimes: string[]): number {
     // Next time is today
     const nextRun = new Date();
     nextRun.setHours(Math.floor(nextTime / 60), nextTime % 60, 0, 0);
+    console.log('  Next time TODAY:', nextRun.toLocaleString());
     return nextRun.getTime();
   } else {
     // All times passed today, use first time tomorrow
@@ -48,6 +58,7 @@ export function findNextDistributedTime(distributedTimes: string[]): number {
     const nextRun = new Date();
     nextRun.setDate(nextRun.getDate() + 1);
     nextRun.setHours(Math.floor(firstTime / 60), firstTime % 60, 0, 0);
+    console.log('  Next time TOMORROW:', nextRun.toLocaleString());
     return nextRun.getTime();
   }
 }

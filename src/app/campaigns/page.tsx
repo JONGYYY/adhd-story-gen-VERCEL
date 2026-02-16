@@ -310,10 +310,58 @@ export default function CampaignsPage() {
                   <div className="card-elevo">
                     <h3 className="text-lg font-bold mb-4">Configuration</h3>
                     <div className="grid md:grid-cols-2 gap-4 text-sm">
+                      {/* Content Source */}
                       <div>
-                        <p className="text-muted-foreground mb-1">Subreddits ({selectedCampaign.subreddits.length})</p>
-                        <p className="font-medium">{selectedCampaign.subreddits.join(', ')}</p>
+                        <p className="text-muted-foreground mb-1">Content Source</p>
+                        <p className="font-medium">
+                          {selectedCampaign.useRedditUrls 
+                            ? 'Reddit Links' 
+                            : selectedCampaign.sources.includes('ai') && selectedCampaign.sources.includes('reddit')
+                            ? 'AI + Reddit Stories'
+                            : selectedCampaign.sources.includes('ai')
+                            ? 'AI Generation'
+                            : 'Reddit Stories'}
+                        </p>
                       </div>
+                      
+                      {/* Reddit URLs or Subreddits */}
+                      {selectedCampaign.useRedditUrls && selectedCampaign.redditUrls && selectedCampaign.redditUrls.length > 0 ? (
+                        <div className="md:col-span-2">
+                          <p className="text-muted-foreground mb-1">Reddit URLs ({selectedCampaign.redditUrls.length})</p>
+                          <div className="max-h-32 overflow-y-auto">
+                            {selectedCampaign.redditUrls.map((url, idx) => (
+                              <p key={idx} className="font-medium text-xs truncate mb-1">
+                                {idx + 1}. {url}
+                              </p>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Currently at URL #{(selectedCampaign.currentUrlIndex || 0) + 1}
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-muted-foreground mb-1">Subreddits ({selectedCampaign.subreddits.length})</p>
+                          <p className="font-medium">{selectedCampaign.subreddits.join(', ')}</p>
+                        </div>
+                      )}
+                      
+                      {/* Schedule Times for Custom Frequency */}
+                      {selectedCampaign.frequency === 'custom' && selectedCampaign.customScheduleTimes && selectedCampaign.customScheduleTimes.length > 0 && (
+                        <div>
+                          <p className="text-muted-foreground mb-1">Custom Schedule ({selectedCampaign.customScheduleTimes.length} times)</p>
+                          <p className="font-medium">
+                            {selectedCampaign.customScheduleTimes.map(time => {
+                              const [h, m] = time.split(':');
+                              const hour = parseInt(h);
+                              const period = hour >= 12 ? 'PM' : 'AM';
+                              const displayHour = hour % 12 || 12;
+                              return `${displayHour}:${m} ${period}`;
+                            }).join(', ')}
+                          </p>
+                        </div>
+                      )}
+                      
                       <div>
                         <p className="text-muted-foreground mb-1">Backgrounds ({selectedCampaign.backgrounds.length})</p>
                         <p className="font-medium">{selectedCampaign.backgrounds.join(', ')}</p>
@@ -325,6 +373,10 @@ export default function CampaignsPage() {
                       <div>
                         <p className="text-muted-foreground mb-1">Auto-Post to TikTok</p>
                         <p className="font-medium">{selectedCampaign.autoPostToTikTok ? 'Enabled ✓' : 'Disabled'}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground mb-1">Auto-Post to YouTube</p>
+                        <p className="font-medium">{selectedCampaign.autoPostToYouTube ? 'Enabled ✓' : 'Disabled'}</p>
                       </div>
                     </div>
                   </div>

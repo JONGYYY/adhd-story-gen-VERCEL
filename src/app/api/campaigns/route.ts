@@ -110,6 +110,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate first run time
+    console.log('=== Campaign Creation - Calculating Next Run ===');
+    console.log('Frequency:', body.frequency);
+    console.log('Schedule Time:', body.scheduleTime);
+    console.log('Custom Schedule Times:', body.customScheduleTimes);
+    console.log('Interval Hours:', body.intervalHours);
+    console.log('Times Per Day:', body.timesPerDay);
+    console.log('Distributed Times:', body.distributedTimes);
+    
     const nextRunAt = calculateNextRunTime(
       body.frequency,
       body.scheduleTime,
@@ -118,6 +126,12 @@ export async function POST(request: NextRequest) {
       body.timesPerDay,
       body.distributedTimes
     );
+    
+    console.log('Calculated Next Run:');
+    console.log('  Timestamp:', nextRunAt);
+    console.log('  ISO Date:', new Date(nextRunAt).toISOString());
+    console.log('  Local String:', new Date(nextRunAt).toString());
+    console.log('=============================================');
 
     // Create campaign
     const now = Date.now();

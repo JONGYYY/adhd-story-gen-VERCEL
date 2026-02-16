@@ -326,7 +326,21 @@ export default function BatchCreate() {
 
         // Show success and redirect
         const nextRun = new Date(data.nextRunAt);
-        alert(`Auto-pilot campaign created! First batch will run at ${nextRun.toLocaleString()}`);
+        const formattedTime = nextRun.toLocaleString('en-US', {
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        alert(`Auto-pilot campaign created! First batch will run at ${formattedTime}`);
+        console.log('Campaign created - Next run at:', {
+          timestamp: data.nextRunAt,
+          date: nextRun.toISOString(),
+          localTime: formattedTime,
+          customScheduleTimes: schedule.customScheduleTimes
+        });
         window.location.href = '/dashboard';
       }
     } catch (error) {
