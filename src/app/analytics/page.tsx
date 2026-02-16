@@ -100,11 +100,13 @@ export default function Analytics() {
   const fetchYoutubeStats = async () => {
     try {
       const response = await fetch('/api/social-media/youtube/analytics');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.channel) {
-          setYoutubeStats(data.channel);
-        }
+      const data = await response.json();
+      
+      if (response.ok && data.success && data.channel) {
+        setYoutubeStats(data.channel);
+      } else if (data.reconnectRequired) {
+        console.error('YouTube reconnection required:', data.error);
+        // Could show a toast/alert here
       }
     } catch (error) {
       console.error('Failed to fetch YouTube stats:', error);

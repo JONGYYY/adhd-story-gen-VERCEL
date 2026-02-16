@@ -70,7 +70,43 @@ export async function GET(request: NextRequest) {
     } else {
       // Get channel-level analytics
       console.log('Fetching channel analytics');
-      const channelAnalytics = await youtubeApi.getChannelAnalytics(credentials.accessToken);
+      
+      // Check if token is expired and refresh if needed
+      const now = Date.now();
+      const isExpired = credentials.expiresAt && credentials.expiresAt < now;
+      const isExpiringSoon = credentials.expiresAt && credentials.expiresAt < now + (5 * 60 * 1000); // Within 5 minutes
+      
+      let accessToken = credentials.accessToken;
+      
+      if ((isExpired || isExpiringSoon) && credentials.refreshToken) {
+        console.log('YouTube token expired or expiring soon, refreshing...');
+        try {
+          const newTokens = await youtubeApi.refreshAccessToken(credentials.refreshToken);
+          accessToken = newTokens.access_token;
+          
+          // Update stored credentials in Firebase
+          const { setSocialMediaCredentialsServer } = await import('@/lib/social-media/schema');
+          await setSocialMediaCredentialsServer(userId, 'youtube', {
+            accessToken: newTokens.access_token,
+            expiresAt: newTokens.expires_at,
+            refreshToken: newTokens.refresh_token || credentials.refreshToken,
+          });
+          
+          console.log('YouTube token refreshed successfully');
+        } catch (refreshError) {
+          console.error('Failed to refresh YouTube token:', refreshError);
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'YouTube access token expired. Please disconnect and reconnect YouTube.',
+            reconnectRequired: true
+          }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+      
+      const channelAnalytics = await youtubeApi.getChannelAnalytics(accessToken);
       
       return new Response(JSON.stringify({
         success: true,
