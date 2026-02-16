@@ -225,6 +225,7 @@ export class TikTokAPI {
       const response = await fetch(userUrl, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'Accept-Encoding': 'identity', // Disable gzip to avoid Node.js fetch decompression issues
         },
       });
 
@@ -288,6 +289,7 @@ export class TikTokAPI {
       const response = await fetch(statsUrl, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
+          'Accept-Encoding': 'identity', // Disable gzip to avoid Node.js fetch decompression issues
         },
       });
 
@@ -335,6 +337,7 @@ export class TikTokAPI {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
+          'Accept-Encoding': 'identity', // Disable gzip to avoid Node.js fetch decompression issues
         },
         body: JSON.stringify({
           publish_id: publishId
@@ -396,6 +399,7 @@ export class TikTokAPI {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
+          'Accept-Encoding': 'identity', // Disable gzip to avoid Node.js fetch decompression issues
         },
         body: JSON.stringify({}),
         signal: controller.signal
@@ -510,6 +514,7 @@ export class TikTokAPI {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
+            'Accept-Encoding': 'identity', // Disable gzip to avoid Node.js fetch decompression issues
           },
           body: JSON.stringify({
             post_info: {
