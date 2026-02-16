@@ -99,12 +99,13 @@ export async function POST(request: NextRequest) {
     const userId = decodedClaims?.uid;
     
     // SECURITY: Rate limiting (IP + user-based)
-    const rateLimitResponse = await rateLimit(
-      request, 
-      RATE_LIMITS.VIDEO_GENERATION,
-      userId
-    );
-    if (rateLimitResponse) return rateLimitResponse;
+    // TEMPORARILY DISABLED FOR APPLICATION TESTING - RE-ENABLE AFTER TIKTOK APPLICATION APPROVAL
+    // const rateLimitResponse = await rateLimit(
+    //   request, 
+    //   RATE_LIMITS.VIDEO_GENERATION,
+    //   userId
+    // );
+    // if (rateLimitResponse) return rateLimitResponse;
     
     // SECURITY: Parse and validate request body
     const rawBody = await request.json();

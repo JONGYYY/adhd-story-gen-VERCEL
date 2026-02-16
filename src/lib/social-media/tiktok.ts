@@ -406,8 +406,27 @@ export class TikTokAPI {
       const data = await response.json();
       console.log('Creator info response status:', response.status);
 
-      if (!response.ok) {
+      // TikTok returns HTTP 200 even for errors - check error.code field
+      // Per UX Guidelines Point 1b: Check for posting limits
+      if (data.error && data.error.code !== 'ok') {
         console.error('Creator info error response:', data);
+        
+        // Handle specific error codes per TikTok documentation
+        if (data.error.code === 'spam_risk_too_many_posts') {
+          throw new Error('POSTING_LIMIT_REACHED: You have reached the daily post limit (15 posts/24h). Please try again later.');
+        }
+        if (data.error.code === 'spam_risk_user_banned_from_posting') {
+          throw new Error('USER_BANNED: Your account is temporarily banned from posting. Please contact TikTok support.');
+        }
+        if (data.error.code === 'reached_active_user_cap') {
+          throw new Error('APP_LIMIT_REACHED: This app has reached its daily active user limit. Please try again tomorrow.');
+        }
+        
+        throw new Error(`TikTok API error: ${data.error.message || data.error.code || 'Failed to get creator info'}`);
+      }
+
+      if (!response.ok) {
+        console.error('Creator info HTTP error response:', data);
         throw new Error(`TikTok API error: ${data.error?.message || data.message || 'Failed to get creator info'}`);
       }
 

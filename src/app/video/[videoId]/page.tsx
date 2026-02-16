@@ -13,6 +13,7 @@ type VideoStatus = {
   videoUrl?: string;
   error?: string;
   title?: string; // Story title for auto-filling upload modals
+  duration?: number; // Video duration in seconds (for TikTok max duration check)
 };
 
 export default function VideoPage() {
@@ -45,17 +46,18 @@ export default function VideoPage() {
           const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media';
           videoUrl = `${API_BASE}${videoUrl}`;
         }
-        console.log('[Video Page] API response data:', { status: data.status, title: data.title, hasVideoUrl: !!data.videoUrl });
+        console.log('[Video Page] API response data:', { status: data.status, title: data.title, hasVideoUrl: !!data.videoUrl, duration: data.duration });
         
         setVideoStatus({
           status: uiStatus,
           progress: typeof data.progress === 'number' ? data.progress : (uiStatus === 'ready' ? 100 : 0),
           error: data.error,
           videoUrl: uiStatus === 'ready' ? videoUrl : undefined,
-          title: data.title || undefined // Include story title from backend
+          title: data.title || undefined, // Include story title from backend
+          duration: data.duration || undefined // Include video duration for TikTok validation
         });
         
-        console.log('[Video Page] videoStatus updated with title:', data.title);
+        console.log('[Video Page] videoStatus updated with title:', data.title, 'duration:', data.duration);
 
         // If still generating, check again in 2 seconds
         if (data.status === 'generating' || data.status === 'processing') {
@@ -181,7 +183,7 @@ export default function VideoPage() {
         throw new Error(result.error || 'Upload failed');
       }
       
-      // Close modal and show success message
+      // Close modal and show initial success message
       setShowUploadModal(false);
       
       // Show appropriate success message based on privacy level
@@ -191,10 +193,49 @@ export default function VideoPage() {
         ? 'FRIENDS'
         : 'PRIVATE';
       const message = data.privacyLevel === 'PUBLIC_TO_EVERYONE' 
-        ? 'Video uploaded to TikTok as PUBLIC! It should appear on your profile shortly.' 
-        : `Video uploaded to TikTok as ${privacyLabel}. You can change the privacy settings in TikTok.`;
+        ? 'Video uploaded to TikTok as PUBLIC! Checking status...' 
+        : `Video uploaded to TikTok as ${privacyLabel}. Checking status...`;
       
       alert(message);
+      
+      // Point 5e: Poll publish status API to show users the status of their post
+      if (result.result?.publish_id) {
+        console.log('Polling TikTok publish status...');
+        
+        // Poll status after a short delay (TikTok needs time to process)
+        setTimeout(async () => {
+          try {
+            const statusResponse = await fetch('/api/social-media/tiktok/status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ publishId: result.result.publish_id })
+            });
+            
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              const status = statusData.data?.status || 'UNKNOWN';
+              
+              let statusMessage = '';
+              if (status === 'PUBLISH_COMPLETE') {
+                statusMessage = '✅ Your video is now live on TikTok!';
+              } else if (status === 'PROCESSING_DOWNLOAD' || status === 'PROCESSING_UPLOAD') {
+                statusMessage = '⏳ Your video is still processing. Check your TikTok profile in a few minutes.';
+              } else if (status === 'FAILED') {
+                const failReason = statusData.data?.fail_reason || 'Unknown error';
+                statusMessage = `❌ Upload failed: ${failReason}`;
+              } else {
+                statusMessage = `Status: ${status}. Check your TikTok profile shortly.`;
+              }
+              
+              console.log('TikTok publish status:', status);
+              alert(statusMessage);
+            }
+          } catch (statusError) {
+            console.error('Failed to check TikTok status:', statusError);
+            // Don't show error to user - upload was successful, status check is just extra info
+          }
+        }, 3000); // Wait 3 seconds before checking status
+      }
       
     } catch (error) {
       console.error('TikTok upload error:', error);
@@ -325,6 +366,7 @@ export default function VideoPage() {
         onUpload={handleTikTokUpload}
         isUploading={isUploading}
         videoUrl={videoStatus.videoUrl}
+        videoDuration={videoStatus.duration}
       />
       
       <YouTubeUploadModal

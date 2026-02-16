@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getVideoStatus } from '@/lib/video-generator/status';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -77,6 +78,7 @@ async function getRailwayVideoStatus(videoId: string) {
     error: result.error,
     videoUrl: status === 'ready' ? videoUrl : null,
     title: result.title || undefined, // Include title for auto-fill
+    duration: result.duration || undefined, // Include duration for TikTok validation
   };
 }
 
@@ -87,6 +89,18 @@ export async function GET(
   try {
     // First, try to get local status
     const localStatus = await getVideoStatus(params.videoId);
+    
+    // Try to get video metadata from Firestore for additional info (duration, title)
+    let firestoreMetadata = null;
+    try {
+      const db = await getAdminFirestore();
+      const doc = await db.collection('videos').doc(params.videoId).get();
+      if (doc.exists) {
+        firestoreMetadata = doc.data();
+      }
+    } catch (firestoreError) {
+      console.log('Could not fetch Firestore metadata:', firestoreError);
+    }
     
     // If local status is not_found, try Railway API
     if (localStatus.status === 'not_found') {
@@ -117,9 +131,17 @@ export async function GET(
         });
       }
     } else {
-      // Return local status if found
+      // Return local status if found, merge with Firestore metadata
       console.log('Found local video status:', JSON.stringify(localStatus, null, 2));
-      return new Response(JSON.stringify(localStatus), {
+      
+      const response = {
+        ...localStatus,
+        // Add Firestore metadata if available
+        title: localStatus.title || firestoreMetadata?.title,
+        duration: localStatus.duration || firestoreMetadata?.duration,
+      };
+      
+      return new Response(JSON.stringify(response), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',

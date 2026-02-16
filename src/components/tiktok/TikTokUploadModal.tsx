@@ -54,6 +54,7 @@ interface TikTokUploadModalProps {
   }) => void;
   isUploading: boolean;
   videoUrl?: string;
+  videoDuration?: number; // Video duration in seconds (for max duration check)
 }
 
 const CAPTION_MAX_LENGTH = 2200;
@@ -65,7 +66,7 @@ const PRIVACY_LABELS: Record<string, { label: string; icon: any; description: st
   'SELF_ONLY': { label: 'Private', icon: Lock, description: 'Only you' }
 };
 
-export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, videoUrl }: TikTokUploadModalProps) {
+export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, videoUrl, videoDuration }: TikTokUploadModalProps) {
   // Creator info state
   const [creatorInfo, setCreatorInfo] = useState<CreatorInfo | null>(null);
   const [loadingCreatorInfo, setLoadingCreatorInfo] = useState(false);
@@ -75,10 +76,10 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
   const [caption, setCaption] = useState('');
   const [privacyLevel, setPrivacyLevel] = useState<string>(''); // NO DEFAULT!
   
-  // Interaction settings (default ALL enabled for user convenience)
-  const [allowComments, setAllowComments] = useState(true);
-  const [allowDuet, setAllowDuet] = useState(true);
-  const [allowStitch, setAllowStitch] = useState(true);
+  // Interaction settings (default ALL UNCHECKED per TikTok UX Guidelines Point 2c)
+  const [allowComments, setAllowComments] = useState(false);
+  const [allowDuet, setAllowDuet] = useState(false);
+  const [allowStitch, setAllowStitch] = useState(false);
   
   // Commercial content
   const [commercialContentToggle, setCommercialContentToggle] = useState(false);
@@ -94,15 +95,24 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
       fetchCreatorInfo();
     }
   }, [open]);
+  
+  // CRITICAL: Ensure interaction settings start unchecked when modal opens (TikTok UX Guidelines Point 2c)
+  useEffect(() => {
+    if (open) {
+      setAllowComments(false);
+      setAllowDuet(false);
+      setAllowStitch(false);
+    }
+  }, [open]);
 
   // Reset form when modal closes
   useEffect(() => {
     if (!open) {
       setCaption('');
       setPrivacyLevel('');
-      setAllowComments(true);
-      setAllowDuet(true);
-      setAllowStitch(true);
+      setAllowComments(false); // Reset to unchecked (per TikTok UX Guidelines)
+      setAllowDuet(false);
+      setAllowStitch(false);
       setCommercialContentToggle(false);
       setYourBrand(false);
       setBrandedContent(false);
@@ -205,7 +215,19 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
           ...data.data, // Merge live data (might have updated limits)
         }));
       } else {
-        console.log('Live TikTok API fetch failed, using stored data');
+        // Check for posting limit errors (Point 1b)
+        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = errorData.error || 'Failed to fetch creator info';
+        
+        if (errorMsg.includes('POSTING_LIMIT_REACHED') || errorMsg.includes('daily post limit')) {
+          setCreatorInfoError('⚠️ You have reached the daily post limit (15 posts/24h). Please try again later.');
+          console.error('TikTok posting limit reached');
+        } else if (errorMsg.includes('USER_BANNED') || errorMsg.includes('banned from posting')) {
+          setCreatorInfoError('🚫 Your account is temporarily banned from posting. Please contact TikTok support.');
+          console.error('TikTok user banned from posting');
+        } else {
+          console.log('Live TikTok API fetch failed, using stored data');
+        }
       }
     } catch (error) {
       // Silently fail - we already have stored data showing
@@ -222,10 +244,39 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
 
   // Validation for publish button
   const canPublish = () => {
+    // Point 1b: Block publishing if there's a posting limit error
+    if (creatorInfoError && (creatorInfoError.includes('daily post limit') || creatorInfoError.includes('banned'))) {
+      return false;
+    }
+    
     if (isOverLimit) return false;
     if (!privacyLevel) return false; // Privacy is required
     if (commercialContentToggle && !yourBrand && !brandedContent) return false; // Need at least one when toggle is on
+    
+    // Point 1c: Check video duration against max allowed
+    if (creatorInfo && videoDuration && videoDuration > creatorInfo.max_video_post_duration_sec) {
+      return false;
+    }
+    
     return true;
+  };
+  
+  // Get validation error message for disabled publish button
+  const getValidationError = () => {
+    // Point 1b: Show posting limit errors
+    if (creatorInfoError && (creatorInfoError.includes('daily post limit') || creatorInfoError.includes('banned'))) {
+      return creatorInfoError;
+    }
+    
+    if (isOverLimit) return "Caption exceeds maximum length";
+    if (!privacyLevel) return "Please select a privacy level";
+    if (commercialContentToggle && !yourBrand && !brandedContent) {
+      return "You need to indicate if your content promotes yourself, a third party, or both";
+    }
+    if (creatorInfo && videoDuration && videoDuration > creatorInfo.max_video_post_duration_sec) {
+      return `Video is too long (${Math.round(videoDuration)}s). Maximum allowed: ${creatorInfo.max_video_post_duration_sec}s`;
+    }
+    return "";
   };
 
   // Get compliance declaration with clickable links
@@ -479,7 +530,7 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
               {/* Interaction Settings */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Interaction Settings</Label>
-                <p className="text-xs text-muted-foreground">Control who can interact with your video (enabled by default)</p>
+                <p className="text-xs text-muted-foreground">Manually enable interaction features for your video</p>
                 
                 <div className="space-y-2">
                   {/* Allow Comments */}
@@ -674,13 +725,7 @@ export function TikTokUploadModal({ open, onOpenChange, onUpload, isUploading, v
                     onClick={handleUpload}
                     className="w-full bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-white shadow-lg shadow-primary/30"
                     disabled={isUploading || !canPublish()}
-                    title={
-                      commercialContentToggle && !yourBrand && !brandedContent
-                        ? "You need to indicate if your content promotes yourself, a third party, or both"
-                        : !privacyLevel
-                        ? "Please select a privacy level"
-                        : ""
-                    }
+                    title={getValidationError()}
                   >
                     {isUploading ? (
                       <>
