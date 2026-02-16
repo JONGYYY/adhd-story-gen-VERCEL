@@ -570,20 +570,23 @@ export class TikTokAPI {
         }
 
         // Parse response JSON with timeout
-        // TikTok returns JSON, so we call .json() directly
-        // For 200 OK responses, this should work quickly
+        // TikTok returns gzipped JSON - use .text() first then JSON.parse() to avoid gzip hanging
         let initData;
         
         try {
-          // Call .json() directly with a 10-second timeout
-          // This is faster than .text() + JSON.parse() and handles gzip better
-          console.log('Parsing init response as JSON...');
-          initData = await Promise.race([
-            initResponse.json(),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('JSON parsing timed out after 10 seconds')), 10000)
+          console.log('Reading init response as text...');
+          // First get the text (handles gzip properly)
+          const responseText = await Promise.race([
+            initResponse.text(),
+            new Promise<string>((_, reject) => 
+              setTimeout(() => reject(new Error('Text read timed out after 5 seconds')), 5000)
             )
           ]);
+          console.log('✅ Response text received, length:', responseText.length);
+          
+          // Then parse the JSON
+          console.log('Parsing JSON...');
+          initData = JSON.parse(responseText);
           console.log('✅ Parsed init response successfully');
           console.log('Init response data:', JSON.stringify(initData).substring(0, 300));
         } catch (error) {
@@ -591,9 +594,9 @@ export class TikTokAPI {
           console.error('Response status was:', initResponse.status);
           console.error('Response headers:', JSON.stringify(Object.fromEntries(initResponse.headers.entries())));
           
-          // If JSON parsing fails, this might be a gzip decompression issue or timeout
+          // If parsing fails, provide helpful error message
           if (error instanceof Error && error.message.includes('timed out')) {
-            throw new Error(`TikTok response timed out - this might be a network issue. Try again in a moment.`);
+            throw new Error(`TikTok response timed out while reading. Please try again.`);
           }
           
           throw new Error(`Failed to parse TikTok init response: ${error instanceof Error ? error.message : 'Parse error'}`);
