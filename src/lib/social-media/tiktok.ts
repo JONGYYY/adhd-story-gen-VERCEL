@@ -650,6 +650,7 @@ export class TikTokAPI {
               'Content-Type': 'video/mp4',
               'Content-Length': String(videoSize),
               'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
+              'Accept-Encoding': 'identity', // Disable gzip to avoid Node.js fetch decompression issues
             },
             // Node's fetch BodyInit typing doesn't accept Buffer in some TS DOM lib setups.
             // Convert to Uint8Array/ArrayBuffer to satisfy typings while preserving bytes.
