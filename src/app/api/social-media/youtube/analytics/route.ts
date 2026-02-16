@@ -84,15 +84,23 @@ export async function GET(request: NextRequest) {
           const newTokens = await youtubeApi.refreshAccessToken(credentials.refreshToken);
           accessToken = newTokens.access_token;
           
+          console.log('New token details:', {
+            hasAccessToken: !!newTokens.access_token,
+            expiresIn: newTokens.expires_in,
+            expiryDate: newTokens.expiry_date,
+            calculatedExpiresAt: Date.now() + ((newTokens.expires_in || 3600) * 1000)
+          });
+          
           // Update stored credentials in Firebase
           const { setSocialMediaCredentialsServer } = await import('@/lib/social-media/schema');
           await setSocialMediaCredentialsServer(userId, 'youtube', {
             accessToken: newTokens.access_token,
-            expiresAt: newTokens.expires_at,
+            expiresAt: newTokens.expiry_date || (Date.now() + ((newTokens.expires_in || 3600) * 1000)),
+            // Use new refresh token if provided, otherwise keep existing one
             refreshToken: newTokens.refresh_token || credentials.refreshToken,
           });
           
-          console.log('YouTube token refreshed successfully');
+          console.log('YouTube token refreshed and saved to Firebase successfully');
         } catch (refreshError) {
           console.error('Failed to refresh YouTube token:', refreshError);
           return new Response(JSON.stringify({

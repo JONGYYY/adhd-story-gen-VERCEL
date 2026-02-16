@@ -110,11 +110,18 @@ export class YouTubeAPI {
 
         const tokens = await response.json();
         console.log('Access token refreshed successfully');
+        console.log('Token response:', {
+          hasAccessToken: !!tokens.access_token,
+          hasRefreshToken: !!tokens.refresh_token,
+          expiresIn: tokens.expires_in,
+          tokenType: tokens.token_type
+        });
         
         return {
           access_token: tokens.access_token,
-          expires_in: tokens.expires_in,
-          expiry_date: Date.now() + (tokens.expires_in * 1000)
+          refresh_token: tokens.refresh_token, // Google may return a new refresh token
+          expires_in: tokens.expires_in || 3600,
+          expiry_date: Date.now() + ((tokens.expires_in || 3600) * 1000)
         };
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
