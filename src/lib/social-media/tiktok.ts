@@ -134,17 +134,37 @@ export class TikTokAPI {
         pkce: Boolean(opts?.codeVerifier),
       });
 
-      const response = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Cache-Control': 'no-cache',
-        },
-        body: params.toString(),
-      });
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.error('Token exchange timed out after 30 seconds');
+        controller.abort();
+      }, 30000); // 30 second timeout
 
+      let response;
+      try {
+        response = await fetch(tokenUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Cache-Control': 'no-cache',
+          },
+          body: params.toString(),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.error('Token exchange request timed out');
+          throw new Error('TikTok token exchange timed out. Please try again.');
+        }
+        throw fetchError;
+      }
+
+      console.log('Token response received - status:', response.status);
       const data = await response.json();
-      console.log('Token response status:', response.status);
+      console.log('Token response parsed successfully');
       
       if (!response.ok) {
         console.error('Token error response:', data);
