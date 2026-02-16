@@ -510,6 +510,16 @@ export class YouTubeAPI {
 
     const channel = channelRes.data.items[0];
 
+    // Log channel statistics for debugging
+    console.log('=== YouTube Channel Statistics ===');
+    console.log('Channel Name:', channel.snippet?.title);
+    console.log('Channel ID:', channel.id);
+    console.log('Subscriber Count:', channel.statistics?.subscriberCount);
+    console.log('Hidden Subscriber Count:', channel.statistics?.hiddenSubscriberCount);
+    console.log('Total Views:', channel.statistics?.viewCount);
+    console.log('Total Videos:', channel.statistics?.videoCount);
+    console.log('===================================');
+
     // Get analytics for different time periods
     const endDate = new Date().toISOString().split('T')[0];
     const startDate30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -518,6 +528,9 @@ export class YouTubeAPI {
 
     try {
       // Get aggregated metrics for last 30 days
+      console.log('=== Fetching YouTube Analytics (30 days) ===');
+      console.log('Date Range:', startDate30, 'to', endDate);
+      
       const analyticsRes = await youtubeAnalytics.reports.query({
         auth: this.oauth2Client,
         ids: 'channel==MINE',
@@ -526,7 +539,23 @@ export class YouTubeAPI {
         metrics: 'views,likes,comments,shares,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost',
       });
 
+      console.log('Analytics API Response:');
+      console.log('  Column Headers:', analyticsRes.data.columnHeaders?.map(h => h.name).join(', '));
+      console.log('  Rows:', analyticsRes.data.rows);
+      console.log('  Number of rows:', analyticsRes.data.rows?.length || 0);
+
       const metrics = analyticsRes.data.rows?.[0] || [];
+      
+      console.log('Parsed Metrics:');
+      console.log('  Views:', metrics[0]);
+      console.log('  Likes:', metrics[1]);
+      console.log('  Comments:', metrics[2]);
+      console.log('  Shares:', metrics[3]);
+      console.log('  Watch Time (minutes):', metrics[4]);
+      console.log('  Avg View Duration (seconds):', metrics[5]);
+      console.log('  Subscribers Gained:', metrics[6]);
+      console.log('  Subscribers Lost:', metrics[7]);
+      console.log('=============================================');
 
       // Get daily breakdown for last 30 days (for charts)
       const dailyAnalyticsRes = await youtubeAnalytics.reports.query({
@@ -583,10 +612,26 @@ export class YouTubeAPI {
         subscribersGained: row[3] || 0,
       }));
 
+      // Handle hidden subscriber count
+      const isSubscriberCountHidden = channel.statistics?.hiddenSubscriberCount === true;
+      const subscriberCount = isSubscriberCountHidden 
+        ? null 
+        : parseInt(channel.statistics?.subscriberCount || '0');
+      
+      console.log('Final Analytics Summary:');
+      console.log('  Subscribers:', subscriberCount, isSubscriberCountHidden ? '(HIDDEN BY CHANNEL)' : '');
+      console.log('  Total Views:', channel.statistics?.viewCount);
+      console.log('  Total Videos:', channel.statistics?.videoCount);
+      console.log('  30-day Views:', metrics[0]);
+      console.log('  30-day Watch Time:', metrics[4], 'minutes');
+      console.log('  30-day Engagement:', (metrics[1] || 0) + (metrics[2] || 0), 'interactions');
+      console.log('=============================================');
+
       return {
         channelName: channel.snippet?.title || '',
         channelId: channel.id || '',
-        subscribers: parseInt(channel.statistics?.subscriberCount || '0'),
+        subscribers: subscriberCount,
+        subscribersHidden: isSubscriberCountHidden,
         totalViews: parseInt(channel.statistics?.viewCount || '0'),
         totalVideos: parseInt(channel.statistics?.videoCount || '0'),
         last30Days: {
@@ -608,11 +653,23 @@ export class YouTubeAPI {
       };
     } catch (error) {
       console.error('Failed to fetch YouTube Analytics time-series data:', error);
+      console.error('Error type:', error instanceof Error ? error.message : String(error));
+      
+      // Handle hidden subscriber count even in error case
+      const isSubscriberCountHidden = channel.statistics?.hiddenSubscriberCount === true;
+      const subscriberCount = isSubscriberCountHidden 
+        ? null 
+        : parseInt(channel.statistics?.subscriberCount || '0');
+      
+      console.log('Returning basic channel stats (Analytics API failed)');
+      console.log('  Subscribers:', subscriberCount, isSubscriberCountHidden ? '(HIDDEN)' : '');
+      
       // If analytics fail, return basic channel stats
       return {
         channelName: channel.snippet?.title || '',
         channelId: channel.id || '',
-        subscribers: parseInt(channel.statistics?.subscriberCount || '0'),
+        subscribers: subscriberCount,
+        subscribersHidden: isSubscriberCountHidden,
         totalViews: parseInt(channel.statistics?.viewCount || '0'),
         totalVideos: parseInt(channel.statistics?.videoCount || '0'),
         last30Days: {

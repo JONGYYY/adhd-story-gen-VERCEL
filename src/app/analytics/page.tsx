@@ -140,13 +140,25 @@ export default function Analytics() {
     },
     {
       name: 'Subscribers',
-      value: youtubeStats ? new Intl.NumberFormat('en-US', { notation: 'compact' }).format(youtubeStats.subscribers) : youtubeLoading ? '...' : 'N/A',
-      change: youtubeStats?.last30Days ? `+${youtubeStats.last30Days.subscribersGained - youtubeStats.last30Days.subscribersLost} (30d)` : 'N/A',
+      value: youtubeStats 
+        ? (youtubeStats.subscribersHidden 
+          ? 'Hidden' 
+          : (youtubeStats.subscribers !== null 
+            ? new Intl.NumberFormat('en-US', { notation: 'compact' }).format(youtubeStats.subscribers) 
+            : 'Hidden'))
+        : youtubeLoading ? '...' : 'N/A',
+      change: youtubeStats?.last30Days && !youtubeStats.subscribersHidden 
+        ? `+${youtubeStats.last30Days.subscribersGained - youtubeStats.last30Days.subscribersLost} (30d)` 
+        : youtubeStats?.subscribersHidden 
+        ? 'Count is private' 
+        : 'N/A',
       trend: 'up' as const,
       icon: Users,
       color: 'from-orange-500 to-amber-500',
       bgGlow: 'group-hover:shadow-orange-500/[0.02]',
-      description: 'Your YouTube channel subscribers',
+      description: youtubeStats?.subscribersHidden 
+        ? 'Subscriber count is set to private in channel settings' 
+        : 'Your YouTube channel subscribers',
     },
     {
       name: 'Watch Time (30d)',
@@ -1012,11 +1024,18 @@ export default function Analytics() {
                         <p className="text-sm text-muted-foreground">Subscribers</p>
                       </div>
                       <p className="text-2xl font-bold bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
-                        {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(youtubeStats.subscribers)}
+                        {youtubeStats.subscribersHidden || youtubeStats.subscribers === null 
+                          ? 'Hidden' 
+                          : new Intl.NumberFormat('en-US', { notation: 'compact' }).format(youtubeStats.subscribers)}
                       </p>
-                      {youtubeStats.last30Days?.subscribersGained > 0 && (
+                      {!youtubeStats.subscribersHidden && youtubeStats.last30Days?.subscribersGained > 0 && (
                         <p className="text-xs text-green-400 mt-1">
                           +{youtubeStats.last30Days.subscribersGained} (30d)
+                        </p>
+                      )}
+                      {youtubeStats.subscribersHidden && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Set to private
                         </p>
                       )}
                     </div>
