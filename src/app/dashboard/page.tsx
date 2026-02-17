@@ -265,7 +265,7 @@ export default function Dashboard() {
               {/* Spline 3D Animation */}
               <div className="relative w-full max-w-md h-80 lg:h-96 rounded-2xl overflow-hidden border border-border/50 bg-gradient-to-br from-primary/5 to-background">
                 <iframe
-                  src="https://my.spline.design/untitled-4aa1457133de60519083ab3ae6b88c07/"
+                  src="https://my.spline.design/motiontrails-ZiCdJJM5xJrgyBDFQruyulyd/"
                   frameBorder="0"
                   width="100%"
                   height="100%"

@@ -10,8 +10,8 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
-    // SECURITY: Rate limiting
-    const rateLimitResponse = await rateLimit(request, RATE_LIMITS.VIDEO_GENERATION);
+    // SECURITY: Rate limiting - Using READ limits (100/15min) as scraping is not resource-intensive
+    const rateLimitResponse = await rateLimit(request, RATE_LIMITS.READ);
     if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();
