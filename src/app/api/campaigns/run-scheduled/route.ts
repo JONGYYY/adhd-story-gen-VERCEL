@@ -17,6 +17,7 @@ import {
   incrementUrlIndex,
   updateCampaignStatus,
 } from '@/lib/campaigns/db';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 import { generateBatch, BatchGenerationConfig } from '@/lib/campaigns/batch-generator';
 import { postBatchToTikTok } from '@/lib/campaigns/tiktok-autopost';
 import { postBatchToYouTube } from '@/lib/campaigns/youtube-autopost';
