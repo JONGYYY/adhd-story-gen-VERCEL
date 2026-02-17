@@ -364,13 +364,13 @@ export default function BatchCreate() {
             <p className="text-lg text-muted-foreground">
               Create multiple videos at once with smart automation
             </p>
-          </div>
+        </div>
 
           {/* Error Alert */}
           {error && (
             <div className="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400">
               {error}
-            </div>
+      </div>
           )}
 
           {/* Generating State */}
@@ -378,7 +378,7 @@ export default function BatchCreate() {
             <div className="mb-8 card-elevo">
               <div className="text-center space-y-4">
                 <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
-                <div>
+          <div>
                   <h3 className="font-semibold mb-2">Generating your batch...</h3>
                   <p className="text-sm text-muted-foreground mb-4">
                     Creating {numVideos} videos ({Math.round(numVideos * 2)} - {Math.round(numVideos * 3)} minutes)
@@ -473,7 +473,7 @@ export default function BatchCreate() {
                         onClick={() => toggleSource('reddit')}
                         className={`relative p-6 rounded-2xl border-2 transition-all text-left ${
                           selectedSources.has('reddit')
-                            ? 'border-primary bg-primary/5'
+                    ? 'border-primary bg-primary/5'
                             : 'border-border hover:border-primary/30'
                         }`}
                       >
@@ -485,13 +485,13 @@ export default function BatchCreate() {
                         {selectedSources.has('reddit') && (
                           <CheckCircle2 className="absolute top-4 right-4 w-6 h-6 text-primary" />
                         )}
-                      </button>
-                    </div>
-                  </div>
+              </button>
+            </div>
+          </div>
 
                   {/* Subreddit Selection */}
                   {(selectedSources.has('ai') || selectedSources.has('reddit')) && (
-                    <div>
+            <div>
                       <label className="block text-sm font-medium mb-3">Select Subreddits (will rotate across videos)</label>
                       <div className="space-y-4">
                         {Object.entries(subredditCategories).map(([category, subs]) => (
@@ -966,12 +966,12 @@ export default function BatchCreate() {
                         </div>
                       ) : (
                         <>
-                          <input
-                            type="range"
-                            min="1"
+              <input
+                type="range"
+                min="1"
                             max="10"
-                            value={numVideos}
-                            onChange={(e) => setNumVideos(parseInt(e.target.value))}
+                value={numVideos}
+                onChange={(e) => setNumVideos(parseInt(e.target.value))}
                             className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                           />
                           <div className="flex items-center justify-between mt-2">
@@ -979,14 +979,14 @@ export default function BatchCreate() {
                             <div className="flex items-center gap-2">
                               <span className="text-2xl font-bold text-primary">{numVideos}</span>
                               <span className="text-muted-foreground">videos</span>
-                            </div>
+              </div>
                             <span className="text-sm text-muted-foreground">10 videos</span>
                           </div>
                         </>
                       )}
                     </div>
-                  </div>
-                )}
+            </div>
+          )}
 
                 {/* Optional Content Rotation */}
                 {storySource && storySource !== 'link' && (
@@ -1000,7 +1000,7 @@ export default function BatchCreate() {
                           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                             <Settings2 className="w-6 h-6 text-primary" />
                           </div>
-                          <div>
+          <div>
                             <h4 className="font-semibold mb-1">Content Rotation (Optional)</h4>
                             <p className="text-sm text-muted-foreground">
                               {showContentRotation ? 'Customize rotation settings below' : 'Add variety with multiple sources, subreddits, backgrounds & voices'}
@@ -1102,27 +1102,27 @@ export default function BatchCreate() {
               </div>
             </div>
           )}
-                </div>
-                )}
+            </div>
+          )}
 
                 {/* Select Background */}
                 {storySource && (
                   <div className="card-elevo">
                     <div className="flex items-center gap-3 mb-6">
                       <div className="number-badge">{showContentRotation ? '5' : '4'}</div>
-                      <div>
+          <div>
                         <h2 className="text-2xl font-bold">Select Background</h2>
                         <p className="text-sm text-muted-foreground">Choose visual content{showContentRotation ? ' (select multiple for rotation)' : ''}</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                      {backgrounds.map((bg) => (
-                        <button
-                          key={bg.id}
-                          onClick={() => toggleBackground(bg.id)}
+              {backgrounds.map((bg) => (
+                <button
+                  key={bg.id}
+                  onClick={() => toggleBackground(bg.id)}
                           className={`relative group rounded-2xl overflow-hidden border-2 transition-all ${
-                            selectedBackgrounds.has(bg.id)
+                    selectedBackgrounds.has(bg.id)
                               ? 'border-primary ring-2 ring-primary/20'
                               : 'border-border hover:border-primary/30'
                           }`}
@@ -1137,12 +1137,12 @@ export default function BatchCreate() {
                               <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
                                 <Check className="w-4 h-4 text-white" />
                               </div>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                    )}
                   </div>
+                </button>
+              ))}
+            </div>
+          </div>
                 )}
 
                 {/* Select Voice */}
@@ -1150,20 +1150,20 @@ export default function BatchCreate() {
                   <div className="card-elevo">
                     <div className="flex items-center gap-3 mb-6">
                       <div className="number-badge">{showContentRotation ? '6' : '5'}</div>
-                      <div>
+          <div>
                         <h2 className="text-2xl font-bold">Select Voice</h2>
                         <p className="text-sm text-muted-foreground">Choose narrator{showContentRotation ? ' (select multiple for rotation)' : ''}</p>
                       </div>
                     </div>
 
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {voices.map((voice) => (
+              {voices.map((voice) => (
                         <button
-                          key={voice.id}
+                  key={voice.id}
                           onClick={() => toggleVoice(voice.id)}
                           className={`relative p-5 rounded-2xl border-2 text-left transition-all ${
-                            selectedVoices.has(voice.id)
-                              ? 'border-primary bg-primary/5'
+                    selectedVoices.has(voice.id)
+                      ? 'border-primary bg-primary/5'
                               : 'border-border hover:border-primary/30'
                           }`}
                         >
@@ -1198,7 +1198,7 @@ export default function BatchCreate() {
                       <div>
                         <label className="block text-sm font-medium mb-2">Story Length</label>
                         <div className="grid grid-cols-1 gap-3">
-                          <button
+                    <button 
                             onClick={() => setStoryLength('1 min+ (Cliffhanger)')}
                             className={`p-4 rounded-xl border-2 text-left transition-all ${
                               storyLength === '1 min+ (Cliffhanger)'
@@ -1219,13 +1219,13 @@ export default function BatchCreate() {
                           >
                             <h4 className="font-semibold mb-1">Full Story</h4>
                             <p className="text-xs text-muted-foreground">Complete narrative</p>
-                          </button>
-                        </div>
+                    </button>
+                  </div>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium mb-2">Reddit UI Overlay</label>
-                        <button
+                  <button
                           onClick={() => setShowRedditUI(!showRedditUI)}
                           className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
                             showRedditUI
@@ -1246,10 +1246,10 @@ export default function BatchCreate() {
                               } mt-0.5`} />
                             </div>
                           </div>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  </button>
+                </div>
+            </div>
+          </div>
                 )}
 
                 {/* Auto-Posting Options */}
@@ -1257,7 +1257,7 @@ export default function BatchCreate() {
                   <div className="card-elevo">
                     <div className="flex items-center gap-3 mb-6">
                       <div className="number-badge">{showContentRotation ? '8' : storySource === 'link' ? '5' : '7'}</div>
-                      <div>
+          <div>
                         <h2 className="text-2xl font-bold">Auto-Posting</h2>
                         <p className="text-sm text-muted-foreground">Automatically post to platforms</p>
                       </div>
@@ -1276,8 +1276,8 @@ export default function BatchCreate() {
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
                               📱
-                            </div>
-                            <div>
+              </div>
+              <div>
                               <h3 className="font-semibold mb-1">Auto-Post to TikTok</h3>
                               <p className="text-xs text-muted-foreground">Upload to TikTok</p>
                             </div>
@@ -1304,19 +1304,19 @@ export default function BatchCreate() {
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
                               📺
-                            </div>
-                            <div>
+              </div>
+              <div>
                               <h3 className="font-semibold mb-1">Auto-Post to YouTube</h3>
                               <p className="text-xs text-muted-foreground">Upload to YouTube</p>
-                            </div>
-                          </div>
+              </div>
+            </div>
                           <div className={`w-12 h-6 rounded-full transition-colors ${
                             autoPostToYouTube ? 'bg-primary' : 'bg-muted'
                           }`}>
                             <div className={`w-5 h-5 rounded-full bg-white transition-transform transform ${
                               autoPostToYouTube ? 'translate-x-6' : 'translate-x-0.5'
                             } mt-0.5`} />
-                          </div>
+          </div>
                         </div>
                       </button>
                     </div>
@@ -1339,7 +1339,7 @@ export default function BatchCreate() {
                   >
                     <Zap className="w-5 h-5 mr-2" />
                     Start Auto-Pilot Campaign
-                  </Button>
+          </Button>
                 )}
               </TabsContent>
             </Tabs>

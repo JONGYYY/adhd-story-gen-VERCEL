@@ -387,9 +387,18 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error('[Campaign Scheduler] Error:', error);
+    console.error('[Campaign Scheduler] Fatal Error:', error);
+    console.error('[Campaign Scheduler] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('[Campaign Scheduler] Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
-      { error: 'Scheduler error' },
+      { 
+        error: 'Scheduler error',
+        message: error instanceof Error ? error.message : String(error),
+        details: process.env.NODE_ENV === 'development' ? error : undefined
+      },
       { status: 500 }
     );
   }
