@@ -112,6 +112,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // CLEANUP: Clear stuck "currentlyRunning" flags from runs that started >15 minutes ago
+    // This handles cases where previous runs crashed without clearing the flag
+    const db = await getAdminFirestore();
+    const fifteenMinutesAgo = Date.now() - (15 * 60 * 1000);
+    const stuckCampaigns = await db
+      .collection('campaigns')
+      .where('currentlyRunning', '==', true)
+      .where('lastRunStartedAt', '<', fifteenMinutesAgo)
+      .get();
+    
+    if (!stuckCampaigns.empty) {
+      console.log(`[Campaign Scheduler] Found ${stuckCampaigns.docs.length} campaigns with stuck running flag, clearing...`);
+      const batch = db.batch();
+      stuckCampaigns.docs.forEach(doc => {
+        batch.update(doc.ref, { 
+          currentlyRunning: false,
+          lastRunStartedAt: null 
+        });
+      });
+      await batch.commit();
+      console.log(`[Campaign Scheduler] Cleared ${stuckCampaigns.docs.length} stuck flags`);
+    }
+
     // Get campaigns due to run
     const campaigns = await getCampaignsDueToRun();
     
