@@ -58,6 +58,11 @@ export async function POST(request: NextRequest) {
     }
 
     const railwayApiUrl = process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media';
+    console.log('[Campaign Scheduler] Railway API URL:', railwayApiUrl);
+    console.log('[Campaign Scheduler] Environment variables:', {
+      RAILWAY_API_URL: process.env.RAILWAY_API_URL ? 'Set' : 'Not set',
+      NEXT_PUBLIC_RAILWAY_API_URL: process.env.NEXT_PUBLIC_RAILWAY_API_URL ? 'Set' : 'Not set',
+    });
     
     const results = [];
 
