@@ -299,7 +299,8 @@ export async function POST(request: NextRequest) {
           campaign.intervalHours,
           campaign.timesPerDay,
           campaign.distributedTimes,
-          Date.now() // Pass current time as lastRunAt
+          Date.now(), // Pass current time as lastRunAt
+          campaign.userTimezoneOffset // Use stored timezone offset
         );
 
         // Update campaign

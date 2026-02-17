@@ -23,49 +23,83 @@ export function calculateDistributedTimes(timesPerDay: number): string[] {
 
 /**
  * Find next distributed time from a list of times
+ * 
+ * @param distributedTimes - Array of "HH:MM" times in user's local timezone
+ * @param userTimezoneOffset - User's timezone offset in minutes (from Date.getTimezoneOffset())
+ *                             Positive values = west of UTC (e.g., PST = +480, EST = +300)
+ *                             If undefined, assumes code is running in user's timezone (client-side)
  */
-export function findNextDistributedTime(distributedTimes: string[]): number {
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+export function findNextDistributedTime(
+  distributedTimes: string[], 
+  userTimezoneOffset?: number
+): number {
+  const now = Date.now();
   
-  console.log('findNextDistributedTime called:');
-  console.log('  Input times:', distributedTimes);
-  console.log('  Current time:', now.toLocaleTimeString(), `(${currentMinutes} minutes)`);
-  
-  // Convert times to minutes and find the next one
+  // Convert schedule times to minutes since midnight
   const timesInMinutes = distributedTimes.map(time => {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
-  });
+  }).sort((a, b) => a - b); // Sort times chronologically
   
-  // Sort times to ensure proper ordering
-  timesInMinutes.sort((a, b) => a - b);
-  
+  console.log('findNextDistributedTime called:');
+  console.log('  Input times:', distributedTimes);
   console.log('  Times in minutes (sorted):', timesInMinutes);
+  console.log('  User timezone offset:', userTimezoneOffset, 'minutes');
+  
+  // Calculate current time in user's timezone
+  let currentTimeInUserTz: Date;
+  if (userTimezoneOffset !== undefined) {
+    // Server-side: Convert UTC to user's local time
+    // offset = minutes WEST of UTC, so we subtract to get user's local time
+    currentTimeInUserTz = new Date(now - (userTimezoneOffset * 60 * 1000));
+  } else {
+    // Client-side: already in user's timezone
+    currentTimeInUserTz = new Date(now);
+  }
+  
+  const currentMinutes = currentTimeInUserTz.getHours() * 60 + currentTimeInUserTz.getMinutes();
+  console.log('  Current time (user TZ):', currentTimeInUserTz.toISOString());
+  console.log('  Current minutes:', currentMinutes);
   
   // Find next time today
-  const nextTime = timesInMinutes.find(t => t > currentMinutes);
+  const nextTimeToday = timesInMinutes.find(t => t > currentMinutes);
   
-  if (nextTime !== undefined) {
-    // Next time is today
-    const nextRun = new Date();
-    nextRun.setHours(Math.floor(nextTime / 60), nextTime % 60, 0, 0);
-    console.log('  Next time TODAY:', nextRun.toLocaleString());
-    return nextRun.getTime();
+  let nextRunInUserTz: Date;
+  if (nextTimeToday !== undefined) {
+    // Next run is today
+    nextRunInUserTz = new Date(currentTimeInUserTz);
+    nextRunInUserTz.setHours(Math.floor(nextTimeToday / 60), nextTimeToday % 60, 0, 0);
+    console.log('  Next run is TODAY at', Math.floor(nextTimeToday / 60), ':', nextTimeToday % 60);
   } else {
     // All times passed today, use first time tomorrow
-    const firstTime = timesInMinutes[0];
-    const nextRun = new Date();
-    nextRun.setDate(nextRun.getDate() + 1);
-    nextRun.setHours(Math.floor(firstTime / 60), firstTime % 60, 0, 0);
-    console.log('  Next time TOMORROW:', nextRun.toLocaleString());
-    return nextRun.getTime();
+    nextRunInUserTz = new Date(currentTimeInUserTz);
+    nextRunInUserTz.setDate(nextRunInUserTz.getDate() + 1);
+    nextRunInUserTz.setHours(Math.floor(timesInMinutes[0] / 60), timesInMinutes[0] % 60, 0, 0);
+    console.log('  Next run is TOMORROW at', Math.floor(timesInMinutes[0] / 60), ':', timesInMinutes[0] % 60);
   }
+  
+  // Convert back to UTC timestamp
+  let nextRunUTC: number;
+  if (userTimezoneOffset !== undefined) {
+    // Server-side: Convert user's local time to UTC
+    nextRunUTC = nextRunInUserTz.getTime() + (userTimezoneOffset * 60 * 1000);
+  } else {
+    // Client-side: already a valid timestamp
+    nextRunUTC = nextRunInUserTz.getTime();
+  }
+  
+  console.log('  Next run (user TZ):', nextRunInUserTz.toISOString());
+  console.log('  Next run (UTC):', new Date(nextRunUTC).toISOString());
+  
+  return nextRunUTC;
 }
 
 /**
  * Calculate next run time based on frequency
  * This is the main scheduling function used by both client (for preview) and server (for actual scheduling)
+ * 
+ * @param userTimezoneOffset - User's timezone offset in minutes (from Date.getTimezoneOffset())
+ *                             If not provided, assumes server and user are in the same timezone
  */
 export function calculateNextRunTime(
   frequency: CampaignConfig['frequency'],
@@ -74,7 +108,8 @@ export function calculateNextRunTime(
   intervalHours?: number,
   timesPerDay?: number,
   distributedTimes?: string[],
-  lastRunAt?: number
+  lastRunAt?: number,
+  userTimezoneOffset?: number
 ): number {
   const now = new Date();
   
@@ -86,46 +121,28 @@ export function calculateNextRunTime(
   
   // Times per day: Find next distributed time
   if (frequency === 'times-per-day' && distributedTimes) {
-    return findNextDistributedTime(distributedTimes);
+    return findNextDistributedTime(distributedTimes, userTimezoneOffset);
   }
   
+  // Custom schedule times
+  if (frequency === 'custom' && customScheduleTimes && customScheduleTimes.length > 0) {
+    return findNextDistributedTime(customScheduleTimes, userTimezoneOffset);
+  }
+  
+  // For daily and twice-daily, parse the schedule time
   const [hours, minutes] = scheduleTime.split(':').map(Number);
   
   if (frequency === 'daily') {
-    const nextRun = new Date();
-    nextRun.setHours(hours, minutes, 0, 0);
-    
-    // If time has passed today, schedule for tomorrow
-    if (nextRun <= now) {
-      nextRun.setDate(nextRun.getDate() + 1);
-    }
-    
-    return nextRun.getTime();
+    // Use the same approach as findNextDistributedTime for consistency
+    return findNextDistributedTime([scheduleTime], userTimezoneOffset);
   }
   
   if (frequency === 'twice-daily') {
     // Run at scheduleTime and 12 hours later
-    const morningRun = new Date();
-    morningRun.setHours(hours, minutes, 0, 0);
-    
-    const eveningRun = new Date(morningRun);
-    eveningRun.setHours(eveningRun.getHours() + 12);
-    
-    // Find next available time
-    if (now < morningRun) {
-      return morningRun.getTime();
-    } else if (now < eveningRun) {
-      return eveningRun.getTime();
-    } else {
-      // Both times passed, schedule morning run for tomorrow
-      morningRun.setDate(morningRun.getDate() + 1);
-      return morningRun.getTime();
-    }
-  }
-  
-  if (frequency === 'custom' && customScheduleTimes && customScheduleTimes.length > 0) {
-    // Use the same logic as findNextDistributedTime for consistency
-    return findNextDistributedTime(customScheduleTimes);
+    const secondHour = (hours + 12) % 24;
+    const firstTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    const secondTime = `${secondHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    return findNextDistributedTime([firstTime, secondTime], userTimezoneOffset);
   }
   
   // Default: 24 hours from now

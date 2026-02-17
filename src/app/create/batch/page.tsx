@@ -303,6 +303,7 @@ export default function BatchCreate() {
             distributedTimes: scheduleConfig.frequency === 'times-per-day' && scheduleConfig.timesPerDay 
               ? calculateDistributedTimes(scheduleConfig.timesPerDay)
               : undefined,
+            userTimezoneOffset: new Date().getTimezoneOffset(), // Send user's timezone offset to server
             videosPerBatch: storySource === 'link' ? 1 : numVideos,
             sources: Array.from(selectedSources),
             subreddits: Array.from(selectedSubreddits),

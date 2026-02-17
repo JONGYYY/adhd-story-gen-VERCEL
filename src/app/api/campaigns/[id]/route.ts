@@ -146,12 +146,20 @@ export async function PATCH(
     if (
       updates.frequency !== undefined ||
       updates.scheduleTime !== undefined ||
-      updates.customScheduleTimes !== undefined
+      updates.customScheduleTimes !== undefined ||
+      updates.intervalHours !== undefined ||
+      updates.timesPerDay !== undefined ||
+      updates.distributedTimes !== undefined
     ) {
       nextRunAt = calculateNextRunTime(
         updates.frequency || campaign.frequency,
         updates.scheduleTime || campaign.scheduleTime,
-        updates.customScheduleTimes || campaign.customScheduleTimes
+        updates.customScheduleTimes || campaign.customScheduleTimes,
+        updates.intervalHours ?? campaign.intervalHours,
+        updates.timesPerDay ?? campaign.timesPerDay,
+        updates.distributedTimes || campaign.distributedTimes,
+        undefined, // lastRunAt
+        campaign.userTimezoneOffset // Use stored timezone offset
       );
     }
 

@@ -117,6 +117,7 @@ export async function POST(request: NextRequest) {
     console.log('Interval Hours:', body.intervalHours);
     console.log('Times Per Day:', body.timesPerDay);
     console.log('Distributed Times:', body.distributedTimes);
+    console.log('User Timezone Offset:', body.userTimezoneOffset, 'minutes');
     
     const nextRunAt = calculateNextRunTime(
       body.frequency,
@@ -124,7 +125,9 @@ export async function POST(request: NextRequest) {
       body.customScheduleTimes,
       body.intervalHours,
       body.timesPerDay,
-      body.distributedTimes
+      body.distributedTimes,
+      undefined, // lastRunAt
+      body.userTimezoneOffset
     );
     
     console.log('Calculated Next Run:');
@@ -177,6 +180,9 @@ export async function POST(request: NextRequest) {
     }
     if (body.redditUrls && body.redditUrls.length > 0) {
       campaignData.redditUrls = body.redditUrls;
+    }
+    if (body.userTimezoneOffset !== undefined && body.userTimezoneOffset !== null) {
+      campaignData.userTimezoneOffset = body.userTimezoneOffset;
     }
 
     const campaignId = await createCampaign(campaignData);

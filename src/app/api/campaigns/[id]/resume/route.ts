@@ -60,7 +60,8 @@ export async function POST(
       campaign.intervalHours,
       campaign.timesPerDay,
       campaign.distributedTimes,
-      Date.now()
+      Date.now(),
+      campaign.userTimezoneOffset
     );
     
     // Resume campaign

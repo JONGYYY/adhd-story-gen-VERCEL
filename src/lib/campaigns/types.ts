@@ -41,6 +41,7 @@ export interface CampaignConfig {
   intervalHours?: number;          // For 'interval' frequency (e.g., 4 = every 4 hours)
   timesPerDay?: number;            // For 'times-per-day' frequency (e.g., 3 = 3x daily)
   distributedTimes?: string[];     // Auto-calculated times for 'times-per-day'
+  userTimezoneOffset?: number;     // User's timezone offset in minutes (from Date.getTimezoneOffset())
   
   // Auto-posting
   autoPostToTikTok: boolean;
@@ -115,6 +116,7 @@ export interface CreateCampaignRequest {
   intervalHours?: number;
   timesPerDay?: number;
   distributedTimes?: string[];
+  userTimezoneOffset?: number;
 }
 
 export interface UpdateCampaignRequest {
