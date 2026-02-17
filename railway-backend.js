@@ -1655,6 +1655,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // IMPORTANT: Use libass to render word captions from a file.
   // This avoids huge filtergraphs (one drawtext per word) that can fail on longer videos.
   
+  console.log('[captions] === CAPTION PROCESSING START ===');
+  console.log('[captions] Word timestamps type:', typeof wordTimestamps);
+  console.log('[captions] Word timestamps isArray:', Array.isArray(wordTimestamps));
+  console.log('[captions] Word timestamps length:', wordTimestamps?.length || 0);
+  
   // VALIDATION: Check if we have valid word timestamps
   if (!Array.isArray(wordTimestamps) || wordTimestamps.length === 0) {
     console.warn('[captions] No valid word timestamps, skipping captions entirely');
@@ -1699,20 +1704,28 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
       // current stays as 'v_banner', no v_cap created
     } else {
       // Apply ass filter (libass) - CORRECT SYNTAX from working commit c8f0f5c
-      // Escape commas/colons for filtergraph option parsing (simple escaping, no quotes)
-      const assEsc = assPath.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
-      const fontsDir = path.join(__dirname, 'public', 'fonts');
-      const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
-      const fontsDirEsc = fontsDir.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
-      
-      console.log('[captions] Escaped ASS path:', assEsc);
-      console.log('[captions] Fonts dir exists:', fontsDirExists);
-      
-      // CRITICAL: Use FULL ass filter syntax with filename=, original_size=, and fontsdir= parameters
-      // This is the EXACT syntax from commit c8f0f5c that was working
-      filter += `;[${current}]ass=filename=${assEsc}:original_size=1080x1920${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
-      current = 'v_cap';
-      console.log('[captions] Caption filter added to graph');
+      try {
+        // Escape commas/colons for filtergraph option parsing (simple escaping, no quotes)
+        const assEsc = assPath.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
+        const fontsDir = path.join(__dirname, 'public', 'fonts');
+        const fontsDirExists = (() => { try { return fs.existsSync(fontsDir); } catch { return false; } })();
+        const fontsDirEsc = fontsDir.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
+        
+        console.log('[captions] Escaped ASS path:', assEsc);
+        console.log('[captions] Fonts dir exists:', fontsDirExists);
+        
+        // CRITICAL: Use FULL ass filter syntax with filename=, original_size=, and fontsdir= parameters
+        // This is the EXACT syntax from commit c8f0f5c that was working
+        const captionFilter = `;[${current}]ass=filename=${assEsc}:original_size=1080x1920${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
+        filter += captionFilter;
+        current = 'v_cap';
+        console.log('[captions] Caption filter added to graph');
+        console.log('[captions] Caption filter string:', captionFilter);
+      } catch (captionBuildError) {
+        console.error('[captions] ERROR building caption filter:', captionBuildError.message);
+        console.log('[captions] Skipping captions due to filter build error, using v_banner as final output');
+        // current stays as 'v_banner', no v_cap created
+      }
     }
     } catch (err) {
       console.error('[captions] ERROR checking ASS file:', err.message);
