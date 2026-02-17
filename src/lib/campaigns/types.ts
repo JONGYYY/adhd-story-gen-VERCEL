@@ -52,6 +52,10 @@ export interface CampaignConfig {
   updatedAt: number;
   lastRunAt?: number;
   nextRunAt?: number;
+  lastRunStartedAt?: number;      // When the current run started (for concurrency control)
+  
+  // Concurrency control
+  currentlyRunning?: boolean;     // Prevents concurrent runs of the same campaign
   
   // Statistics
   totalVideosGenerated: number;

@@ -312,9 +312,9 @@ export default function Analytics() {
   const viewsTimeSeriesData = getYouTubeTimeSeriesData('views', timeFrame);
   const youtubeViewsData = {
     labels: viewsTimeSeriesData.labels.length > 0 ? viewsTimeSeriesData.labels : ['No Data'],
-    datasets: [
-      {
-        label: 'Views',
+      datasets: [
+        {
+          label: 'Views',
         data: viewsTimeSeriesData.data.length > 0 ? viewsTimeSeriesData.data : [0],
         borderColor: 'rgb(239, 68, 68)',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -340,8 +340,8 @@ export default function Analytics() {
         data: subscribersTimeSeriesData.data.length > 0 ? subscribersTimeSeriesData.data : [0],
         borderColor: 'rgb(249, 115, 22)',
         backgroundColor: 'rgba(249, 115, 22, 0.1)',
-        tension: 0.4,
-        fill: true,
+          tension: 0.4,
+          fill: true,
         pointRadius: 5,
         pointHoverRadius: 7,
         pointBackgroundColor: 'rgb(249, 115, 22)',
@@ -362,8 +362,8 @@ export default function Analytics() {
         data: watchTimeTimeSeriesData.data.length > 0 ? watchTimeTimeSeriesData.data : [0],
         borderColor: 'rgb(168, 85, 247)',
         backgroundColor: 'rgba(168, 85, 247, 0.1)',
-        tension: 0.4,
-        fill: true,
+          tension: 0.4,
+          fill: true,
         pointRadius: 5,
         pointHoverRadius: 7,
         pointBackgroundColor: 'rgb(168, 85, 247)',

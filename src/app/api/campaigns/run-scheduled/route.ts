@@ -39,7 +39,7 @@ async function waitForVideosToComplete(
   videoIds: string[],
   userId: string,
   railwayApiUrl: string,
-  maxWaitTime: number = 180000 // 3 minutes max wait per video
+  maxWaitTime: number = 420000 // 7 minutes max wait per video (increased from 3 min)
 ): Promise<void> {
   console.log(`[Campaign Scheduler] Polling ${videoIds.length} videos for completion...`);
   
@@ -137,7 +137,19 @@ export async function POST(request: NextRequest) {
     // Process each campaign
     for (const campaign of campaigns) {
       try {
+        // CRITICAL: Check if campaign is already running (prevent concurrent runs)
+        if (campaign.currentlyRunning) {
+          console.log(`[Campaign Scheduler] Skipping campaign "${campaign.name}" (${campaign.id}) - already running`);
+          continue;
+        }
+        
         console.log(`[Campaign Scheduler] Running campaign: ${campaign.name} (${campaign.id})`);
+        
+        // Mark campaign as running
+        await updateCampaign(campaign.id, {
+          currentlyRunning: true,
+          lastRunStartedAt: Date.now(),
+        });
 
         let redditUrl: string | undefined;
         
@@ -150,6 +162,11 @@ export async function POST(request: NextRequest) {
             console.log(`[Campaign Scheduler] Campaign ${campaign.id} completed - all URLs used`);
             
             await updateCampaignStatus(campaign.id, 'completed');
+            
+            // Clear running flag
+            await updateCampaign(campaign.id, {
+              currentlyRunning: false,
+            });
             
             // Send completion email
             const userEmail = await getUserEmail(campaign.userId);
@@ -262,6 +279,7 @@ export async function POST(request: NextRequest) {
                 status: 'paused',
                 lastFailureAt: Date.now(),
                 failureReason: errorMessage,
+                currentlyRunning: false, // Clear running flag on YouTube token failure
               });
               
               // Update campaign run as failed
@@ -320,7 +338,8 @@ export async function POST(request: NextRequest) {
           await updateCampaign(campaign.id, {
             status: 'paused',
             lastFailureAt: Date.now(),
-            failureReason: errorMessage
+            failureReason: errorMessage,
+            currentlyRunning: false, // Clear running flag on failure
           });
           
           // Update campaign run as failed
@@ -398,6 +417,7 @@ export async function POST(request: NextRequest) {
           totalVideosGenerated: campaign.totalVideosGenerated + result.videoIds.length,
           totalVideosPosted: campaign.totalVideosPosted + totalPosted,
           failedGenerations: campaign.failedGenerations + result.failedVideos,
+          currentlyRunning: false, // Clear running flag on success
         });
 
         // Send email notification
@@ -441,6 +461,7 @@ export async function POST(request: NextRequest) {
           lastFailureAt: Date.now(),
           failureReason: errorMessage,
           failedGenerations: campaign.failedGenerations + (campaign.useRedditUrls ? 1 : campaign.videosPerBatch),
+          currentlyRunning: false, // Clear running flag on error
         });
 
         // Send failure notification
