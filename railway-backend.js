@@ -2092,23 +2092,31 @@ async function generateVideoHandler(req, res) {
 	try {
 		console.log('Received video generation request.'); // Added log
 		
-		// Extract userId from session cookie (Firebase Admin validation)
+		// Extract userId from session cookie OR request body (for server-side campaign calls)
 		let userId = null;
+		
+		// Try session cookie first (client-side requests)
 		try {
 			const sessionCookie = req.cookies?.session;
 			if (sessionCookie && firestoreDb) {
 				const auth = admin.auth();
 				const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
 				userId = decodedClaims.uid;
-				console.log('[auth] User authenticated:', userId);
+				console.log('[auth] User authenticated via session cookie:', userId);
 			}
 		} catch (authError) {
 			console.error('[auth] Session verification failed:', authError.message);
 		}
 		
+		// If no session cookie, check request body for userId (server-side campaign calls)
+		if (!userId && req.body.userId) {
+			userId = req.body.userId;
+			console.log('[auth] User ID provided in request body (server-side call):', userId);
+		}
+		
 		// SECURITY: userId is required for persistent storage
 		if (!userId) {
-			console.warn('[auth] No valid session - video will use ephemeral storage only');
+			console.warn('[auth] No valid session or userId - video will use ephemeral storage only');
 			// Allow generation to continue for backward compatibility, but warn
 		}
 		

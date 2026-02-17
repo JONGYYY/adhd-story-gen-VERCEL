@@ -42,23 +42,61 @@ async function getUserTikTokCredentials(userId: string): Promise<{
 }
 
 /**
- * Get video file from Railway API
+ * Get video metadata including URL from Railway API
  */
-async function getVideoFile(videoId: string, railwayApiUrl: string): Promise<Buffer | null> {
+async function getVideoMetadata(videoId: string, railwayApiUrl: string): Promise<{
+  videoUrl: string;
+  title?: string;
+} | null> {
   try {
-    const response = await fetch(`${railwayApiUrl}/api/video/${videoId}/download`, {
+    const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}`, {
       method: 'GET',
     });
 
     if (!response.ok) {
-      console.error(`Failed to download video ${videoId}: ${response.status}`);
+      console.error(`Failed to get video status ${videoId}: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    if (!data.videoUrl) {
+      console.error(`No videoUrl in response for ${videoId}`);
+      return null;
+    }
+    
+    return {
+      videoUrl: data.videoUrl,
+      title: data.title,
+    };
+  } catch (error) {
+    console.error(`Failed to fetch video status ${videoId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Download video file from URL
+ */
+async function downloadVideoFile(videoUrl: string): Promise<Buffer | null> {
+  try {
+    console.log(`[TikTok Auto-Post] Downloading video from ${videoUrl}`);
+    
+    const response = await fetch(videoUrl, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to download video from ${videoUrl}: ${response.status}`);
       return null;
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(arrayBuffer);
+    console.log(`[TikTok Auto-Post] Downloaded video (${buffer.length} bytes)`);
+    return buffer;
   } catch (error) {
-    console.error(`Failed to fetch video ${videoId}:`, error);
+    console.error(`Failed to fetch video from ${videoUrl}:`, error);
     return null;
   }
 }
@@ -87,14 +125,26 @@ export async function postVideoToTikTok(
       };
     }
 
-    // Download video file
-    const videoFile = await getVideoFile(videoId, railwayApiUrl);
+    // Get video metadata (includes videoUrl)
+    const metadata = await getVideoMetadata(videoId, railwayApiUrl);
+    if (!metadata || !metadata.videoUrl) {
+      return {
+        success: false,
+        error: 'Failed to get video URL from metadata',
+      };
+    }
+    
+    // Download video file from URL
+    const videoFile = await downloadVideoFile(metadata.videoUrl);
     if (!videoFile) {
       return {
         success: false,
-        error: 'Failed to download video',
+        error: 'Failed to download video file',
       };
     }
+    
+    // Use metadata title if no custom title provided
+    const finalTitle = title || metadata.title || 'New Story';
 
     // Initialize TikTok API
     const tiktokApi = new TikTokAPI(
@@ -105,9 +155,9 @@ export async function postVideoToTikTok(
     // Upload to TikTok
     const result = await tiktokApi.uploadVideo(credentials.accessToken, {
       video_file: videoFile,
-      title: title || 'New Story',
-      description: description,
-      privacy_level: 'SELF_ONLY', // Sandbox mode: drafts only
+      title: finalTitle,
+      description: description || `Watch this story from ${metadata.title || 'Reddit'}!`,
+      privacy_level: 'PUBLIC_TO_EVERYONE', // Production mode: public posts
       disable_comment: false,
       disable_duet: false,
       disable_stitch: false,

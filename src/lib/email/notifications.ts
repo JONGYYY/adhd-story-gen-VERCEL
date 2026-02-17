@@ -123,8 +123,8 @@ export async function sendCampaignCompletionEmail(
  */
 export async function getUserEmail(userId: string): Promise<string | null> {
   try {
-    const { getAuth } = await import('@/lib/firebase-admin');
-    const auth = getAuth();
+    const { getAdminAuth } = await import('@/lib/firebase-admin');
+    const auth = await getAdminAuth();
     const user = await auth.getUser(userId);
     return user.email || null;
   } catch (error) {

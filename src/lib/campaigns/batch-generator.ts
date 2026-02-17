@@ -140,12 +140,16 @@ export async function generateBatch(
       };
 
       // Call Railway API to generate video
+      // Include userId for server-side requests (campaign scheduler)
       const response = await fetch(`${railwayApiUrl}/api/generate-video`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(options),
+        body: JSON.stringify({
+          ...options,
+          userId: config.userId, // Pass userId for server-side metadata storage
+        }),
       });
 
       if (!response.ok) {
@@ -281,12 +285,16 @@ export async function generateBatchWithPolling(
       };
 
       // Call Railway API to generate video
+      // Include userId for server-side requests (campaign scheduler)
       const response = await fetch(`${railwayApiUrl}/api/generate-video`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(options),
+        body: JSON.stringify({
+          ...options,
+          userId: config.userId, // Pass userId for server-side metadata storage
+        }),
       });
 
       if (!response.ok) {
