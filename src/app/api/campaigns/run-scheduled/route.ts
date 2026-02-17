@@ -114,26 +114,31 @@ export async function POST(request: NextRequest) {
     }
 
     // CLEANUP: Clear stuck "currentlyRunning" flags from runs that started >15 minutes ago
-    // This handles cases where previous runs crashed without clearing the flag
-    const db = await getAdminFirestore();
-    const fifteenMinutesAgo = Date.now() - (15 * 60 * 1000);
-    const stuckCampaigns = await db
-      .collection('campaigns')
-      .where('currentlyRunning', '==', true)
-      .where('lastRunStartedAt', '<', fifteenMinutesAgo)
-      .get();
-    
-    if (!stuckCampaigns.empty) {
-      console.log(`[Campaign Scheduler] Found ${stuckCampaigns.docs.length} campaigns with stuck running flag, clearing...`);
-      const batch = db.batch();
-      stuckCampaigns.docs.forEach(doc => {
-        batch.update(doc.ref, { 
-          currentlyRunning: false,
-          lastRunStartedAt: null 
+    // This is a safety net - if it fails (e.g., missing Firestore index), scheduler continues
+    try {
+      const db = await getAdminFirestore();
+      const fifteenMinutesAgo = Date.now() - (15 * 60 * 1000);
+      const stuckCampaigns = await db
+        .collection('campaigns')
+        .where('currentlyRunning', '==', true)
+        .where('lastRunStartedAt', '<', fifteenMinutesAgo)
+        .get();
+      
+      if (!stuckCampaigns.empty) {
+        console.log(`[Campaign Scheduler] Found ${stuckCampaigns.docs.length} campaigns with stuck running flag, clearing...`);
+        const batch = db.batch();
+        stuckCampaigns.docs.forEach(doc => {
+          batch.update(doc.ref, { 
+            currentlyRunning: false,
+            lastRunStartedAt: null 
+          });
         });
-      });
-      await batch.commit();
-      console.log(`[Campaign Scheduler] Cleared ${stuckCampaigns.docs.length} stuck flags`);
+        await batch.commit();
+        console.log(`[Campaign Scheduler] Cleared ${stuckCampaigns.docs.length} stuck flags`);
+      }
+    } catch (cleanupError) {
+      console.warn('[Campaign Scheduler] Cleanup failed (non-critical):', cleanupError instanceof Error ? cleanupError.message : cleanupError);
+      console.warn('[Campaign Scheduler] Continuing without cleanup...');
     }
 
     // Get campaigns due to run
