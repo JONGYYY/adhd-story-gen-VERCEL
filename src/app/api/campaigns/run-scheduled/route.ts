@@ -32,6 +32,70 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes
 
 /**
+ * Wait for videos to complete processing on Railway
+ * Polls video status until all videos are completed or failed
+ */
+async function waitForVideosToComplete(
+  videoIds: string[],
+  railwayApiUrl: string,
+  maxWaitTime: number = 180000 // 3 minutes max wait per video
+): Promise<void> {
+  console.log(`[Campaign Scheduler] Polling ${videoIds.length} videos for completion...`);
+  
+  const startTime = Date.now();
+  const completedVideos = new Set<string>();
+  const failedVideos = new Set<string>();
+  
+  while (completedVideos.size + failedVideos.size < videoIds.length) {
+    // Check if we've exceeded max wait time
+    if (Date.now() - startTime > maxWaitTime * videoIds.length) {
+      console.warn(`[Campaign Scheduler] Polling timeout after ${maxWaitTime * videoIds.length}ms`);
+      break;
+    }
+    
+    // Check status of each pending video
+    for (const videoId of videoIds) {
+      if (completedVideos.has(videoId) || failedVideos.has(videoId)) {
+        continue; // Already processed
+      }
+      
+      try {
+        const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.status === 'completed' && data.videoUrl) {
+            console.log(`[Campaign Scheduler] ✅ Video ${videoId} completed`);
+            completedVideos.add(videoId);
+          } else if (data.status === 'failed') {
+            console.warn(`[Campaign Scheduler] ❌ Video ${videoId} failed: ${data.error || 'Unknown error'}`);
+            failedVideos.add(videoId);
+          } else {
+            console.log(`[Campaign Scheduler] ⏳ Video ${videoId} still processing (${data.status})`);
+          }
+        }
+      } catch (error) {
+        console.error(`[Campaign Scheduler] Error checking video ${videoId}:`, error);
+      }
+    }
+    
+    // If all videos are processed, exit
+    if (completedVideos.size + failedVideos.size >= videoIds.length) {
+      break;
+    }
+    
+    // Wait before next poll (exponential backoff: 2s, 4s, 6s, 8s, max 10s)
+    const pollCount = Math.floor((Date.now() - startTime) / 1000);
+    const waitTime = Math.min(2000 + (pollCount * 1000), 10000);
+    console.log(`[Campaign Scheduler] Waiting ${waitTime}ms before next poll...`);
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+  
+  console.log(`[Campaign Scheduler] Polling complete: ${completedVideos.size} completed, ${failedVideos.size} failed, ${videoIds.length - completedVideos.size - failedVideos.size} timeout`);
+}
+
+/**
  * Run all campaigns that are due
  */
 export async function POST(request: NextRequest) {
@@ -144,6 +208,13 @@ export async function POST(request: NextRequest) {
           failedVideos: result.failedVideos,
           errors: result.errors
         });
+
+        // Wait for all videos to complete processing before autoposting
+        if (result.videoIds.length > 0) {
+          console.log(`[Campaign Scheduler] Waiting for ${result.videoIds.length} videos to complete processing...`);
+          await waitForVideosToComplete(result.videoIds, railwayApiUrl);
+          console.log(`[Campaign Scheduler] All videos are ready for autoposting`);
+        }
 
         // Auto-post to TikTok if enabled and videos were generated
         let tiktokPostResults;
