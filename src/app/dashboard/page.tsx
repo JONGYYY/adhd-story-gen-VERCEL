@@ -260,20 +260,35 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Right: Quick Actions */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link href="/create">
-                <Button className="btn-orange gap-2 h-12 px-6">
-                  <Plus className="w-5 h-5" />
-                  Create Video
-                </Button>
-              </Link>
-              <Link href="/analytics">
-                <Button variant="outline" className="gap-2 h-12 px-6 hover:bg-muted">
-                  <BarChart3 className="w-5 h-5" />
-                  Analytics
-                </Button>
-              </Link>
+            {/* Right: 3D Scene + Quick Actions */}
+            <div className="flex flex-col items-center gap-4">
+              {/* Spline 3D Animation */}
+              <div className="relative w-full max-w-md h-80 lg:h-96 rounded-2xl overflow-hidden border border-border/50 bg-gradient-to-br from-primary/5 to-background">
+                <iframe
+                  src="https://my.spline.design/untitled-4aa1457133de60519083ab3ae6b88c07/"
+                  frameBorder="0"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 'none' }}
+                  title="3D Animation"
+                />
+              </div>
+              
+              {/* Quick Actions */}
+              <div className="flex flex-col sm:flex-row gap-3 w-full">
+                <Link href="/create" className="flex-1">
+                  <Button className="btn-orange gap-2 h-12 px-6 w-full">
+                    <Plus className="w-5 h-5" />
+                    Create Video
+                  </Button>
+                </Link>
+                <Link href="/analytics" className="flex-1">
+                  <Button variant="outline" className="gap-2 h-12 px-6 hover:bg-muted w-full">
+                    <BarChart3 className="w-5 h-5" />
+                    Analytics
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
