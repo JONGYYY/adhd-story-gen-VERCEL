@@ -48,6 +48,7 @@ export default function BatchCreate() {
   const [numVideos, setNumVideos] = useState(5);
   const [storyLength, setStoryLength] = useState<'1 min+ (Cliffhanger)' | 'Full Story Length'>('1 min+ (Cliffhanger)');
   const [showRedditUI, setShowRedditUI] = useState(true);
+  const [videoSpeed, setVideoSpeed] = useState(1.3);
   
   // Auto-pilot specific states
   const [storySource, setStorySource] = useState<'ai' | 'reddit' | 'link' | 'template' | null>(null);
@@ -311,6 +312,7 @@ export default function BatchCreate() {
             voices: Array.from(selectedVoices),
             storyLength,
             showRedditUI,
+            videoSpeed,
             autoPostToTikTok,
             autoPostToYouTube,
             useRedditUrls: storySource === 'link',
@@ -630,7 +632,7 @@ export default function BatchCreate() {
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-medium mb-2">Story Length</label>
                       <div className="grid grid-cols-1 gap-3">
@@ -656,6 +658,32 @@ export default function BatchCreate() {
                           <h4 className="font-semibold mb-1">Full Story</h4>
                           <p className="text-xs text-muted-foreground">Complete narrative</p>
                         </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Video Speed</label>
+                      <div className="space-y-3">
+                        <div className="p-4 rounded-xl border-2 border-border">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-medium">{videoSpeed}x</span>
+                            <span className="text-xs text-muted-foreground">Speed Multiplier</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="2.0"
+                            step="0.1"
+                            value={videoSpeed}
+                            onChange={(e) => setVideoSpeed(parseFloat(e.target.value))}
+                            className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                            <span>0.5x</span>
+                            <span>1.3x (default)</span>
+                            <span>2.0x</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 

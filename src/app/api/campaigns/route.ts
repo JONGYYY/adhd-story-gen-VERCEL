@@ -153,6 +153,7 @@ export async function POST(request: NextRequest) {
       voices: body.voices,
       storyLength: body.storyLength,
       showRedditUI: body.showRedditUI ?? false,
+      videoSpeed: body.videoSpeed ?? 1.3,
       autoPostToTikTok: body.autoPostToTikTok ?? false,
       autoPostToYouTube: body.autoPostToYouTube ?? false,
       useRedditUrls: body.useRedditUrls ?? false,

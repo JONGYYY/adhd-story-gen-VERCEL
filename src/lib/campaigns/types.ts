@@ -31,6 +31,7 @@ export interface CampaignConfig {
   voices: string[];
   storyLength: '1 min+ (Cliffhanger)' | 'Full Story Length';
   showRedditUI: boolean;
+  videoSpeed?: number;                 // Video playback speed multiplier (0.5 - 2.0, default 1.3)
   
   // Reddit URL list support
   redditUrls?: string[];           // List of Reddit URLs to use
@@ -109,6 +110,7 @@ export interface CreateCampaignRequest {
   voices: string[];
   storyLength: '1 min+ (Cliffhanger)' | 'Full Story Length';
   showRedditUI: boolean;
+  videoSpeed?: number;
   autoPostToTikTok: boolean;
   autoPostToYouTube: boolean;
   

@@ -246,6 +246,7 @@ export async function POST(request: NextRequest) {
           voices: campaign.voices,
           storyLength: campaign.storyLength,
           showRedditUI: campaign.showRedditUI,
+          videoSpeed: campaign.videoSpeed ?? 1.3, // Video playback speed multiplier
           redditUrl, // Pass the specific URL if available
         };
 
