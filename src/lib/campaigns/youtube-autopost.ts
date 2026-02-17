@@ -8,12 +8,14 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-const SOCIAL_CREDENTIALS_COLLECTION = 'social_credentials';
+// Use the correct collection name that matches schema.ts
+const SOCIAL_CREDENTIALS_COLLECTION = 'socialMediaCredentials';
 
 export type YouTubeErrorType = 'TOKEN_EXPIRED' | 'TOKEN_REFRESH_FAILED' | 'QUOTA_EXCEEDED' | 'NETWORK_ERROR' | 'UNKNOWN';
 
 /**
  * Get user's YouTube credentials
+ * NOTE: Credentials are stored as separate documents with ID: ${userId}_youtube
  */
 async function getUserYouTubeCredentials(userId: string): Promise<{
   accessToken: string;
@@ -22,21 +24,23 @@ async function getUserYouTubeCredentials(userId: string): Promise<{
 } | null> {
   try {
     const db = await getAdminFirestore();
-    const doc = await db.collection(SOCIAL_CREDENTIALS_COLLECTION).doc(userId).get();
+    // Document ID format: ${userId}_youtube (e.g., "abc123_youtube")
+    const doc = await db.collection(SOCIAL_CREDENTIALS_COLLECTION).doc(`${userId}_youtube`).get();
 
     if (!doc.exists) {
       return null;
     }
 
     const data = doc.data();
-    if (!data?.youtube?.accessToken) {
+    // Credentials are stored directly on the document, not nested under 'youtube'
+    if (!data?.accessToken) {
       return null;
     }
 
     return {
-      accessToken: data.youtube.accessToken,
-      refreshToken: data.youtube.refreshToken,
-      expiresAt: data.youtube.expiresAt || Date.now() + 3600000, // Default 1 hour if not set
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      expiresAt: data.expiresAt || Date.now() + 3600000, // Default 1 hour if not set
     };
   } catch (error) {
     console.error('Failed to get YouTube credentials:', error);
@@ -46,6 +50,7 @@ async function getUserYouTubeCredentials(userId: string): Promise<{
 
 /**
  * Save refreshed YouTube credentials back to Firestore
+ * NOTE: Must match the schema.ts structure
  */
 async function saveYouTubeCredentials(
   userId: string,
@@ -57,15 +62,15 @@ async function saveYouTubeCredentials(
 ): Promise<void> {
   try {
     const db = await getAdminFirestore();
-    await db.collection(SOCIAL_CREDENTIALS_COLLECTION).doc(userId).set(
+    // Document ID format: ${userId}_youtube
+    await db.collection(SOCIAL_CREDENTIALS_COLLECTION).doc(`${userId}_youtube`).set(
       {
-        youtube: {
-          accessToken: credentials.accessToken,
-          refreshToken: credentials.refreshToken,
-          expiresAt: credentials.expiresAt,
-          connectedAt: Date.now(),
-          lastRefreshed: Date.now(),
-        },
+        accessToken: credentials.accessToken,
+        refreshToken: credentials.refreshToken,
+        expiresAt: credentials.expiresAt,
+        platform: 'youtube',
+        updatedAt: Date.now(),
+        lastRefreshed: Date.now(),
       },
       { merge: true }
     );

@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
 
     // Get Firestore instance
     const db = await getAdminFirestore();
-    const socialCredsCollection = db.collection('social_credentials');
+    // Use the correct collection name that matches schema.ts
+    const socialCredsCollection = db.collection('socialMediaCredentials');
 
     // Find all users with YouTube credentials
     console.log('Fetching all YouTube credentials...');
@@ -89,7 +90,8 @@ export async function POST(request: NextRequest) {
     // Process each user's credentials
     for (const doc of youtubeCredsSnapshot.docs) {
       const credentials = doc.data();
-      const userId = credentials.userId;
+      // Extract userId from document ID (format: "userId_youtube")
+      const userId = doc.id.split('_')[0];
       
       tokensChecked++;
       console.log(`\n[User ${userId}] Checking token...`);

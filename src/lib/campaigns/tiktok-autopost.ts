@@ -5,10 +5,12 @@
 import { getAdminFirestore } from '@/lib/firebase-admin';
 import { TikTokAPI } from '@/lib/social-media/tiktok';
 
-const SOCIAL_CREDENTIALS_COLLECTION = 'social_credentials';
+// Use the correct collection name that matches schema.ts
+const SOCIAL_CREDENTIALS_COLLECTION = 'socialMediaCredentials';
 
 /**
  * Get user's TikTok credentials
+ * NOTE: Credentials are stored as separate documents with ID: ${userId}_tiktok
  */
 async function getUserTikTokCredentials(userId: string): Promise<{
   accessToken: string;
@@ -16,20 +18,22 @@ async function getUserTikTokCredentials(userId: string): Promise<{
 } | null> {
   try {
     const db = await getAdminFirestore();
-    const doc = await db.collection(SOCIAL_CREDENTIALS_COLLECTION).doc(userId).get();
+    // Document ID format: ${userId}_tiktok (e.g., "abc123_tiktok")
+    const doc = await db.collection(SOCIAL_CREDENTIALS_COLLECTION).doc(`${userId}_tiktok`).get();
 
     if (!doc.exists) {
       return null;
     }
 
     const data = doc.data();
-    if (!data?.tiktok?.accessToken) {
+    // Credentials are stored directly on the document, not nested under 'tiktok'
+    if (!data?.accessToken) {
       return null;
     }
 
     return {
-      accessToken: data.tiktok.accessToken,
-      refreshToken: data.tiktok.refreshToken,
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
     };
   } catch (error) {
     console.error('Failed to get TikTok credentials:', error);
