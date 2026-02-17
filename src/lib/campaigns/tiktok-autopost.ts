@@ -116,23 +116,33 @@ export async function postVideoToTikTok(
   publishId?: string;
 }> {
   try {
+    console.log(`[TikTok Auto-Post] Posting video ${videoId} for user ${userId}`);
+    
     // Get user's TikTok credentials
     const credentials = await getUserTikTokCredentials(userId);
     if (!credentials) {
+      console.error(`[TikTok Auto-Post] No TikTok credentials found for user ${userId}`);
       return {
         success: false,
         error: 'TikTok not connected',
       };
     }
+    
+    console.log(`[TikTok Auto-Post] TikTok credentials found for user ${userId}`);
 
     // Get video metadata (includes videoUrl)
+    console.log(`[TikTok Auto-Post] Fetching video metadata from: ${railwayApiUrl}/api/video-status/${videoId}`);
     const metadata = await getVideoMetadata(videoId, railwayApiUrl);
     if (!metadata || !metadata.videoUrl) {
+      console.error(`[TikTok Auto-Post] Failed to get video metadata or URL for ${videoId}`);
+      console.error(`[TikTok Auto-Post] Metadata:`, metadata);
       return {
         success: false,
         error: 'Failed to get video URL from metadata',
       };
     }
+    
+    console.log(`[TikTok Auto-Post] Video metadata retrieved:`, { videoUrl: metadata.videoUrl, title: metadata.title });
     
     // Download video file from URL
     const videoFile = await downloadVideoFile(metadata.videoUrl);

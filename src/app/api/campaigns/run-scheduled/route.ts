@@ -131,7 +131,14 @@ export async function POST(request: NextRequest) {
         };
 
         // Generate batch
+        console.log(`[Campaign Scheduler] Starting batch generation for ${config.videosPerBatch} videos...`);
         const result = await generateBatch(config, railwayApiUrl);
+        console.log(`[Campaign Scheduler] Batch generation complete:`, {
+          success: result.success,
+          videoIds: result.videoIds,
+          failedVideos: result.failedVideos,
+          errors: result.errors
+        });
 
         // Auto-post to TikTok if enabled and videos were generated
         let tiktokPostResults;

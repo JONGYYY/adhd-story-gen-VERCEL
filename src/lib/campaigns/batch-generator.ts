@@ -53,6 +53,10 @@ export async function generateBatch(
   railwayApiUrl: string,
   onProgress?: (completed: number, total: number) => void
 ): Promise<BatchGenerationResult> {
+  console.log('[Batch Generator] === BATCH GENERATION STARTED ===');
+  console.log('[Batch Generator] Config:', JSON.stringify(config, null, 2));
+  console.log('[Batch Generator] Railway API URL:', railwayApiUrl);
+  
   const videoIds: string[] = [];
   const errors: Array<{ index: number; error: string }> = [];
   
@@ -62,8 +66,11 @@ export async function generateBatch(
   const appUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL 
     ? `https://${process.env.VERCEL_URL}` 
     : 'https://taleo.media';
+  
+  console.log('[Batch Generator] App URL for scraping:', appUrl);
 
   for (let i = 0; i < config.videosPerBatch; i++) {
+    console.log(`[Batch Generator] === Starting video ${i + 1}/${config.videosPerBatch} ===`);
     try {
       let customStory;
       
@@ -141,6 +148,9 @@ export async function generateBatch(
 
       // Call Railway API to generate video
       // Include userId for server-side requests (campaign scheduler)
+      console.log(`[Batch Generator] Calling Railway API: ${railwayApiUrl}/api/generate-video`);
+      console.log(`[Batch Generator] Request payload:`, JSON.stringify({ ...options, userId: config.userId }, null, 2));
+      
       const response = await fetch(`${railwayApiUrl}/api/generate-video`, {
         method: 'POST',
         headers: {
@@ -152,17 +162,22 @@ export async function generateBatch(
         }),
       });
 
+      console.log(`[Batch Generator] Railway response status: ${response.status}`);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error(`[Batch Generator] Railway error response:`, errorData);
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
+      console.log(`[Batch Generator] Railway response data:`, data);
 
       if (!data.success || !data.videoId) {
         throw new Error(data.error || 'No video ID returned');
       }
 
+      console.log(`[Batch Generator] Video generated successfully: ${data.videoId}`);
       videoIds.push(data.videoId);
 
       // Report progress
@@ -175,7 +190,11 @@ export async function generateBatch(
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     } catch (error) {
-      console.error(`Failed to generate video ${i + 1}:`, error);
+      console.error(`[Batch Generator] ❌ Failed to generate video ${i + 1}:`, error);
+      console.error(`[Batch Generator] Error details:`, {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+      });
       errors.push({
         index: i,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -183,12 +202,20 @@ export async function generateBatch(
     }
   }
 
-  return {
+  const result = {
     success: errors.length === 0,
     videoIds,
     failedVideos: errors.length,
     errors,
   };
+  
+  console.log('[Batch Generator] === BATCH GENERATION COMPLETED ===');
+  console.log('[Batch Generator] Total videos generated:', videoIds.length);
+  console.log('[Batch Generator] Total videos failed:', errors.length);
+  console.log('[Batch Generator] Video IDs:', videoIds);
+  console.log('[Batch Generator] Errors:', errors);
+  
+  return result;
 }
 
 /**

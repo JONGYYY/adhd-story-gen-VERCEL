@@ -313,9 +313,12 @@ export async function postVideoToYouTube(
   let tempFilePath: string | null = null;
   
   try {
+    console.log(`[YouTube Auto-Post] Starting upload for video ${videoId}, user ${userId}`);
+    
     // Get user's YouTube credentials
     const credentials = await getUserYouTubeCredentials(userId);
     if (!credentials) {
+      console.error(`[YouTube Auto-Post] No YouTube credentials found for user ${userId}`);
       return {
         success: false,
         error: 'YouTube not connected',
@@ -323,7 +326,10 @@ export async function postVideoToYouTube(
       };
     }
     
+    console.log(`[YouTube Auto-Post] YouTube credentials found for user ${userId}`);
+    
     if (!credentials.refreshToken) {
+      console.error(`[YouTube Auto-Post] No refresh token for user ${userId}`);
       return {
         success: false,
         error: 'No refresh token available. User must reconnect YouTube.',
@@ -336,6 +342,7 @@ export async function postVideoToYouTube(
     try {
       validCredentials = await ensureValidToken(userId, credentials);
     } catch (tokenError: any) {
+      console.error(`[YouTube Auto-Post] Token validation failed:`, tokenError);
       return {
         success: false,
         error: tokenError.message || 'Failed to refresh token',
@@ -344,14 +351,20 @@ export async function postVideoToYouTube(
     }
 
     // Get video metadata and URL
+    console.log(`[YouTube Auto-Post] Fetching video metadata from: ${railwayApiUrl}/api/video-status/${videoId}`);
     const videoMetadata = await getVideoMetadata(videoId, railwayApiUrl);
+    console.log(`[YouTube Auto-Post] Video metadata response:`, videoMetadata);
+    
     if (!videoMetadata || !videoMetadata.videoUrl) {
+      console.error(`[YouTube Auto-Post] No video URL found for ${videoId}`);
       return {
         success: false,
         error: 'Failed to get video URL',
         errorType: 'UNKNOWN',
       };
     }
+    
+    console.log(`[YouTube Auto-Post] Video URL obtained: ${videoMetadata.videoUrl}`);
     
     // Create temporary file path
     tempFilePath = path.join(os.tmpdir(), `youtube-upload-${videoId}-${Date.now()}.mp4`);
