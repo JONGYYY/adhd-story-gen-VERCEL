@@ -40,16 +40,27 @@ export default function CampaignsPage() {
 
   const fetchCampaigns = async () => {
     try {
+      console.log('[Campaigns] Fetching campaigns...');
       const response = await fetch('/api/campaigns', {
         credentials: 'include',
       });
 
+      console.log('[Campaigns] Response status:', response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log('[Campaigns] Received data:', data);
+        console.log('[Campaigns] Campaigns count:', data.campaigns?.length || 0);
         setCampaigns(data.campaigns || []);
         if (data.campaigns && data.campaigns.length > 0) {
           setSelectedCampaign(data.campaigns[0]);
+          console.log('[Campaigns] Selected first campaign:', data.campaigns[0].name);
+        } else {
+          console.warn('[Campaigns] No campaigns found in response');
         }
+      } else {
+        console.error('[Campaigns] Response not OK:', response.status, response.statusText);
+        const errorData = await response.text();
+        console.error('[Campaigns] Error response:', errorData);
       }
     } catch (error) {
       console.error('Failed to fetch campaigns:', error);

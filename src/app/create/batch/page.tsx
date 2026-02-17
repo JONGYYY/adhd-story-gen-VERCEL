@@ -340,7 +340,7 @@ export default function BatchCreate() {
           timestamp: data.nextRunAt,
           date: nextRun.toISOString(),
           localTime: formattedTime,
-          customScheduleTimes: schedule.customScheduleTimes
+          scheduleConfig: scheduleConfig
         });
         window.location.href = '/dashboard';
       }
