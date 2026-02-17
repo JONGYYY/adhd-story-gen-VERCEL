@@ -177,13 +177,18 @@ async function downloadVideoToFile(videoUrl: string, filePath: string): Promise<
 /**
  * Get video URL and metadata from Railway API
  */
-async function getVideoMetadata(videoId: string, railwayApiUrl: string): Promise<{
+async function getVideoMetadata(
+  videoId: string, 
+  userId: string,
+  railwayApiUrl: string
+): Promise<{
   videoUrl: string;
   title?: string;
   description?: string;
 } | null> {
   try {
-    const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}`, {
+    // Include userId as query parameter for server-side calls
+    const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}?userId=${userId}`, {
       method: 'GET',
     });
 
@@ -193,6 +198,12 @@ async function getVideoMetadata(videoId: string, railwayApiUrl: string): Promise
     }
 
     const data = await response.json();
+    
+    if (!data.videoUrl) {
+      console.error(`No videoUrl in response for ${videoId}. Status: ${data.status}`);
+      return null;
+    }
+    
     return {
       videoUrl: data.videoUrl,
       title: data.title,
@@ -351,8 +362,8 @@ export async function postVideoToYouTube(
     }
 
     // Get video metadata and URL
-    console.log(`[YouTube Auto-Post] Fetching video metadata from: ${railwayApiUrl}/api/video-status/${videoId}`);
-    const videoMetadata = await getVideoMetadata(videoId, railwayApiUrl);
+    console.log(`[YouTube Auto-Post] Fetching video metadata from: ${railwayApiUrl}/api/video-status/${videoId}?userId=${userId}`);
+    const videoMetadata = await getVideoMetadata(videoId, userId, railwayApiUrl);
     console.log(`[YouTube Auto-Post] Video metadata response:`, videoMetadata);
     
     if (!videoMetadata || !videoMetadata.videoUrl) {

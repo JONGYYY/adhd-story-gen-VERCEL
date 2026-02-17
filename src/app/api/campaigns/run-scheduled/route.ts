@@ -37,6 +37,7 @@ export const maxDuration = 300; // 5 minutes
  */
 async function waitForVideosToComplete(
   videoIds: string[],
+  userId: string,
   railwayApiUrl: string,
   maxWaitTime: number = 180000 // 3 minutes max wait per video
 ): Promise<void> {
@@ -60,20 +61,23 @@ async function waitForVideosToComplete(
       }
       
       try {
-        const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}`);
+        // Include userId in query parameter for server-side calls
+        const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}?userId=${userId}`);
         
         if (response.ok) {
           const data = await response.json();
           
           if (data.status === 'completed' && data.videoUrl) {
-            console.log(`[Campaign Scheduler] ✅ Video ${videoId} completed`);
+            console.log(`[Campaign Scheduler] ✅ Video ${videoId} completed with URL: ${data.videoUrl}`);
             completedVideos.add(videoId);
           } else if (data.status === 'failed') {
             console.warn(`[Campaign Scheduler] ❌ Video ${videoId} failed: ${data.error || 'Unknown error'}`);
             failedVideos.add(videoId);
           } else {
-            console.log(`[Campaign Scheduler] ⏳ Video ${videoId} still processing (${data.status})`);
+            console.log(`[Campaign Scheduler] ⏳ Video ${videoId} still processing (status: ${data.status}, progress: ${data.progress}%)`);
           }
+        } else {
+          console.warn(`[Campaign Scheduler] Failed to fetch status for ${videoId}: ${response.status}`);
         }
       } catch (error) {
         console.error(`[Campaign Scheduler] Error checking video ${videoId}:`, error);
@@ -212,7 +216,7 @@ export async function POST(request: NextRequest) {
         // Wait for all videos to complete processing before autoposting
         if (result.videoIds.length > 0) {
           console.log(`[Campaign Scheduler] Waiting for ${result.videoIds.length} videos to complete processing...`);
-          await waitForVideosToComplete(result.videoIds, railwayApiUrl);
+          await waitForVideosToComplete(result.videoIds, campaign.userId, railwayApiUrl);
           console.log(`[Campaign Scheduler] All videos are ready for autoposting`);
         }
 

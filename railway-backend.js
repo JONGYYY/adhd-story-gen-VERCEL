@@ -2176,8 +2176,10 @@ async function videoStatusHandler(req, res) {
   try {
     const { videoId } = req.params;
     
-    // Extract userId from session cookie (same method as generateVideoHandler)
+    // Extract userId from session cookie OR query parameter (for server-side calls)
     let userId = null;
+    
+    // Try session cookie first (client-side requests)
     try {
       const sessionCookie = req.cookies?.session;
       if (sessionCookie && firestoreDb) {
@@ -2188,6 +2190,12 @@ async function videoStatusHandler(req, res) {
       }
     } catch (authError) {
       console.log(`[auth] Session verification failed in video-status: ${authError.message}`);
+    }
+    
+    // If no session cookie, check query parameter (server-side campaign scheduler calls)
+    if (!userId && req.query?.userId) {
+      userId = req.query.userId;
+      console.log(`[auth] User ID provided in query parameter (server-side call): ${userId}`);
     }
     
     console.log(`Video status requested for ID: ${videoId}, userId: ${userId || 'unauthenticated'}`);

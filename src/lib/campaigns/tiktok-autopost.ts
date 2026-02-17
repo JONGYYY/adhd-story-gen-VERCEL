@@ -44,12 +44,17 @@ async function getUserTikTokCredentials(userId: string): Promise<{
 /**
  * Get video metadata including URL from Railway API
  */
-async function getVideoMetadata(videoId: string, railwayApiUrl: string): Promise<{
+async function getVideoMetadata(
+  videoId: string, 
+  userId: string,
+  railwayApiUrl: string
+): Promise<{
   videoUrl: string;
   title?: string;
 } | null> {
   try {
-    const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}`, {
+    // Include userId as query parameter for server-side calls
+    const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}?userId=${userId}`, {
       method: 'GET',
     });
 
@@ -61,7 +66,7 @@ async function getVideoMetadata(videoId: string, railwayApiUrl: string): Promise
     const data = await response.json();
     
     if (!data.videoUrl) {
-      console.error(`No videoUrl in response for ${videoId}`);
+      console.error(`No videoUrl in response for ${videoId}. Status: ${data.status}`);
       return null;
     }
     
@@ -131,8 +136,8 @@ export async function postVideoToTikTok(
     console.log(`[TikTok Auto-Post] TikTok credentials found for user ${userId}`);
 
     // Get video metadata (includes videoUrl)
-    console.log(`[TikTok Auto-Post] Fetching video metadata from: ${railwayApiUrl}/api/video-status/${videoId}`);
-    const metadata = await getVideoMetadata(videoId, railwayApiUrl);
+    console.log(`[TikTok Auto-Post] Fetching video metadata from: ${railwayApiUrl}/api/video-status/${videoId}?userId=${userId}`);
+    const metadata = await getVideoMetadata(videoId, userId, railwayApiUrl);
     if (!metadata || !metadata.videoUrl) {
       console.error(`[TikTok Auto-Post] Failed to get video metadata or URL for ${videoId}`);
       console.error(`[TikTok Auto-Post] Metadata:`, metadata);
