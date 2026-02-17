@@ -69,8 +69,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error fetching TikTok stats:', error);
+    // Extract error message safely (error might contain Response/ReadableStream)
+    const errorMessage = error?.message || error?.toString?.() || 'Failed to fetch TikTok stats';
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch TikTok stats' },
+      { error: typeof errorMessage === 'string' ? errorMessage : 'Failed to fetch TikTok stats' },
       { status: 500 }
     );
   }
