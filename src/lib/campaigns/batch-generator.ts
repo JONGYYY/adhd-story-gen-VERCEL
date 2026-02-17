@@ -55,6 +55,13 @@ export async function generateBatch(
 ): Promise<BatchGenerationResult> {
   const videoIds: string[] = [];
   const errors: Array<{ index: number; error: string }> = [];
+  
+  // Get the Next.js app URL for API routes like scrape-reddit
+  // In production, this should be the main domain (taleo.media)
+  // Railway backend handles video generation, but scraping is in Next.js
+  const appUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : 'https://taleo.media';
 
   for (let i = 0; i < config.videosPerBatch; i++) {
     try {
@@ -65,7 +72,7 @@ export async function generateBatch(
         console.log(`[Batch Generator] Scraping Reddit URL: ${config.redditUrl}`);
         
         try {
-          const scrapeResponse = await fetch(`${railwayApiUrl}/api/scrape-reddit`, {
+          const scrapeResponse = await fetch(`${appUrl}/api/scrape-reddit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: config.redditUrl })
@@ -191,6 +198,11 @@ export async function generateBatchWithPolling(
 ): Promise<BatchGenerationResult> {
   const videoIds: string[] = [];
   const errors: Array<{ index: number; error: string }> = [];
+  
+  // Get the Next.js app URL for API routes like scrape-reddit
+  const appUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : 'https://taleo.media';
 
   for (let i = 0; i < config.videosPerBatch; i++) {
     try {
@@ -201,7 +213,7 @@ export async function generateBatchWithPolling(
         console.log(`[Batch Generator] Scraping Reddit URL: ${config.redditUrl}`);
         
         try {
-          const scrapeResponse = await fetch(`${railwayApiUrl}/api/scrape-reddit`, {
+          const scrapeResponse = await fetch(`${appUrl}/api/scrape-reddit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: config.redditUrl })
