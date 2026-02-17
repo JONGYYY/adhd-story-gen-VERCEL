@@ -69,21 +69,38 @@ export async function getActiveCampaigns(): Promise<CampaignConfig[]> {
 
 /**
  * Get campaigns due to run (nextRunAt <= now)
+ * 
+ * Note: Using two where clauses would require a composite index.
+ * To avoid index requirements, we query for active campaigns and filter in memory.
  */
 export async function getCampaignsDueToRun(): Promise<CampaignConfig[]> {
   const db = await getAdminFirestore();
   const now = Date.now();
   
+  console.log('[getCampaignsDueToRun] Querying active campaigns...');
   const snapshot = await db
     .collection(CAMPAIGNS_COLLECTION)
     .where('status', '==', 'active')
-    .where('nextRunAt', '<=', now)
     .get();
   
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as CampaignConfig[];
+  console.log(`[getCampaignsDueToRun] Found ${snapshot.docs.length} active campaigns`);
+  
+  // Filter in memory for campaigns due to run
+  const campaigns = snapshot.docs
+    .map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }) as CampaignConfig)
+    .filter(campaign => {
+      const isDue = campaign.nextRunAt !== undefined && campaign.nextRunAt <= now;
+      if (isDue) {
+        console.log(`[getCampaignsDueToRun] Campaign "${campaign.name}" (${campaign.id}) is due. Next run: ${new Date(campaign.nextRunAt!).toISOString()}`);
+      }
+      return isDue;
+    });
+  
+  console.log(`[getCampaignsDueToRun] ${campaigns.length} campaigns are due to run`);
+  return campaigns;
 }
 
 /**
