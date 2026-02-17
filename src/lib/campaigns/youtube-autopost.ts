@@ -64,6 +64,7 @@ async function saveYouTubeCredentials(
           refreshToken: credentials.refreshToken,
           expiresAt: credentials.expiresAt,
           connectedAt: Date.now(),
+          lastRefreshed: Date.now(),
         },
       },
       { merge: true }

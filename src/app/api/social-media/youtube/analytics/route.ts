@@ -98,6 +98,7 @@ export async function GET(request: NextRequest) {
             expiresAt: newTokens.expiry_date || (Date.now() + ((newTokens.expires_in || 3600) * 1000)),
             // Use new refresh token if provided, otherwise keep existing one
             refreshToken: newTokens.refresh_token || credentials.refreshToken,
+            lastRefreshed: Date.now(),
           });
           
           console.log('YouTube token refreshed and saved to Firebase successfully');
