@@ -7,7 +7,7 @@ import { SocialPlatform } from '@/lib/social-media/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info } from 'lucide-react';
 
 interface ConnectedPlatform {
   platform: SocialPlatform;
@@ -110,7 +110,12 @@ export default function SocialMediaSettings() {
         p.platform === platform ? { ...p, connected: false, username: '' } : p
       ));
 
-      setSuccess(`Successfully disconnected ${platform}`);
+      // Show success with account switching instructions
+      const switchInstructions = platform === 'tiktok'
+        ? `Successfully disconnected ${platform}. To switch to a different TikTok account: Log out of TikTok in your browser (tiktok.com), then click Connect.`
+        : `Successfully disconnected ${platform}. Click Connect to choose a different account.`;
+      
+      setSuccess(switchInstructions);
     } catch (error) {
       console.error(`Error disconnecting ${platform}:`, error);
       setError(error instanceof Error ? error.message : `Failed to disconnect ${platform}`);
@@ -140,6 +145,14 @@ export default function SocialMediaSettings() {
               <AlertDescription>{success}</AlertDescription>
             </Alert>
           )}
+          
+          {/* Account Switching Info */}
+          <Alert className="mb-4 border-blue-500/20 bg-blue-500/10">
+            <Info className="h-4 w-4 text-blue-500" />
+            <AlertDescription className="text-sm">
+              <strong>To switch accounts:</strong> Click Disconnect, then for TikTok - log out at tiktok.com in your browser first. For YouTube - you'll see an account selector when you click Connect.
+            </AlertDescription>
+          </Alert>
 
           <div className="space-y-4">
             {platforms.map((platform) => (

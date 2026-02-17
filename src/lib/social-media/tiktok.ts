@@ -96,6 +96,47 @@ export class TikTokAPI {
     return { url, state, codeVerifier, redirectUri };
   }
 
+  /**
+   * Revoke access token - forces user to re-authorize with any account they choose
+   * Call this when user disconnects to enable account switching
+   */
+  async revokeAccessToken(accessToken: string) {
+    console.log('Revoking TikTok access token...');
+    
+    try {
+      const revokeUrl = 'https://open.tiktokapis.com/v2/oauth/revoke/';
+      
+      const response = await fetch(revokeUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept-Encoding': 'identity',
+        },
+        body: new URLSearchParams({
+          client_key: TIKTOK_OAUTH_CONFIG.clientKey,
+          client_secret: TIKTOK_OAUTH_CONFIG.clientSecret,
+          token: accessToken,
+        }).toString(),
+      });
+
+      const responseText = await response.text();
+      console.log('Revoke response:', response.status, responseText);
+
+      if (!response.ok) {
+        console.warn('Token revoke failed (may already be invalid):', responseText);
+        // Don't throw - token might already be expired/invalid, which is fine
+      } else {
+        console.log('✅ TikTok access token revoked successfully');
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error revoking TikTok token:', error);
+      // Don't throw - revoke errors shouldn't block disconnection
+      return { success: false, error };
+    }
+  }
+
   async getAccessToken(code: string, opts?: { codeVerifier?: string; redirectUri?: string }) {
     console.log('Getting access token from code...');
     
@@ -482,18 +523,18 @@ export class TikTokAPI {
       
       // 1. Initialize upload
       // TikTok Content Posting API:
-      // - Production endpoint: POST /v2/post/publish/video/init/ (for PUBLIC videos - requires approval)
-      // - Inbox endpoint: POST /v2/post/publish/inbox/video/init/ (for drafts - works immediately)
-      // Note: Using INBOX mode for testing until TikTok application is approved
+      // - Production endpoint: POST /v2/post/publish/video/init/ (for PUBLIC videos)
+      // - Inbox endpoint: POST /v2/post/publish/inbox/video/init/ (for drafts/private)
       const videoSize = videoData.video_file.length;
       const privacyLevel = videoData.privacy_level || 'PUBLIC_TO_EVERYONE';
       
-      // TEMPORARY: Use INBOX endpoint for all uploads during application testing
-      // This sends videos to your TikTok Drafts instead of publishing publicly
-      // After TikTok approves your application, switch back to production endpoint for PUBLIC videos
-      const initEndpoint = 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/';
+      // Use production endpoint for PUBLIC videos, inbox for private/friends
+      // After approval, PUBLIC videos are published directly, not as drafts
+      const initEndpoint = privacyLevel === 'PUBLIC_TO_EVERYONE' 
+        ? 'https://open.tiktokapis.com/v2/post/publish/video/init/'
+        : 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/';
       
-      console.log(`Using INBOX/DRAFT endpoint for testing (privacy: ${privacyLevel})`);
+      console.log(`Using ${privacyLevel === 'PUBLIC_TO_EVERYONE' ? 'PRODUCTION' : 'INBOX'} endpoint for ${privacyLevel} video`);
       console.log(`Video size: ${(videoSize / 1024 / 1024).toFixed(2)} MB`);
       console.log(`Access token length: ${accessToken.length}, starts with: ${accessToken.substring(0, 10)}...`);
       console.log(`Init endpoint: ${initEndpoint}`);

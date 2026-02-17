@@ -55,10 +55,20 @@ export async function GET(request: Request) {
     // If redirect=1, do a server-side redirect (more robust than returning JSON + client redirect).
     const doRedirect = url.searchParams.get('redirect') === '1';
 
-    // Persist state + PKCE verifier in an httpOnly cookie for the callback.
+    // Clear any existing OAuth state cookie to force fresh authorization
+    // This helps when users want to switch to a different TikTok account
     const response = doRedirect
       ? NextResponse.redirect(authReq.url)
       : NextResponse.json({ url: authReq.url });
+    
+    // Delete old cookie first
+    response.cookies.delete({
+      name: 'tiktok_oauth',
+      path: '/',
+      domain: process.env.NODE_ENV === 'production' ? '.taleo.media' : undefined,
+    });
+    
+    // Set new OAuth state cookie
     response.cookies.set({
       name: 'tiktok_oauth',
       value: JSON.stringify({

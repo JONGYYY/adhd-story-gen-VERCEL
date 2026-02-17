@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionCookie } from '@/lib/firebase-admin';
 import { getSocialMediaCredentialsServer, deleteSocialMediaCredentialsServer } from '@/lib/social-media/schema';
 import { SocialPlatform } from '@/lib/social-media/types';
+import { TikTokAPI } from '@/lib/social-media/tiktok';
 
 // Prevent static generation but use Node.js runtime for Firebase Admin
 export const dynamic = 'force-dynamic';
@@ -111,6 +112,25 @@ export async function DELETE(request: NextRequest) {
     }
 
     console.log(`Disconnecting ${platform} for user ${userId}`);
+
+    // Revoke tokens before deleting credentials to force re-authorization
+    try {
+      // Get existing credentials to revoke token
+      const existingCreds = await getSocialMediaCredentialsServer(userId, platform);
+      
+      if (existingCreds && platform === 'tiktok' && existingCreds.accessToken) {
+        console.log('Revoking TikTok access token to enable account switching...');
+        const tiktokApi = new TikTokAPI();
+        await tiktokApi.revokeAccessToken(existingCreds.accessToken);
+        console.log('✅ TikTok token revoked successfully');
+      }
+      
+      // Note: YouTube doesn't need explicit revoke - their OAuth flow handles account selection
+      // with the 'select_account' prompt parameter
+    } catch (revokeError) {
+      console.warn('Token revoke failed (non-critical):', revokeError);
+      // Continue with deletion even if revoke fails
+    }
 
     // Delete credentials using server-side function
     await deleteSocialMediaCredentialsServer(userId, platform);

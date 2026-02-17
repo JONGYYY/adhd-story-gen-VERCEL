@@ -186,9 +186,16 @@ export default function VideoPage() {
       // Close modal and show initial success message
       setShowUploadModal(false);
       
-      // Show appropriate success message
-      // NOTE: Currently using inbox mode for testing, so all videos go to Drafts
-      const successMessage = '✅ Video uploaded successfully! It will appear in your TikTok Drafts. Checking status...';
+      // Show appropriate success message based on privacy level
+      const privacyLabel = data.privacyLevel === 'PUBLIC_TO_EVERYONE' 
+        ? 'PUBLIC' 
+        : data.privacyLevel === 'MUTUAL_FOLLOW_FRIENDS'
+        ? 'FRIENDS'
+        : 'PRIVATE';
+      
+      const successMessage = data.privacyLevel === 'PUBLIC_TO_EVERYONE'
+        ? '✅ Video uploaded to TikTok as PUBLIC! It will appear on your profile shortly. Checking status...'
+        : `✅ Video uploaded to TikTok as ${privacyLabel}. It will appear in your TikTok ${data.privacyLevel === 'SELF_ONLY' ? 'Drafts' : 'profile'}. Checking status...`;
       
       console.log('Upload successful, showing alert:', successMessage);
       alert(successMessage);
@@ -222,7 +229,12 @@ export default function VideoPage() {
             
             // Terminal states - stop polling
             if (status === 'PUBLISH_COMPLETE') {
-              alert('✅ Your video is now in your TikTok Drafts! Open TikTok → Creator Tools → Drafts to see it.');
+              const finalMessage = data.privacyLevel === 'PUBLIC_TO_EVERYONE'
+                ? '✅ Your video is now live on TikTok! Check your profile.'
+                : data.privacyLevel === 'SELF_ONLY'
+                ? '✅ Your video is in your TikTok Drafts! Open TikTok → Creator Tools → Drafts to see it.'
+                : '✅ Your video is now on your TikTok profile!';
+              alert(finalMessage);
               return;
             } else if (status === 'FAILED') {
               const failReason = statusData.data?.fail_reason || 'Unknown error';
@@ -233,7 +245,10 @@ export default function VideoPage() {
             // Processing states - continue polling
             if (status === 'PROCESSING_DOWNLOAD' || status === 'PROCESSING_UPLOAD' || status === 'PUBLISH_VIDEO_SUCCESS') {
               if (attempt === 1) {
-                alert('⏳ Your video is being processed by TikTok. Processing may take a few minutes. Check your TikTok Drafts.');
+                const processingMsg = data.privacyLevel === 'PUBLIC_TO_EVERYONE'
+                  ? '⏳ Your video is being processed and will appear on your TikTok profile shortly.'
+                  : '⏳ Your video is being processed by TikTok. This may take a few minutes.';
+                alert(processingMsg);
               }
               
               // Continue polling if we haven't reached max attempts
@@ -266,7 +281,10 @@ export default function VideoPage() {
         console.warn('Result structure:', JSON.stringify(result, null, 2));
         // Show a generic success message since we can't poll status
         setTimeout(() => {
-          alert('✅ Upload complete! Your video should appear in TikTok Drafts within a few minutes. Check TikTok → Creator Tools → Drafts.');
+          const fallbackMsg = data.privacyLevel === 'PUBLIC_TO_EVERYONE'
+            ? '✅ Upload complete! Your video should appear on your TikTok profile within a few minutes.'
+            : '✅ Upload complete! Check your TikTok profile or Drafts.';
+          alert(fallbackMsg);
         }, 2000);
       }
       

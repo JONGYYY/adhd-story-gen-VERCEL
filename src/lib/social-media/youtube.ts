@@ -31,7 +31,8 @@ export class YouTubeAPI {
     return this.oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: YOUTUBE_OAUTH_CONFIG.scopes,
-      prompt: 'consent'
+      // Force account selection screen - allows user to switch accounts
+      prompt: 'select_account consent'
     });
   }
 
