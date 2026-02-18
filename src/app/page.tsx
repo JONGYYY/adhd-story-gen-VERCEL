@@ -115,16 +115,11 @@ export default function LandingPage() {
             </div>
 
             <div className="relative">
-              {/* Spline 3D Animation */}
-              <div className="aspect-square rounded-3xl overflow-hidden border border-border/50 bg-gradient-to-br from-primary/5 to-background">
-                <iframe
-                  src="https://my.spline.design/motiontrails-ZiCdJJM5xJrgyBDFQruyulyd/"
-                  frameBorder="0"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 'none' }}
-                  title="3D Animation"
-                />
+              <div className="aspect-square rounded-3xl bg-gradient-to-br from-primary/20 to-primary/5 p-8 flex items-center justify-center border border-border">
+                <div className="text-center">
+                  <Video className="w-24 h-24 text-primary mx-auto mb-4" />
+                  <p className="text-lg font-semibold">AI-Powered Video Generation</p>
+                </div>
               </div>
             </div>
           </div>
