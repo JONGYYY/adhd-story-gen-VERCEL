@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     try {
       // Strategy 1: Try old.reddit.com (less aggressive bot detection)
-      const oldRedditUrl = jsonUrl.replace('www.reddit.com', 'old.reddit.com').replace('reddit.com', 'old.reddit.com');
+      const oldRedditUrl = jsonUrl.replace(/(?:www\.)?reddit\.com/, 'old.reddit.com');
       console.log('[reddit-scraper] Strategy 1: Trying old.reddit.com:', oldRedditUrl);
       
       try {
