@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { CampaignConfig, CampaignFrequency } from '@/lib/campaigns/types';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Plus, Trash2 } from 'lucide-react';
 
 interface CampaignEditModalProps {
   campaign: CampaignConfig;
@@ -16,6 +16,7 @@ export function CampaignEditModal({ campaign, isOpen, onClose, onSave }: Campaig
   const [name, setName] = useState(campaign.name);
   const [frequency, setFrequency] = useState<CampaignFrequency>(campaign.frequency);
   const [scheduleTime, setScheduleTime] = useState(campaign.scheduleTime);
+  const [customScheduleTimes, setCustomScheduleTimes] = useState<string[]>(campaign.customScheduleTimes || ['09:00']);
   const [videosPerBatch, setVideosPerBatch] = useState(campaign.videosPerBatch);
   const [videoSpeed, setVideoSpeed] = useState(campaign.videoSpeed ?? 1.3);
   const [maxDuration, setMaxDuration] = useState(campaign.maxDuration ?? 75);
@@ -29,6 +30,7 @@ export function CampaignEditModal({ campaign, isOpen, onClose, onSave }: Campaig
     setName(campaign.name);
     setFrequency(campaign.frequency);
     setScheduleTime(campaign.scheduleTime);
+    setCustomScheduleTimes(campaign.customScheduleTimes || ['09:00']);
     setVideosPerBatch(campaign.videosPerBatch);
     setVideoSpeed(campaign.videoSpeed ?? 1.3);
     setMaxDuration(campaign.maxDuration ?? 75);
@@ -36,25 +38,46 @@ export function CampaignEditModal({ campaign, isOpen, onClose, onSave }: Campaig
     setAutoPostToYouTube(campaign.autoPostToYouTube);
   }, [campaign]);
 
+  const handleAddCustomTime = () => {
+    setCustomScheduleTimes([...customScheduleTimes, '09:00']);
+  };
+
+  const handleRemoveCustomTime = (index: number) => {
+    setCustomScheduleTimes(customScheduleTimes.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateCustomTime = (index: number, time: string) => {
+    const updated = [...customScheduleTimes];
+    updated[index] = time;
+    setCustomScheduleTimes(updated);
+  };
+
   const handleSave = async () => {
     try {
       setSaving(true);
       setError(null);
 
+      const updateData: any = {
+        name,
+        frequency,
+        scheduleTime,
+        videosPerBatch,
+        videoSpeed,
+        maxDuration,
+        autoPostToTikTok,
+        autoPostToYouTube,
+      };
+
+      // Include customScheduleTimes if frequency is custom
+      if (frequency === 'custom') {
+        updateData.customScheduleTimes = customScheduleTimes;
+      }
+
       const response = await fetch(`/api/campaigns/${campaign.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          name,
-          frequency,
-          scheduleTime,
-          videosPerBatch,
-          videoSpeed,
-          maxDuration,
-          autoPostToTikTok,
-          autoPostToYouTube,
-        }),
+        body: JSON.stringify(updateData),
       });
 
       if (!response.ok) {
@@ -120,16 +143,63 @@ export function CampaignEditModal({ campaign, isOpen, onClose, onSave }: Campaig
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Schedule Time</label>
-              <input
-                type="time"
-                value={scheduleTime}
-                onChange={(e) => setScheduleTime(e.target.value)}
-                className="w-full p-3 rounded-xl border-2 border-border bg-background focus:border-primary focus:outline-none"
-              />
-            </div>
+            {frequency !== 'custom' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Schedule Time</label>
+                <input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="w-full p-3 rounded-xl border-2 border-border bg-background focus:border-primary focus:outline-none"
+                />
+              </div>
+            )}
           </div>
+
+          {/* Custom Schedule Times */}
+          {frequency === 'custom' && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium">Custom Posting Times</label>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleAddCustomTime}
+                  className="gap-2"
+                  variant="outline"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Time
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {customScheduleTimes.map((time, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={time}
+                      onChange={(e) => handleUpdateCustomTime(index, e.target.value)}
+                      className="flex-1 p-3 rounded-xl border-2 border-border bg-background focus:border-primary focus:outline-none"
+                    />
+                    {customScheduleTimes.length > 1 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRemoveCustomTime(index)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Videos will be posted at these times every day ({customScheduleTimes.length} {customScheduleTimes.length === 1 ? 'time' : 'times'} per day)
+              </p>
+            </div>
+          )}
 
           {/* Videos Per Batch */}
           <div>
