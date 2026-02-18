@@ -49,6 +49,7 @@ export default function BatchCreate() {
   const [storyLength, setStoryLength] = useState<'1 min+ (Cliffhanger)' | 'Full Story Length'>('1 min+ (Cliffhanger)');
   const [showRedditUI, setShowRedditUI] = useState(true);
   const [videoSpeed, setVideoSpeed] = useState(1.3);
+  const [maxDuration, setMaxDuration] = useState(75); // Default 75 seconds (~1:15)
   
   // Auto-pilot specific states
   const [storySource, setStorySource] = useState<'ai' | 'reddit' | 'link' | 'template' | null>(null);
@@ -313,6 +314,7 @@ export default function BatchCreate() {
             storyLength,
             showRedditUI,
             videoSpeed,
+            maxDuration,
             autoPostToTikTok,
             autoPostToYouTube,
             useRedditUrls: storySource === 'link',
@@ -683,6 +685,33 @@ export default function BatchCreate() {
                             <span>1.3x (default)</span>
                             <span>2.0x</span>
                           </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Maximum Video Duration</label>
+                      <div className="space-y-3">
+                        <div className="p-4 rounded-xl border-2 border-border">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-medium">{Math.floor(maxDuration / 60)}:{(maxDuration % 60).toString().padStart(2, '0')}</span>
+                            <span className="text-xs text-muted-foreground">Max Length</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="30"
+                            max="180"
+                            step="5"
+                            value={maxDuration}
+                            onChange={(e) => setMaxDuration(parseInt(e.target.value))}
+                            className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                            <span>0:30</span>
+                            <span>1:15 (default)</span>
+                            <span>3:00</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">Videos will be cut at this length if the story is longer</p>
                         </div>
                       </div>
                     </div>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Footer } from '@/components/layout/Footer';
 import { CampaignConfig, CampaignRun } from '@/lib/campaigns/types';
 import { formatCampaignFrequency } from '@/lib/campaigns/format';
+import { CampaignEditModal } from '@/components/campaigns/CampaignEditModal';
 import { 
   Zap, 
   TrendingUp, 
@@ -27,6 +28,7 @@ export default function CampaignsPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignConfig | null>(null);
   const [runs, setRuns] = useState<CampaignRun[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     fetchCampaigns();
@@ -256,6 +258,14 @@ export default function CampaignsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsEditModalOpen(true)}
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit
+                        </Button>
                         {selectedCampaign.status === 'active' ? (
                           <Button
                             variant="outline"
@@ -439,6 +449,21 @@ export default function CampaignsPage() {
       </div>
 
       <Footer />
+
+      {/* Edit Campaign Modal */}
+      {selectedCampaign && (
+        <CampaignEditModal
+          campaign={selectedCampaign}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={() => {
+            fetchCampaigns();
+            if (selectedCampaign) {
+              fetchCampaignRuns(selectedCampaign.id);
+            }
+          }}
+        />
+      )}
     </main>
   );
 }

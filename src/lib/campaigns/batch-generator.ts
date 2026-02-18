@@ -14,6 +14,7 @@ export interface BatchGenerationConfig {
   storyLength: '1 min+ (Cliffhanger)' | 'Full Story Length';
   showRedditUI: boolean;
   videoSpeed?: number;  // Video playback speed multiplier (0.5 - 2.0, default 1.3)
+  maxDuration?: number; // Maximum video duration in seconds (default 75 for ~1:15)
   redditUrl?: string;  // If provided, use this specific URL instead of generating
 }
 
@@ -148,12 +149,13 @@ export async function generateBatch(
       };
 
       // Call Railway API to generate video
-      // Include userId and videoSpeed for server-side requests (campaign scheduler)
+      // Include userId, videoSpeed, and maxDuration for server-side requests (campaign scheduler)
       console.log(`[Batch Generator] Calling Railway API: ${railwayApiUrl}/api/generate-video`);
       console.log(`[Batch Generator] Request payload:`, JSON.stringify({ 
         ...options, 
         userId: config.userId,
-        videoSpeed: config.videoSpeed ?? 1.3
+        videoSpeed: config.videoSpeed ?? 1.3,
+        maxDuration: config.maxDuration ?? 75
       }, null, 2));
       
       const response = await fetch(`${railwayApiUrl}/api/generate-video`, {
@@ -165,6 +167,7 @@ export async function generateBatch(
           ...options,
           userId: config.userId, // Pass userId for server-side metadata storage
           videoSpeed: config.videoSpeed ?? 1.3, // Pass video speed multiplier
+          maxDuration: config.maxDuration ?? 75, // Pass maximum video duration
         }),
       });
 
@@ -318,7 +321,7 @@ export async function generateBatchWithPolling(
       };
 
       // Call Railway API to generate video
-      // Include userId and videoSpeed for server-side requests (campaign scheduler)
+      // Include userId, videoSpeed, and maxDuration for server-side requests (campaign scheduler)
       const response = await fetch(`${railwayApiUrl}/api/generate-video`, {
         method: 'POST',
         headers: {
@@ -328,6 +331,7 @@ export async function generateBatchWithPolling(
           ...options,
           userId: config.userId, // Pass userId for server-side metadata storage
           videoSpeed: config.videoSpeed ?? 1.3, // Pass video speed multiplier
+          maxDuration: config.maxDuration ?? 75, // Pass maximum video duration
         }),
       });
 

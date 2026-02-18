@@ -1054,7 +1054,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   return outPath;
 }
 
-async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias, subreddit, author, isCliffhanger, speedMultiplier: requestedSpeed }, videoId) {
+async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAlias, subreddit, author, isCliffhanger, speedMultiplier: requestedSpeed, maxDuration }, videoId) {
   const videosDir = await ensureVideosDir();
   const outPath = path.join(videosDir, `${videoId}.mp4`);
 
@@ -1250,11 +1250,12 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (openingBuf) await fsp.writeFile(openingAudio, openingBuf);
   if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
 
-  // For cliffhanger videos: trim story audio to 1 minute 5-10 seconds (65-70s)
+  // For cliffhanger videos: trim story audio to user-specified maxDuration (default: 65-70s)
   // This is duration-based cutting, replacing the old [BREAK] tag approach
   if (isCliffhanger && storyBuf) {
     const fullStoryDuration = await getAudioDurationFromFile(storyAudio).catch(() => 0);
-    const targetDuration = 65 + (Math.random() * 5); // Random between 65-70 seconds
+    // Use maxDuration if provided, otherwise default to 65-70 seconds
+    const targetDuration = maxDuration ? maxDuration : (65 + (Math.random() * 5));
     
     if (fullStoryDuration > targetDuration) {
       console.log(`[cliffhanger] Trimming story from ${fullStoryDuration.toFixed(2)}s to ${targetDuration.toFixed(2)}s`);
@@ -1899,7 +1900,8 @@ async function generateVideoSimple(options, videoId, userId) {
       subreddit: options?.customStory?.subreddit || '',
       author: options?.customStory?.author || 'Anonymous',
       isCliffhanger: options?.isCliffhanger || false,
-      speedMultiplier: options?.background?.speedMultiplier
+      speedMultiplier: options?.background?.speedMultiplier,
+      maxDuration: options?.maxDuration
     }, videoId);
     
     // Get title from videoStatus (preserve it from initial set)
@@ -2133,7 +2135,7 @@ async function generateVideoHandler(req, res) {
 			// Allow generation to continue for backward compatibility, but warn
 		}
 		
-		const { customStory, voice, background, isCliffhanger } = req.body;
+		const { customStory, voice, background, isCliffhanger, maxDuration } = req.body;
 		
 		const videoId = uuidv4();
 
@@ -2163,7 +2165,7 @@ async function generateVideoHandler(req, res) {
 		// Start video generation in the background (FFmpeg-only; Remotion disabled for production stability)
 		(async () => {
 				try {
-					await generateVideoSimple({ customStory, voice, background, isCliffhanger }, videoId, userId);
+					await generateVideoSimple({ customStory, voice, background, isCliffhanger, maxDuration }, videoId, userId);
 			} catch (e) {
 				console.error('FFmpeg generation failed:', e);
 				const errorMsg = e instanceof Error ? e.message : 'Video build failed';
