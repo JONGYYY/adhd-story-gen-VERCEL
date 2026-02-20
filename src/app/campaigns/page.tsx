@@ -22,6 +22,7 @@ import {
   Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<CampaignConfig[]>([]);
@@ -175,7 +176,8 @@ export default function CampaignsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <AppLayout>
+      <div className="min-h-screen bg-background">
       <div className="section-py">
         <div className="container-wide">
           {/* Header */}
@@ -464,7 +466,8 @@ export default function CampaignsPage() {
           }}
         />
       )}
-    </main>
+      </div>
+    </AppLayout>
   );
 }
 

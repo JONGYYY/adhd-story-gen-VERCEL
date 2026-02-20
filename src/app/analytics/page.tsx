@@ -39,6 +39,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PlatformSelector } from '@/components/analytics/PlatformSelector';
 import { TimeFrameSelector, TimeFrame } from '@/components/analytics/TimeFrameSelector';
 import { SocialPlatform } from '@/lib/social-media/types';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { TimeFrameExpander, TimeFrameOption } from '@/components/analytics/TimeFrameExpander';
+import { ComparisonDatePicker } from '@/components/analytics/ComparisonDatePicker';
+import { LayoutToggle, LayoutMode } from '@/components/analytics/LayoutToggle';
+import { MiniMetricCard } from '@/components/analytics/MiniMetricCard';
+import { TopContentTable } from '@/components/analytics/TopContentTable';
+import Link from 'next/link';
 
 // Register Chart.js components
 ChartJS.register(
@@ -63,6 +70,13 @@ export default function Analytics() {
   const [userStats, setUserStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [youtubeLoading, setYoutubeLoading] = useState(true);
+  
+  // New state for redesigned analytics
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('single');
+  const [selectedMetric, setSelectedMetric] = useState<'watchTime' | 'engagement' | 'subscribers'>('watchTime');
+  const [customTimeFrame, setCustomTimeFrame] = useState<TimeFrameOption>('1month');
+  const [comparisonStartDate, setComparisonStartDate] = useState<string>('');
+  const [comparisonEndDate, setComparisonEndDate] = useState<string>('');
 
   useEffect(() => {
     setMounted(true);
@@ -408,7 +422,7 @@ export default function Analytics() {
     const weeks = [0, 0, 0, 0];
     
     // Aggregate data into 4 weeks
-    dailyData.forEach((day, index) => {
+    dailyData.forEach((day: any, index: number) => {
       const weekIndex = Math.min(Math.floor(index / 7), 3); // Max 4 weeks
       weeks[weekIndex] += (day.watchTime || 0);
     });
@@ -624,45 +638,65 @@ export default function Analytics() {
   const insights = selectedPlatform === 'youtube' ? youtubeInsights : tiktokInsights;
 
   return (
-    <main className="min-h-screen bg-background">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden border-b border-border/50 bg-gradient-to-br from-background via-background to-primary/5">
-        <div className="absolute inset-0 bg-grid-white/[0.02] pointer-events-none" />
-        
-        <div className="container-wide relative py-12">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-              <div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-4">
-                    <BarChart3 className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium text-primary">Performance Analytics</span>
-                  </div>
-                  <h1 className="text-4xl md:text-5xl font-bold mb-3">
-                    Performance Overview
-                  </h1>
-                  <p className="text-muted-foreground text-lg">
-                    Track your video creation activity and performance
-                  </p>
-                </div>
-
-              {/* Platform Selector */}
-              <PlatformSelector
-                selected={selectedPlatform}
-                onSelect={setSelectedPlatform}
-              />
+    <AppLayout>
+      <div className="min-h-screen bg-background">
+      {/* Redesigned Header */}
+      <div className="border-b border-border/50 bg-background">
+        <div className="container-wide py-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            {/* Left: Title + Channel Button */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <h1 className="text-4xl font-bold">Analytics</h1>
+              
+              {/* Channel Link Button - Conditional */}
+              {selectedPlatform === 'youtube' && youtubeStats?.channelId && (
+                <Button
+                  asChild
+                  className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white border-0 shadow-lg shadow-red-500/20"
+                >
+                  <Link 
+                    href={`https://youtube.com/channel/${youtubeStats.channelId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2"
+                  >
+                    YouTube {youtubeStats.channelTitle ? `(${youtubeStats.channelTitle})` : ''}
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
+                </Button>
+              )}
+              
+              {selectedPlatform === 'tiktok' && tiktokStats?.username && (
+                <Button
+                  asChild
+                  className="bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 hover:from-pink-600 hover:via-purple-600 hover:to-cyan-600 text-white border-0 shadow-lg"
+                >
+                  <Link 
+                    href={`https://tiktok.com/@${tiktokStats.username}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2"
+                  >
+                    TikTok (@{tiktokStats.username})
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
+                </Button>
+              )}
             </div>
 
-            {/* Time Frame Selector - Only show for YouTube */}
-            {selectedPlatform === 'youtube' && (
-              <div className="flex justify-center md:justify-end">
-                <TimeFrameSelector
-                  selected={timeFrame}
-                  onSelect={setTimeFrame}
-                />
-              </div>
-            )}
-            {/* Notice Banner */}
-            {selectedPlatform === 'tiktok' ? (
+            {/* Right: Platform Selector */}
+            <PlatformSelector
+              selected={selectedPlatform}
+              onSelect={setSelectedPlatform}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <div className="container-wide py-8">
+        {/* Notice Banner */}
+        {selectedPlatform === 'tiktok' ? (
               <Alert className="border-primary/20 bg-primary/5">
                 <AlertCircle className="h-5 w-5 text-primary" />
                 <AlertDescription className="text-sm">
@@ -701,80 +735,214 @@ export default function Analytics() {
                 </AlertDescription>
               </Alert>
             )}
-          </div>
-        </div>
-      </div>
 
-      <div className="py-8 md:py-12">
-        <div className="container-wide space-y-8">
-          {/* KPI Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stats.map((stat, i) => {
-              const Icon = stat.icon;
-              return (
-                <div
-                  key={stat.name}
-                  className={cn(
-                    'group relative card-elevo p-6 transition-all duration-300',
-                    'hover:scale-105 hover:shadow-md',
-                    stat.bgGlow,
-                    mounted ? 'animate-in fade-in slide-in-from-bottom-4' : 'opacity-0'
-                  )}
-                  style={{
-                    animationDelay: mounted ? `${i * 100}ms` : '0ms',
-                    animationFillMode: 'forwards'
-                  }}
-                >
-                  {/* Gradient Border Effect */}
-                  <div className={cn(
-                    'absolute inset-0 rounded-2xl bg-gradient-to-br opacity-0 group-hover:opacity-[0.03] transition-opacity duration-300 -z-10 blur-xl',
-                    stat.color
-                  )} />
-
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={cn(
-                      'p-3 rounded-xl bg-gradient-to-br',
-                      stat.color,
-                      'shadow-lg'
-                    )}>
-                      <Icon className="w-5 h-5 text-white" />
+          {/* Main Metrics Bar (HR-style horizontal bar with 5 sections) */}
+          {selectedPlatform === 'youtube' && youtubeStats && (
+            <div className="mt-8 card-elevo overflow-hidden">
+              <div className="flex flex-col md:flex-row">
+                {/* Metric 1: Total Views */}
+                <div className="flex-1 p-6 border-b md:border-b-0 md:border-r border-border/50 hover:bg-muted/20 transition-colors">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Total Views</p>
+                  <div className="flex items-end justify-between">
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-6 h-6 text-primary" />
+                      <p className="text-3xl font-bold">{youtubeStats.totalViews?.toLocaleString() || '0'}</p>
                     </div>
-
-                    <div className={cn(
-                      'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold',
-                      stat.trend === 'up'
-                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                    )}>
-                      {stat.trend === 'up' ? (
+                    {youtubeStats.last30Days && (
+                      <div className="flex items-center gap-1 text-xs text-green-400">
                         <TrendingUp className="w-3 h-3" />
-                      ) : (
-                        <TrendingDown className="w-3 h-3" />
-                      )}
-                  {stat.change}
-                    </div>
-              </div>
+                        {youtubeStats.last30Days.views?.toLocaleString() || '0'}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                  <div>
-                    <p className="text-sm text-muted-foreground font-medium mb-1">
-                      {stat.name}
-                    </p>
-                    <p className="text-3xl font-bold tracking-tight mb-2">
-                      {stat.value}
-                    </p>
-                    <p className="text-xs text-muted-foreground/70">
-                      {stat.description}
-                    </p>
+                {/* Metric 2: Subscribers */}
+                <div className="flex-1 p-6 border-b md:border-b-0 md:border-r border-border/50 hover:bg-muted/20 transition-colors">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Subscribers</p>
+                  <div className="flex items-end justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-6 h-6 text-primary" />
+                      <p className="text-3xl font-bold">{youtubeStats.subscribers?.toLocaleString() || '0'}</p>
+                    </div>
+                    {youtubeStats.last30Days && (
+                      <div className={cn(
+                        "flex items-center gap-1 text-xs",
+                        (youtubeStats.last30Days.subscribersGained || 0) - (youtubeStats.last30Days.subscribersLost || 0) >= 0 
+                          ? "text-green-400" 
+                          : "text-red-400"
+                      )}>
+                        {(youtubeStats.last30Days.subscribersGained || 0) - (youtubeStats.last30Days.subscribersLost || 0) >= 0 ? (
+                          <TrendingUp className="w-3 h-3" />
+                        ) : (
+                          <TrendingDown className="w-3 h-3" />
+                        )}
+                        {((youtubeStats.last30Days.subscribersGained || 0) - (youtubeStats.last30Days.subscribersLost || 0)).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Metric 3: Watch Time */}
+                <div className="flex-1 p-6 border-b md:border-b-0 md:border-r border-border/50 hover:bg-muted/20 transition-colors">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Watch Time</p>
+                  <div className="flex items-end justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-6 h-6 text-primary" />
+                      <p className="text-3xl font-bold">
+                        {youtubeStats.last30Days?.watchTime 
+                          ? Math.round(youtubeStats.last30Days.watchTime / 60).toLocaleString() 
+                          : '0'}h
+                      </p>
+                    </div>
+                    {youtubeStats.last30Days?.watchTime && (
+                      <div className="flex items-center gap-1 text-xs text-green-400">
+                        <TrendingUp className="w-3 h-3" />
+                        30d
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Metric 4: Engagement */}
+                <div className="flex-1 p-6 border-b md:border-b-0 md:border-r border-border/50 hover:bg-muted/20 transition-colors">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Engagement</p>
+                  <div className="flex items-end justify-between">
+                    <div className="flex items-center gap-2">
+                      <ThumbsUp className="w-6 h-6 text-primary" />
+                      <p className="text-3xl font-bold">
+                        {((youtubeStats.last30Days?.likes || 0) + (youtubeStats.last30Days?.comments || 0)).toLocaleString()}
+                      </p>
+                    </div>
+                    {youtubeStats.last30Days && (
+                      <div className="flex items-center gap-1 text-xs text-green-400">
+                        <TrendingUp className="w-3 h-3" />
+                        L+C
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Metric 5: Videos Posted */}
+                <div className="flex-1 p-6 hover:bg-muted/20 transition-colors">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Videos Posted</p>
+                  <div className="flex items-end justify-between">
+                    <div className="flex items-center gap-2">
+                      <Video className="w-6 h-6 text-primary" />
+                      <p className="text-3xl font-bold">{youtubeStats.totalVideos || '0'}</p>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      Total
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-              );
-            })}
-        </div>
+          )}
 
-          {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-8">
-            {/* Left Column - Charts */}
-          <div className="lg:col-span-2 space-y-8">
+          {/* TikTok metrics bar placeholder - to be implemented later */}
+          {selectedPlatform === 'tiktok' && tiktokStats && (
+            <div className="mt-8 card-elevo p-6 text-center text-muted-foreground">
+              <p>TikTok metrics visualization coming soon</p>
+            </div>
+          )}
+
+          {/* Time Controls & Layout Toggle - Only for YouTube */}
+          {selectedPlatform === 'youtube' && youtubeStats && (
+            <div className="mt-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              {/* Left: Time Controls */}
+              <div className="flex items-center gap-3">
+                <TimeFrameExpander
+                  selected={customTimeFrame}
+                  onSelect={setCustomTimeFrame}
+                />
+                <ComparisonDatePicker
+                  startDate={comparisonStartDate}
+                  endDate={comparisonEndDate}
+                  onDatesChange={(start, end) => {
+                    setComparisonStartDate(start);
+                    setComparisonEndDate(end);
+                  }}
+                  onClear={() => {
+                    setComparisonStartDate('');
+                    setComparisonEndDate('');
+                  }}
+                />
+              </div>
+
+              {/* Right: Layout Toggle */}
+              <LayoutToggle
+                selected={layoutMode}
+                onSelect={setLayoutMode}
+              />
+            </div>
+          )}
+
+          {/* Single View Layout - Mini Metrics + Main Graph */}
+          {selectedPlatform === 'youtube' && youtubeStats && layoutMode === 'single' && (
+            <div className="mt-8 space-y-6">
+              {/* Mini Metric Cards Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <MiniMetricCard
+                  title="Watch Time (Hours)"
+                  value={`${Math.round((youtubeStats.last30Days?.watchTime || 0) / 60)}h`}
+                  data={youtubeStats.timeSeries?.['30d']?.map((d: any) => d.watchTime / 60) || Array(30).fill(0)}
+                  growth={12.5}
+                  isSelected={selectedMetric === 'watchTime'}
+                  onClick={() => setSelectedMetric('watchTime')}
+                  color="#FF7847"
+                />
+                
+                <MiniMetricCard
+                  title="Engagement"
+                  value={((youtubeStats.last30Days?.likes || 0) + (youtubeStats.last30Days?.comments || 0)).toLocaleString()}
+                  data={youtubeStats.timeSeries?.['30d']?.map((d: any) => (d.likes || 0) + (d.comments || 0)) || Array(30).fill(0)}
+                  growth={8.3}
+                  isSelected={selectedMetric === 'engagement'}
+                  onClick={() => setSelectedMetric('engagement')}
+                  color="#10B981"
+                />
+                
+                <MiniMetricCard
+                  title="Subscribers"
+                  value={((youtubeStats.last30Days?.subscribersGained || 0) - (youtubeStats.last30Days?.subscribersLost || 0)).toLocaleString()}
+                  data={youtubeStats.timeSeries?.['30d']?.map((d: any) => (d.subscribersGained || 0) - (d.subscribersLost || 0)) || Array(30).fill(0)}
+                  growth={5.7}
+                  isSelected={selectedMetric === 'subscribers'}
+                  onClick={() => setSelectedMetric('subscribers')}
+                  color="#3B82F6"
+                />
+              </div>
+
+              {/* Main Graph - Placeholder for now, will be enhanced */}
+              <div className="card-elevo p-6">
+                <h2 className="text-2xl font-bold mb-4">
+                  {selectedMetric === 'watchTime' && 'Watch Time Trend'}
+                  {selectedMetric === 'engagement' && 'Engagement Trend'}
+                  {selectedMetric === 'subscribers' && 'Subscriber Growth'}
+                </h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Detailed view with comparison data
+                </p>
+                <div className="h-64 flex items-center justify-center border-2 border-dashed border-border rounded-xl">
+                  <p className="text-muted-foreground">Main graph with comparison data coming soon</p>
+                </div>
+              </div>
+
+              {/* Top Content Table */}
+              <TopContentTable
+                startDate={comparisonStartDate}
+                endDate={comparisonEndDate}
+              />
+            </div>
+          )}
+
+          {/* Large View Layout - Keep existing charts */}
+          {selectedPlatform === 'youtube' && youtubeStats && layoutMode === 'large' && (
+            <div className="mt-8">
+              <div className="grid lg:grid-cols-3 gap-8">
+                {/* Left Column - Charts */}
+                <div className="lg:col-span-2 space-y-8">
               {/* Timeline Chart - Platform Specific */}
               <div className="card-elevo p-6">
                 <div className="mb-6">
@@ -961,51 +1129,8 @@ export default function Analytics() {
                 </div>
               )}
 
-              {/* Platform-Specific Account Stats */}
-              {selectedPlatform === 'tiktok' && tiktokStats && (
-                <div className="card-elevo p-6">
-                  <div className="mb-6">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 rounded-xl bg-gradient-to-br from-pink-500/20 to-cyan-500/20">
-                        <span className="text-2xl">🎵</span>
-                      </div>
-                      <h2 className="text-2xl font-bold">TikTok Account Stats</h2>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Live data from your connected TikTok account
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="group p-4 rounded-xl bg-muted/30 border border-border/50 hover:border-pink-500/30 transition-all hover:scale-105">
-                      <p className="text-sm text-muted-foreground mb-1">Followers</p>
-                      <p className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-cyan-500 bg-clip-text text-transparent">
-                        {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(tiktokStats.follower_count)}
-                      </p>
-                    </div>
-                    <div className="group p-4 rounded-xl bg-muted/30 border border-border/50 hover:border-cyan-500/30 transition-all hover:scale-105">
-                      <p className="text-sm text-muted-foreground mb-1">Following</p>
-                      <p className="text-2xl font-bold">
-                        {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(tiktokStats.following_count)}
-                      </p>
-                    </div>
-                    <div className="group p-4 rounded-xl bg-muted/30 border border-border/50 hover:border-pink-500/30 transition-all hover:scale-105">
-                      <p className="text-sm text-muted-foreground mb-1">Total Likes</p>
-                      <p className="text-2xl font-bold">
-                        {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(tiktokStats.likes_count)}
-                      </p>
-                    </div>
-                    <div className="group p-4 rounded-xl bg-muted/30 border border-border/50 hover:border-purple-500/30 transition-all hover:scale-105">
-                      <p className="text-sm text-muted-foreground mb-1">Videos</p>
-                      <p className="text-2xl font-bold">
-                        {tiktokStats.video_count}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedPlatform === 'youtube' && youtubeStats && (
+              {/* YouTube Channel Stats */}
+              {youtubeStats && (
                 <div className="card-elevo p-6">
                   <div className="mb-6">
                     <div className="flex items-center gap-3 mb-2">
@@ -1132,10 +1257,60 @@ export default function Analytics() {
                   })}
                 </div>
               </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* TikTok View - Always show old charts */}
+          {selectedPlatform === 'tiktok' && (
+            <div className="mt-8">
+              <div className="grid lg:grid-cols-3 gap-8">
+                {/* Left Column - Charts */}
+                <div className="lg:col-span-2 space-y-8">
+              {/* Timeline Chart */}
+              <div className="card-elevo p-6">
+                <div className="mb-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 rounded-xl bg-gradient-to-br from-pink-500/20 to-cyan-500/20">
+                      <span className="text-2xl">🎵</span>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold">Video Creation Timeline</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Videos created over the past month
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="h-[300px] w-full">
+                  <Line options={lineOptions} data={timelineData} />
+                </div>
+              </div>
+
+              {/* Additional TikTok charts placeholder */}
+              <div className="card-elevo p-6">
+                <p className="text-center text-muted-foreground py-12">
+                  Additional TikTok analytics charts coming soon
+                </p>
+                  </div>
+                </div>
+
+                {/* Right Column - Stats */}
+                <div className="space-y-6">
+                  <div className="card-elevo p-6">
+                    <h2 className="text-xl font-bold mb-4">Quick Stats</h2>
+                    <p className="text-sm text-muted-foreground">
+                      TikTok stats overview
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </main>
+    </AppLayout>
   );
 } 

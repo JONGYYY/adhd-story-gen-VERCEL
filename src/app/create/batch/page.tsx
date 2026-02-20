@@ -29,6 +29,7 @@ import {
   Settings2,
   Wand2
 } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 type Voice = {
   id: string;
@@ -356,7 +357,8 @@ export default function BatchCreate() {
   };
 
   return (
-    <main className="min-h-screen bg-background">
+    <AppLayout>
+      <div className="min-h-screen bg-background">
       <div className="section-py">
         <div className="container-creator">
           {/* Mode Toggle */}
@@ -1405,6 +1407,7 @@ export default function BatchCreate() {
       </div>
 
       <Footer />
-    </main>
+      </div>
+    </AppLayout>
   );
 } 

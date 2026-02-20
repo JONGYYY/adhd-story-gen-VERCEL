@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -202,7 +203,8 @@ export default function Dashboard() {
   ];
 
   return (
-    <main className="min-h-screen bg-background">
+    <AppLayout>
+      <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <div className="relative overflow-hidden border-b border-border/50 bg-gradient-to-br from-background via-background to-primary/5">
         <div className="absolute inset-0 bg-grid-white/[0.02] pointer-events-none" />
@@ -506,6 +508,7 @@ export default function Dashboard() {
       </div>
 
       <Footer />
-    </main>
+      </div>
+    </AppLayout>
   );
 }

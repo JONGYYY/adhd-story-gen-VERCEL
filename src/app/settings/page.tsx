@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/Footer';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { User, Bell, Shield, CreditCard, Link as LinkIcon, Loader2, Check } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 export default function SettingsPage() {
   const [name, setName] = useState('');
@@ -60,7 +61,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background">
+    <AppLayout>
+      <div className="min-h-screen bg-background">
       <div className="section-py">
         <div className="container-wide max-w-6xl">
           {/* Header */}
@@ -324,6 +326,7 @@ export default function SettingsPage() {
       </div>
 
       <Footer />
-    </main>
+      </div>
+    </AppLayout>
   );
 }

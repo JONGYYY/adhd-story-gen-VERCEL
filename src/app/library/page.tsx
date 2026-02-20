@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { SocialPlatform } from '@/lib/social-media/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Grid3x3, List, Clock, Plus, Video, Eye, ThumbsUp, MessageSquare, ExternalLink } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 interface PlatformStatus {
   platform: SocialPlatform;
@@ -117,7 +118,8 @@ export default function Library() {
   };
 
   return (
-    <main className="min-h-screen bg-background">
+    <AppLayout>
+      <div className="min-h-screen bg-background">
       <div className="section-py">
         <div className="container-wide">
           {/* Header */}
@@ -377,6 +379,7 @@ export default function Library() {
       </div>
 
       <Footer />
-    </main>
+      </div>
+    </AppLayout>
   );
 }
