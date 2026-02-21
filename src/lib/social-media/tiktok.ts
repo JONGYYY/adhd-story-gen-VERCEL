@@ -274,12 +274,12 @@ export class TikTokAPI {
       let response;
       try {
         response = await fetch(tokenUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Cache-Control': 'no-cache',
-          },
-          body: params.toString(),
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cache-Control': 'no-cache',
+        },
+        body: params.toString(),
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
@@ -640,15 +640,15 @@ export class TikTokAPI {
       
       try {
         const initResponse = await fetch(initEndpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
             'Accept-Encoding': 'identity', // Disable gzip to avoid Node.js fetch decompression issues
-          },
-          body: JSON.stringify({
-            post_info: {
-              title: videoData.title,
+        },
+        body: JSON.stringify({
+          post_info: {
+            title: videoData.title,
               privacy_level: privacyLevel,
               disable_comment: videoData.disable_comment ?? false,
               disable_duet: videoData.disable_duet ?? false,
@@ -672,7 +672,7 @@ export class TikTokAPI {
         clearTimeout(initTimeout);
         const initElapsedTime = Date.now() - initStartTime;
         console.log(`Init request completed in ${initElapsedTime}ms`);
-        console.log('Init response status:', initResponse.status);
+      console.log('Init response status:', initResponse.status);
         console.log('Init response headers:', JSON.stringify(Object.fromEntries(initResponse.headers.entries())).substring(0, 300));
 
         // CRITICAL: Check for 401/403 BEFORE reading body
@@ -736,9 +736,9 @@ export class TikTokAPI {
           
           throw new Error(`Failed to parse TikTok init response: ${error instanceof Error ? error.message : 'Parse error'}`);
         }
-        
-        if (!initResponse.ok) {
-          console.error('Init error response:', initData);
+      
+      if (!initResponse.ok) {
+        console.error('Init error response:', initData);
           const errorMessage = initData.error?.message || initData.message || 'Unknown error';
           const errorCode = initData.error?.code || 'unknown';
           
@@ -783,8 +783,8 @@ export class TikTokAPI {
 
         console.log('Upload URL received:', upload_url);
 
-        // 2. Upload video
-        console.log('Uploading video file...');
+      // 2. Upload video
+      console.log('Uploading video file...');
         console.log(`Upload URL domain: ${new URL(upload_url).hostname}`);
         
         // Create abort controller for upload timeout (2 minutes for video upload)
@@ -800,24 +800,24 @@ export class TikTokAPI {
         const uploadStartTime = Date.now();
         
         try {
-          const uploadResponse = await fetch(upload_url, {
+      const uploadResponse = await fetch(upload_url, {
             method: 'PUT',
-            headers: {
-              'Content-Type': 'video/mp4',
+        headers: {
+          'Content-Type': 'video/mp4',
               'Content-Length': String(videoSize),
               'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
               'Accept-Encoding': 'identity', // Disable gzip to avoid Node.js fetch decompression issues
-            },
+        },
             // Node's fetch BodyInit typing doesn't accept Buffer in some TS DOM lib setups.
             // Convert to Uint8Array/ArrayBuffer to satisfy typings while preserving bytes.
             body: new Uint8Array(videoData.video_file),
             signal: uploadAbortController.signal,
-          });
+      });
 
           clearTimeout(uploadTimeout);
           const uploadElapsedTime = Date.now() - uploadStartTime;
           console.log(`Video upload completed in ${(uploadElapsedTime / 1000).toFixed(2)} seconds`);
-          console.log('Upload response status:', uploadResponse.status);
+      console.log('Upload response status:', uploadResponse.status);
           
           // Parse response body with timeout using Promise.race
           let uploadBody = '';
@@ -833,8 +833,8 @@ export class TikTokAPI {
             console.error('Failed to read upload response body:', bodyError);
             uploadBody = '';
           }
-          
-          if (!uploadResponse.ok) {
+      
+      if (!uploadResponse.ok) {
             console.error('Upload error response:', uploadBody);
             throw new Error(`Failed to upload video: ${uploadBody || `HTTP ${uploadResponse.status}`}`);
           }
@@ -844,7 +844,7 @@ export class TikTokAPI {
           console.log(`Video uploaded successfully (${uploadMode})`, {
             publish_id,
             upload_id,
-            video_id,
+          video_id,
             privacy_level: privacyLevel,
             uploadResponseStatus: uploadResponse.status,
           });

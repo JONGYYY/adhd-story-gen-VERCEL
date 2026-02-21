@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/layout/Footer';
+import { MobileMenu } from '@/components/layout/MobileMenu';
 import { ModeToggle } from '@/components/create/ModeToggle';
 import { VideoOptions, VoiceOption, VideoBackground } from '@/lib/video-generator/types';
 import { Progress } from '@/components/ui/progress';
@@ -35,6 +36,7 @@ export default function Create() {
   const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
   const [storyIdeas, setStoryIdeas] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState<string | null>(null);
@@ -444,7 +446,11 @@ export default function Create() {
   };
 
   return (
-    <main className="min-h-screen bg-background">
+    <>
+      {/* Mobile Menu (Hamburger) */}
+      <MobileMenu isOpen={mobileMenuOpen} onToggle={() => setMobileMenuOpen(!mobileMenuOpen)} />
+
+      <main className="min-h-screen bg-background">
       <div className="section-py">
         <div className="container-creator">
           {/* Mode Toggle */}
@@ -988,5 +994,6 @@ export default function Create() {
 
       <Footer />
     </main>
+    </>
   );
 }

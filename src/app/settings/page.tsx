@@ -15,6 +15,11 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [connections, setConnections] = useState<{
+    youtube: { connected: boolean; username?: string };
+    tiktok: { connected: boolean; username?: string };
+  }>({ youtube: { connected: false }, tiktok: { connected: false } });
+  const [loadingConnections, setLoadingConnections] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,6 +34,35 @@ export default function SettingsPage() {
         console.warn('Failed to load profile:', e);
       } finally {
         if (!cancelled) setLoadingProfile(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Fetch YouTube status
+        const ytResp = await fetch('/api/social-media/credentials?platform=youtube', { credentials: 'include' });
+        const ytData = ytResp.ok ? await ytResp.json() : { connected: false };
+        
+        // Fetch TikTok status
+        const ttResp = await fetch('/api/social-media/credentials?platform=tiktok', { credentials: 'include' });
+        const ttData = ttResp.ok ? await ttResp.json() : { connected: false };
+        
+        if (!cancelled) {
+          setConnections({
+            youtube: { connected: ytData.connected, username: ytData.username },
+            tiktok: { connected: ttData.connected, username: ttData.username },
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to load connections:', e);
+      } finally {
+        if (!cancelled) setLoadingConnections(false);
       }
     })();
     return () => {
@@ -192,27 +226,54 @@ export default function SettingsPage() {
                   Manage your connected social media and content platforms
                 </p>
                 
-                <div className="space-y-4">
-                  {['YouTube', 'TikTok'].map((platform) => (
-                    <div 
-                      key={platform} 
-                      className="flex items-center justify-between p-4 rounded-2xl bg-muted/50 border border-border"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                          <LinkIcon className="w-6 h-6 text-primary" />
+                {loadingConnections ? (
+                  <div className="space-y-4">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-muted/50 border border-border">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-muted animate-pulse" />
+                          <div>
+                            <div className="h-5 w-24 bg-muted rounded animate-pulse mb-2" />
+                            <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold">{platform}</p>
-                          <p className="text-sm text-muted-foreground">Not connected</p>
-                        </div>
+                        <div className="h-9 w-24 bg-muted rounded animate-pulse" />
                       </div>
-                      <Link href="/settings/social-media" className="btn-secondary text-sm px-6 py-2">
-                        Connect
-                      </Link>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {[
+                      { platform: 'YouTube', key: 'youtube' as const },
+                      { platform: 'TikTok', key: 'tiktok' as const },
+                    ].map(({ platform, key }) => {
+                      const conn = connections[key];
+                      return (
+                        <div 
+                          key={platform} 
+                          className="flex items-center justify-between p-4 rounded-2xl bg-muted/50 border border-border"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                              <LinkIcon className="w-6 h-6 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-semibold">{platform}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {conn.connected 
+                                  ? (conn.username ? `Connected as ${conn.username}` : 'Connected') 
+                                  : 'Not connected'}
+                              </p>
+                            </div>
+                          </div>
+                          <Link href="/settings/social-media" className="btn-secondary text-sm px-6 py-2">
+                            {conn.connected ? 'Manage' : 'Connect'}
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </TabsContent>
 

@@ -922,121 +922,68 @@ export default function Analytics() {
               </Alert>
             )}
 
-          {/* Main Metrics Bar (HR-style horizontal bar with 5 sections) */}
+          {/* Main Metrics Bar - Skeleton Loading */}
           {selectedPlatform === 'youtube' && youtubeLoading && (
-            <div className="mt-8 card-elevo overflow-hidden">
-              <div className="flex flex-col md:flex-row">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="flex-1 p-6 border-b md:border-b-0 md:border-r last:border-r-0 border-border/50">
-                    <Skeleton className="h-4 w-24 mb-3" />
-                    <Skeleton className="h-8 w-20 mb-2" />
-                    <Skeleton className="h-3 w-16" />
+            <div className="mt-8 flex gap-4 overflow-x-auto">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="card-elevo p-6 min-w-[220px] flex-1">
+                  <Skeleton className="h-4 w-24 mb-4" />
+                  <div className="flex items-end justify-between gap-4">
+                    <Skeleton className="h-9 w-20" />
+                    <Skeleton className="h-16 flex-1" />
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           )}
           
+          {/* Main Metrics Bar - 5 Mini Cards in Horizontal Row (Overview Only) */}
           {selectedPlatform === 'youtube' && youtubeStats && (
-            <div className="mt-8 card-elevo overflow-hidden">
-              <div className="flex flex-col md:flex-row">
-                {/* Metric 1: Total Views */}
-                <div className="flex-1 p-6 border-b md:border-b-0 md:border-r border-border/50 hover:bg-muted/20 transition-colors">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Total Views</p>
-                  <div className="flex items-end justify-between">
-                    <div className="flex items-center gap-2">
-                      <Eye className="w-6 h-6 text-primary" />
-                      <p className="text-3xl font-bold">{youtubeStats.totalViews?.toLocaleString() || '0'}</p>
-                    </div>
-                    {youtubeStats.last30Days && (
-                      <div className="flex items-center gap-1 text-xs text-green-400">
-                        <TrendingUp className="w-3 h-3" />
-                        {youtubeStats.last30Days.views?.toLocaleString() || '0'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Metric 2: Subscribers */}
-                <div className="flex-1 p-6 border-b md:border-b-0 md:border-r border-border/50 hover:bg-muted/20 transition-colors">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Subscribers</p>
-                  <div className="flex items-end justify-between">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-6 h-6 text-primary" />
-                      <p className="text-3xl font-bold">{youtubeStats.subscribers?.toLocaleString() || '0'}</p>
-                    </div>
-                    {youtubeStats.last30Days && (
-                      <div className={cn(
-                        "flex items-center gap-1 text-xs",
-                        (youtubeStats.last30Days.subscribersGained || 0) - (youtubeStats.last30Days.subscribersLost || 0) >= 0 
-                          ? "text-green-400" 
-                          : "text-red-400"
-                      )}>
-                        {(youtubeStats.last30Days.subscribersGained || 0) - (youtubeStats.last30Days.subscribersLost || 0) >= 0 ? (
-                          <TrendingUp className="w-3 h-3" />
-                        ) : (
-                          <TrendingDown className="w-3 h-3" />
-                        )}
-                        {((youtubeStats.last30Days.subscribersGained || 0) - (youtubeStats.last30Days.subscribersLost || 0)).toLocaleString()}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Metric 3: Watch Time */}
-                <div className="flex-1 p-6 border-b md:border-b-0 md:border-r border-border/50 hover:bg-muted/20 transition-colors">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Watch Time</p>
-                  <div className="flex items-end justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-6 h-6 text-primary" />
-                      <p className="text-3xl font-bold">
-                        {youtubeStats.last30Days?.watchTime 
-                          ? Math.round(youtubeStats.last30Days.watchTime / 60).toLocaleString() 
-                          : '0'}h
-                      </p>
-                    </div>
-                    {youtubeStats.last30Days?.watchTime && (
-                      <div className="flex items-center gap-1 text-xs text-green-400">
-                        <TrendingUp className="w-3 h-3" />
-                        30d
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Metric 4: Engagement */}
-                <div className="flex-1 p-6 border-b md:border-b-0 md:border-r border-border/50 hover:bg-muted/20 transition-colors">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Engagement</p>
-                  <div className="flex items-end justify-between">
-                    <div className="flex items-center gap-2">
-                      <ThumbsUp className="w-6 h-6 text-primary" />
-                      <p className="text-3xl font-bold">
-                        {((youtubeStats.last30Days?.likes || 0) + (youtubeStats.last30Days?.comments || 0)).toLocaleString()}
-                      </p>
-                    </div>
-                    {youtubeStats.last30Days && (
-                      <div className="flex items-center gap-1 text-xs text-green-400">
-                        <TrendingUp className="w-3 h-3" />
-                        L+C
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Metric 5: Videos Posted */}
-                <div className="flex-1 p-6 hover:bg-muted/20 transition-colors">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Videos Posted</p>
-                  <div className="flex items-end justify-between">
-                    <div className="flex items-center gap-2">
-                      <Video className="w-6 h-6 text-primary" />
-                      <p className="text-3xl font-bold">{youtubeStats.totalVideos || '0'}</p>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      Total
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="mt-8 flex gap-4 overflow-x-auto">
+              <MiniMetricCard
+                title="Total Views"
+                value={youtubeStats.totalViews?.toLocaleString() || '0'}
+                data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => d.views || 0) || Array(30).fill(0)}
+                growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => d.views || 0)}
+                color="#EF4444"
+                icon={Eye}
+              />
+              
+              <MiniMetricCard
+                title="Watch Time"
+                value={`${Math.round((youtubeStats.last30Days?.watchTime || 0) / 60)}h`}
+                data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.watchTime || 0) / 60) || Array(30).fill(0)}
+                growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => d.watchTime || 0)}
+                color="#A855F7"
+                icon={Clock}
+              />
+              
+              <MiniMetricCard
+                title="Engagement"
+                value={((youtubeStats.last30Days?.likes || 0) + (youtubeStats.last30Days?.comments || 0)).toLocaleString()}
+                data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.likes || 0) + (d.comments || 0)) || Array(30).fill(0)}
+                growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => (d.likes || 0) + (d.comments || 0) + (d.shares || 0))}
+                color="#10B981"
+                icon={ThumbsUp}
+              />
+              
+              <MiniMetricCard
+                title="Subscribers"
+                value={youtubeStats.subscribers?.toLocaleString() || '0'}
+                data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.subscribersGained || 0) - (d.subscribersLost || 0)) || Array(30).fill(0)}
+                growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => (d.subscribersGained || 0) - (d.subscribersLost || 0))}
+                color="#3B82F6"
+                icon={Users}
+              />
+              
+              <MiniMetricCard
+                title="Videos Posted"
+                value={youtubeStats.totalVideos?.toString() || '0'}
+                data={Array(30).fill(0)}
+                growth={0}
+                color="#FF7847"
+                icon={Video}
+              />
             </div>
           )}
 
