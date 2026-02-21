@@ -15,6 +15,7 @@ const SOCIAL_CREDENTIALS_COLLECTION = 'socialMediaCredentials';
 async function getUserTikTokCredentials(userId: string): Promise<{
   accessToken: string;
   refreshToken: string;
+  expiresAt: number;
 } | null> {
   try {
     console.log(`[TikTok Credentials] Fetching credentials for user ${userId}`);
@@ -62,11 +63,83 @@ async function getUserTikTokCredentials(userId: string): Promise<{
     return {
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
+      expiresAt: data.expiresAt || Date.now() + 86400000, // Default 24 hours if not set
     };
   } catch (error) {
     console.error(`[TikTok Credentials] ❌ Failed to get TikTok credentials:`, error);
     return null;
   }
+}
+
+/**
+ * Ensure TikTok token is valid, refresh proactively if needed
+ * Returns valid credentials or throws error
+ */
+async function ensureValidTikTokToken(
+  userId: string,
+  credentials: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+  }
+): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+}> {
+  const now = Date.now();
+  const tenMinutesFromNow = now + (10 * 60 * 1000);
+  
+  // Check if token is expired or will expire in next 10 minutes
+  if (credentials.expiresAt < tenMinutesFromNow) {
+    console.log('[TikTok Token Validation] ========================================');
+    console.log('[TikTok Token Validation] Token expired or expiring soon');
+    console.log('[TikTok Token Validation] Current time:', new Date(now).toISOString());
+    console.log('[TikTok Token Validation] Token expires at:', new Date(credentials.expiresAt).toISOString());
+    console.log('[TikTok Token Validation] Refreshing proactively BEFORE upload attempt...');
+    console.log('[TikTok Token Validation] ========================================');
+    
+    if (!credentials.refreshToken) {
+      console.error('[TikTok Token Validation] ❌ No refresh token available. User must reconnect TikTok.');
+      throw new Error('No refresh token available. User must reconnect TikTok.');
+    }
+    
+    try {
+      const tiktokApi = new TikTokAPI();
+      console.log('[TikTok Token Validation] Calling TikTok API to refresh token...');
+      const refreshedTokens = await tiktokApi.refreshAccessToken(credentials.refreshToken);
+      console.log('[TikTok Token Validation] ✅ Token refreshed successfully');
+      console.log('[TikTok Token Validation] New token expires in:', refreshedTokens.expires_in || 86400, 'seconds');
+      
+      const refreshedCredentials = {
+        accessToken: refreshedTokens.access_token,
+        refreshToken: refreshedTokens.refresh_token || credentials.refreshToken,
+        expiresAt: Date.now() + ((refreshedTokens.expires_in || 86400) * 1000),
+      };
+      
+      // Save immediately
+      console.log('[TikTok Token Validation] Saving refreshed token to Firestore...');
+      await updateTikTokAccessToken(
+        userId,
+        refreshedCredentials.accessToken,
+        refreshedCredentials.refreshToken,
+        refreshedTokens.expires_in
+      );
+      console.log('[TikTok Token Validation] ✅ Token saved successfully');
+      
+      return refreshedCredentials;
+    } catch (error) {
+      console.error('[TikTok Token Validation] ========================================');
+      console.error('[TikTok Token Validation] ❌ Token refresh failed');
+      console.error('[TikTok Token Validation] Error:', error);
+      console.error('[TikTok Token Validation] ========================================');
+      throw new Error(`Failed to refresh TikTok token: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+  
+  console.log('[TikTok Token Validation] ✅ Token is valid (not expiring within 10 minutes)');
+  console.log('[TikTok Token Validation] Expires at:', new Date(credentials.expiresAt).toISOString());
+  return credentials;
 }
 
 /**
@@ -213,6 +286,21 @@ export async function postVideoToTikTok(
     console.log(`[TikTok Auto-Post] Access token length: ${credentials.accessToken.length}`);
     console.log(`[TikTok Auto-Post] Access token starts with: ${credentials.accessToken.substring(0, 15)}...`);
     console.log(`[TikTok Auto-Post] Has refresh token: ${!!credentials.refreshToken}`);
+    console.log(`[TikTok Auto-Post] Token expires at: ${new Date(credentials.expiresAt).toISOString()}`);
+
+    // CRITICAL: Ensure token is valid BEFORE attempting upload (proactive refresh)
+    console.log(`[TikTok Auto-Post] Step 1.5: Validating token and refreshing if needed...`);
+    try {
+      credentials = await ensureValidTikTokToken(userId, credentials);
+      console.log(`[TikTok Auto-Post] ✅ Token validated and ready for upload`);
+    } catch (tokenError) {
+      console.error(`[TikTok Auto-Post] ❌ Token validation failed:`, tokenError);
+      return {
+        success: false,
+        error: tokenError instanceof Error ? tokenError.message : 'Token validation failed',
+        errorType: 'TOKEN_REFRESH_FAILED',
+      };
+    }
 
     // Get video metadata (includes videoUrl)
     console.log(`[TikTok Auto-Post] Step 2: Fetching video metadata...`);
@@ -340,6 +428,7 @@ export async function postVideoToTikTok(
             credentials = {
               accessToken: refreshedTokens.access_token,
               refreshToken: refreshedTokens.refresh_token || credentials.refreshToken,
+              expiresAt: Date.now() + ((refreshedTokens.expires_in || 86400) * 1000),
             };
             
             console.log(`[TikTok Auto-Post] Retrying upload with new token...`);

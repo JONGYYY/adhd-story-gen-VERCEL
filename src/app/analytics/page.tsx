@@ -399,8 +399,8 @@ export default function Analytics() {
         data: viewsTimeSeriesData.data.length > 0 ? viewsTimeSeriesData.data : [0],
         borderColor: 'rgb(239, 68, 68)',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        tension: 0.4,
-        fill: true,
+          tension: 0.4,
+          fill: true,
         pointRadius: 5,
         pointHoverRadius: 7,
         pointBackgroundColor: 'rgb(239, 68, 68)',
@@ -429,9 +429,9 @@ export default function Analytics() {
         pointBorderColor: 'white',
         pointBorderWidth: 2,
         borderWidth: 3,
-      },
-    ],
-  };
+        },
+      ],
+    };
 
   // YouTube Watch Time Chart with REAL data
   const watchTimeTimeSeriesData = getYouTubeTimeSeriesData('watchTime', timeFrame);
@@ -944,10 +944,10 @@ export default function Analytics() {
                   <div className="flex items-end justify-between gap-4">
                     <Skeleton className="h-8 w-20" />
                     <Skeleton className="h-12 flex-1" />
-                  </div>
-                </div>
-              ))}
+              </div>
             </div>
+          ))}
+        </div>
           )}
           
           {/* Main Metrics Bar - 5 Sections with Touching Sides (Clickable) */}
@@ -1043,14 +1043,14 @@ export default function Analytics() {
                     setComparisonEndDate('');
                   }}
                 />
-              </div>
+                        </div>
 
               {/* Right: Layout Toggle */}
               <LayoutToggle
                 selected={layoutMode}
                 onSelect={setLayoutMode}
-              />
-            </div>
+                            />
+                          </div>
           )}
 
           {/* Single View Layout - Skeleton */}
@@ -1109,14 +1109,14 @@ export default function Analytics() {
                         {selectedMetric === 'engagement' && 'Likes and comments over the selected period'}
                         {selectedMetric === 'subscribers' && 'Net subscriber growth over the selected period'}
                       </p>
-                    </div>
+                          </div>
                     
                     <div className="h-[300px] w-full">
                       {selectedMetric === 'views' && <Line options={lineOptions} data={youtubeViewsData} plugins={[videoMarkersPlugin]} />}
                       {selectedMetric === 'watchTime' && <Line options={lineOptions} data={youtubeWatchTimeDetailedData} plugins={[videoMarkersPlugin]} />}
                       {selectedMetric === 'engagement' && <Line options={lineOptions} data={youtubeEngagementTimeSeriesData} plugins={[videoMarkersPlugin]} />}
                       {selectedMetric === 'subscribers' && <Line options={lineOptions} data={youtubeSubscribersTimeSeriesData} plugins={[videoMarkersPlugin]} />}
-                    </div>
+                        </div>
                   </>
                 )}
               </div>
@@ -1126,8 +1126,8 @@ export default function Analytics() {
                 startDate={comparisonStartDate}
                 endDate={comparisonEndDate}
               />
-            </div>
-          )}
+                      </div>
+                    )}
 
           {/* Large View Layout - Skeleton */}
           {selectedPlatform === 'youtube' && youtubeLoading && layoutMode === 'large' && (
@@ -1140,7 +1140,7 @@ export default function Analytics() {
                     <Skeleton className="h-[250px] w-full" />
                   </div>
                 ))}
-              </div>
+                </div>
               
               {/* Skeleton Videos Posted Heatmap */}
               <div className="card-elevo p-6">
@@ -1161,8 +1161,8 @@ export default function Analytics() {
                         <Skeleton className="h-4 w-3/4" />
                         <Skeleton className="h-3 w-1/2" />
                         <Skeleton className="h-3 w-1/4" />
-                      </div>
-                    </div>
+              </div>
+            </div>
                   ))}
                 </div>
               </div>
@@ -1246,8 +1246,8 @@ export default function Analytics() {
                   title="Videos Posted Activity"
                   description="Daily video posting frequency over the selected period"
                   days={getTimeFrameDays(customTimeFrame)}
-                />
-              </div>
+                      />
+                    </div>
 
               {/* Top Content Table Below All Graphs */}
               <TopContentTable
@@ -1270,7 +1270,7 @@ export default function Analytics() {
                     <div className="p-2 rounded-xl bg-gradient-to-br from-pink-500/20 to-cyan-500/20">
                       <span className="text-2xl">🎵</span>
                     </div>
-                    <div>
+                        <div>
                       <h2 className="text-2xl font-bold">Video Creation Timeline</h2>
                       <p className="text-sm text-muted-foreground">
                         Videos created over the past month
@@ -1339,7 +1339,7 @@ export default function Analytics() {
                     
                     <div className="h-[300px] w-full">
                       <Line options={lineOptions} data={youtubeSubscriberGrowthData} />
-                    </div>
+                  </div>
                     
                     {/* Summary Stats */}
                     {youtubeStats && (
@@ -1349,16 +1349,16 @@ export default function Analytics() {
                           <p className="text-lg font-bold text-green-400">
                             +{youtubeStats.last30Days?.subscribersGained || 0}
                           </p>
-                        </div>
+              </div>
                         <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
                           <p className="text-xs text-muted-foreground mb-1">Lost</p>
                           <p className="text-lg font-bold text-red-400">
                             -{youtubeStats.last30Days?.subscribersLost || 0}
                           </p>
-                        </div>
+            </div>
                       </div>
                     )}
-                  </div>
+          </div>
 
                   {/* Watch Time Chart */}
                   <div className="card-elevo p-6">
@@ -1366,7 +1366,7 @@ export default function Analytics() {
                       <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20">
                           <Clock className="w-5 h-5 text-purple-400" />
-                        </div>
+                    </div>
                         <div>
                           <h2 className="text-2xl font-bold">Watch Time Trends</h2>
                           <p className="text-sm text-muted-foreground">
@@ -1375,9 +1375,9 @@ export default function Analytics() {
                             {timeFrame === '90d' && 'Monthly watch hours over 90 days'}
                             {timeFrame === 'all' && 'Monthly watch hours over the year'}
                           </p>
+                  </div>
               </div>
             </div>
-          </div>
 
                     <div className="h-[300px] w-full">
                       <Line options={lineOptions} data={youtubeWatchTimeDetailedData} />
@@ -1489,7 +1489,7 @@ export default function Analytics() {
                   </p>
                 </div>
 
-                <div className="space-y-4">
+              <div className="space-y-4">
                   {insights.map((insight, i) => {
                     const Icon = insight.icon;
                     return (
@@ -1507,13 +1507,13 @@ export default function Analytics() {
                             insight.iconColor
                           )}>
                             <Icon className="w-4 h-4" />
-                          </div>
+                  </div>
                           <div className="flex-1">
                             <h3 className="font-semibold text-sm mb-1">
                               {insight.title}
                             </h3>
-                          </div>
-                        </div>
+                  </div>
+                </div>
                         <p className="text-xs text-muted-foreground mb-3">
                           {insight.description}
                         </p>
@@ -1527,10 +1527,10 @@ export default function Analytics() {
                             {insight.action}
                           </a>
                         </Button>
-                      </div>
+                  </div>
                     );
                   })}
-                </div>
+                  </div>
               </div>
                 </div>
               </div>
@@ -1549,28 +1549,28 @@ export default function Analytics() {
                   <div className="flex items-center gap-3 mb-2">
                     <div className="p-2 rounded-xl bg-gradient-to-br from-pink-500/20 to-cyan-500/20">
                       <span className="text-2xl">🎵</span>
-                    </div>
-                    <div>
+                </div>
+                <div>
                       <h2 className="text-2xl font-bold">Video Creation Timeline</h2>
                       <p className="text-sm text-muted-foreground">
                         Videos created over the past month
                       </p>
-                    </div>
+                  </div>
                   </div>
                 </div>
                 
                 <div className="h-[300px] w-full">
                   <Line options={lineOptions} data={timelineData} />
-                </div>
               </div>
+            </div>
 
               {/* Additional TikTok charts placeholder */}
               <div className="card-elevo p-6">
                 <p className="text-center text-muted-foreground py-12">
                   Additional TikTok analytics charts coming soon
                 </p>
-                  </div>
-                </div>
+          </div>
+        </div>
 
                 {/* Right Column - Stats */}
                 <div className="space-y-6">
@@ -1579,7 +1579,7 @@ export default function Analytics() {
                     <p className="text-sm text-muted-foreground">
                       TikTok stats overview
                     </p>
-                  </div>
+      </div>
                 </div>
               </div>
             </div>

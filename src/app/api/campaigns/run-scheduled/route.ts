@@ -270,6 +270,13 @@ export async function POST(request: NextRequest) {
 
         // Auto-post to TikTok if enabled and videos were generated
         let tiktokPostResults;
+        console.log(`[Campaign Scheduler] ========================================`);
+        console.log(`[Campaign Scheduler] TikTok Auto-Post Check`);
+        console.log(`[Campaign Scheduler] campaign.autoPostToTikTok = ${campaign.autoPostToTikTok}`);
+        console.log(`[Campaign Scheduler] result.videoIds.length = ${result.videoIds.length}`);
+        console.log(`[Campaign Scheduler] Will attempt TikTok upload: ${campaign.autoPostToTikTok && result.videoIds.length > 0}`);
+        console.log(`[Campaign Scheduler] ========================================`);
+        
         if (campaign.autoPostToTikTok && result.videoIds.length > 0) {
           console.log(`[Campaign Scheduler] ========================================`);
           console.log(`[Campaign Scheduler] Auto-posting ${result.videoIds.length} videos to TikTok...`);
@@ -383,6 +390,13 @@ export async function POST(request: NextRequest) {
 
         // Auto-post to YouTube if enabled and videos were generated
         let youtubePostResults;
+        console.log(`[Campaign Scheduler] ========================================`);
+        console.log(`[Campaign Scheduler] YouTube Auto-Post Check`);
+        console.log(`[Campaign Scheduler] campaign.autoPostToYouTube = ${campaign.autoPostToYouTube}`);
+        console.log(`[Campaign Scheduler] result.videoIds.length = ${result.videoIds.length}`);
+        console.log(`[Campaign Scheduler] Will attempt YouTube upload: ${campaign.autoPostToYouTube && result.videoIds.length > 0}`);
+        console.log(`[Campaign Scheduler] ========================================`);
+        
         if (campaign.autoPostToYouTube && result.videoIds.length > 0) {
           console.log(`[Campaign Scheduler] Auto-posting ${result.videoIds.length} videos to YouTube...`);
           try {
