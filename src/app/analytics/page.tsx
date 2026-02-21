@@ -44,6 +44,8 @@ import { TimeFrameExpander, TimeFrameOption } from '@/components/analytics/TimeF
 import { ComparisonDatePicker } from '@/components/analytics/ComparisonDatePicker';
 import { LayoutToggle, LayoutMode } from '@/components/analytics/LayoutToggle';
 import { MiniMetricCard } from '@/components/analytics/MiniMetricCard';
+import { MetricsBar } from '@/components/analytics/MetricsBar';
+import { VideoHeatmap } from '@/components/analytics/VideoHeatmap';
 import { TopContentTable } from '@/components/analytics/TopContentTable';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -77,7 +79,7 @@ export default function Analytics() {
   
   // New state for redesigned analytics
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('single');
-  const [selectedMetric, setSelectedMetric] = useState<'views' | 'watchTime' | 'engagement' | 'subscribers'>('views');
+  const [selectedMetric, setSelectedMetric] = useState<'views' | 'watchTime' | 'engagement' | 'subscribers' | 'videosPosted'>('views');
   const [customTimeFrame, setCustomTimeFrame] = useState<TimeFrameOption>('1month');
   const [comparisonStartDate, setComparisonStartDate] = useState<string>('');
   const [comparisonEndDate, setComparisonEndDate] = useState<string>('');
@@ -924,65 +926,80 @@ export default function Analytics() {
 
           {/* Main Metrics Bar - Skeleton Loading */}
           {selectedPlatform === 'youtube' && youtubeLoading && (
-            <div className="mt-8 flex gap-4 overflow-x-auto">
+            <div className="mt-8 card-elevo flex flex-row overflow-hidden">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="card-elevo p-6 min-w-[220px] flex-1">
+                <div key={i} className={cn("flex-1 p-6", i < 5 && "border-r border-border/50")}>
                   <Skeleton className="h-4 w-24 mb-4" />
                   <div className="flex items-end justify-between gap-4">
-                    <Skeleton className="h-9 w-20" />
-                    <Skeleton className="h-16 flex-1" />
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-12 flex-1" />
                   </div>
                 </div>
               ))}
             </div>
           )}
           
-          {/* Main Metrics Bar - 5 Mini Cards in Horizontal Row (Overview Only) */}
+          {/* Main Metrics Bar - 5 Sections with Touching Sides (Clickable) */}
           {selectedPlatform === 'youtube' && youtubeStats && (
-            <div className="mt-8 flex gap-4 overflow-x-auto">
-              <MiniMetricCard
-                title="Total Views"
-                value={youtubeStats.totalViews?.toLocaleString() || '0'}
-                data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => d.views || 0) || Array(30).fill(0)}
-                growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => d.views || 0)}
-                color="#EF4444"
-                icon={Eye}
-              />
-              
-              <MiniMetricCard
-                title="Watch Time"
-                value={`${Math.round((youtubeStats.last30Days?.watchTime || 0) / 60)}h`}
-                data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.watchTime || 0) / 60) || Array(30).fill(0)}
-                growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => d.watchTime || 0)}
-                color="#A855F7"
-                icon={Clock}
-              />
-              
-              <MiniMetricCard
-                title="Engagement"
-                value={((youtubeStats.last30Days?.likes || 0) + (youtubeStats.last30Days?.comments || 0)).toLocaleString()}
-                data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.likes || 0) + (d.comments || 0)) || Array(30).fill(0)}
-                growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => (d.likes || 0) + (d.comments || 0) + (d.shares || 0))}
-                color="#10B981"
-                icon={ThumbsUp}
-              />
-              
-              <MiniMetricCard
-                title="Subscribers"
-                value={youtubeStats.subscribers?.toLocaleString() || '0'}
-                data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.subscribersGained || 0) - (d.subscribersLost || 0)) || Array(30).fill(0)}
-                growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => (d.subscribersGained || 0) - (d.subscribersLost || 0))}
-                color="#3B82F6"
-                icon={Users}
-              />
-              
-              <MiniMetricCard
-                title="Videos Posted"
-                value={youtubeStats.totalVideos?.toString() || '0'}
-                data={Array(30).fill(0)}
-                growth={0}
-                color="#FF7847"
-                icon={Video}
+            <div className="mt-8">
+              <MetricsBar
+                metrics={[
+                  {
+                    title: 'Total Views',
+                    value: youtubeStats.totalViews?.toLocaleString() || '0',
+                    icon: Eye,
+                    growth: calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => d.views || 0),
+                    data: youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => d.views || 0) || Array(30).fill(0),
+                    color: '#EF4444',
+                    isSelected: selectedMetric === 'views',
+                    onClick: () => setSelectedMetric('views'),
+                    showGraph: true,
+                  },
+                  {
+                    title: 'Watch Time',
+                    value: `${Math.round((youtubeStats.last30Days?.watchTime || 0) / 60)}h`,
+                    icon: Clock,
+                    growth: calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => d.watchTime || 0),
+                    data: youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.watchTime || 0) / 60) || Array(30).fill(0),
+                    color: '#A855F7',
+                    isSelected: selectedMetric === 'watchTime',
+                    onClick: () => setSelectedMetric('watchTime'),
+                    showGraph: true,
+                  },
+                  {
+                    title: 'Engagement',
+                    value: ((youtubeStats.last30Days?.likes || 0) + (youtubeStats.last30Days?.comments || 0)).toLocaleString(),
+                    icon: ThumbsUp,
+                    growth: calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => (d.likes || 0) + (d.comments || 0) + (d.shares || 0)),
+                    data: youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.likes || 0) + (d.comments || 0)) || Array(30).fill(0),
+                    color: '#10B981',
+                    isSelected: selectedMetric === 'engagement',
+                    onClick: () => setSelectedMetric('engagement'),
+                    showGraph: true,
+                  },
+                  {
+                    title: 'Subscribers',
+                    value: youtubeStats.subscribers?.toLocaleString() || '0',
+                    icon: Users,
+                    growth: calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => (d.subscribersGained || 0) - (d.subscribersLost || 0)),
+                    data: youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.subscribersGained || 0) - (d.subscribersLost || 0)) || Array(30).fill(0),
+                    color: '#3B82F6',
+                    isSelected: selectedMetric === 'subscribers',
+                    onClick: () => setSelectedMetric('subscribers'),
+                    showGraph: true,
+                  },
+                  {
+                    title: 'Videos Posted',
+                    value: youtubeStats.totalVideos?.toString() || '0',
+                    icon: Video,
+                    growth: 0,
+                    data: [],
+                    color: '#FF7847',
+                    isSelected: selectedMetric === 'videosPosted',
+                    onClick: () => setSelectedMetric('videosPosted'),
+                    showGraph: false,
+                  },
+                ]}
               />
             </div>
           )}
@@ -1025,23 +1042,9 @@ export default function Analytics() {
             </div>
           )}
 
-          {/* Single View Layout - Mini Metrics + Main Graph */}
+          {/* Single View Layout - Skeleton */}
           {selectedPlatform === 'youtube' && youtubeLoading && layoutMode === 'single' && (
             <div className="mt-8 space-y-6">
-              {/* Skeleton Mini Metric Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="card-elevo p-6">
-                    <Skeleton className="h-4 w-24 mb-4" />
-                    <div className="flex items-end justify-between gap-4">
-                      <Skeleton className="h-9 w-20" />
-                      <Skeleton className="h-16 flex-1" />
-                      <Skeleton className="h-8 w-16" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
               {/* Skeleton Main Graph */}
               <div className="card-elevo p-6">
                 <Skeleton className="h-7 w-48 mb-2" />
@@ -1071,72 +1074,39 @@ export default function Analytics() {
           
           {selectedPlatform === 'youtube' && youtubeStats && layoutMode === 'single' && (
             <div className="mt-8 space-y-6">
-              {/* Mini Metric Cards Row */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <MiniMetricCard
-                  title="Views"
-                  value={youtubeStats.last30Days?.views?.toLocaleString() || '0'}
-                  data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => d.views || 0) || Array(30).fill(0)}
-                  growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => d.views || 0)}
-                  isSelected={selectedMetric === 'views'}
-                  onClick={() => setSelectedMetric('views')}
-                  color="#EF4444"
-                />
-
-                <MiniMetricCard
-                  title="Watch Time"
-                  value={`${Math.round((youtubeStats.last30Days?.watchTime || 0) / 60)}h`}
-                  data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.watchTime || 0) / 60) || Array(30).fill(0)}
-                  growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => d.watchTime || 0)}
-                  isSelected={selectedMetric === 'watchTime'}
-                  onClick={() => setSelectedMetric('watchTime')}
-                  color="#A855F7"
-                />
-
-                <MiniMetricCard
-                  title="Engagement"
-                  value={((youtubeStats.last30Days?.likes || 0) + (youtubeStats.last30Days?.comments || 0) + (youtubeStats.last30Days?.shares || 0)).toLocaleString()}
-                  data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.likes || 0) + (d.comments || 0) + (d.shares || 0)) || Array(30).fill(0)}
-                  growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => (d.likes || 0) + (d.comments || 0) + (d.shares || 0))}
-                  isSelected={selectedMetric === 'engagement'}
-                  onClick={() => setSelectedMetric('engagement')}
-                  color="#10B981"
-                />
-
-                <MiniMetricCard
-                  title="Subscribers"
-                  value={((youtubeStats.last30Days?.subscribersGained || 0) - (youtubeStats.last30Days?.subscribersLost || 0)).toLocaleString()}
-                  data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.subscribersGained || 0) - (d.subscribersLost || 0)) || Array(30).fill(0)}
-                  growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => (d.subscribersGained || 0) - (d.subscribersLost || 0))}
-                  isSelected={selectedMetric === 'subscribers'}
-                  onClick={() => setSelectedMetric('subscribers')}
-                  color="#3B82F6"
-                />
-              </div>
-
-              {/* Main Graph with existing views chart */}
+              {/* Main Graph */}
               <div className="card-elevo p-6">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold mb-1">
-                    {selectedMetric === 'views' && 'Views Trend'}
-                    {selectedMetric === 'watchTime' && 'Watch Time Trend'}
-                    {selectedMetric === 'engagement' && 'Engagement Trend'}
-                    {selectedMetric === 'subscribers' && 'Subscriber Growth'}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedMetric === 'views' && 'Channel views over the selected period'}
-                    {selectedMetric === 'watchTime' && 'Total watch hours over the selected period'}
-                    {selectedMetric === 'engagement' && 'Likes and comments over the selected period'}
-                    {selectedMetric === 'subscribers' && 'Net subscriber growth over the selected period'}
-                  </p>
-                </div>
-                
-                <div className="h-[300px] w-full">
-                  {selectedMetric === 'views' && <Line options={lineOptions} data={youtubeViewsData} plugins={[videoMarkersPlugin]} />}
-                  {selectedMetric === 'watchTime' && <Line options={lineOptions} data={youtubeWatchTimeDetailedData} plugins={[videoMarkersPlugin]} />}
-                  {selectedMetric === 'engagement' && <Line options={lineOptions} data={youtubeEngagementTimeSeriesData} plugins={[videoMarkersPlugin]} />}
-                  {selectedMetric === 'subscribers' && <Line options={lineOptions} data={youtubeSubscribersTimeSeriesData} plugins={[videoMarkersPlugin]} />}
-                </div>
+                {selectedMetric === 'videosPosted' ? (
+                  <VideoHeatmap
+                    videosData={[]}
+                    title="Videos Posted Activity"
+                    description="Daily video posting frequency over time"
+                  />
+                ) : (
+                  <>
+                    <div className="mb-6">
+                      <h2 className="text-2xl font-bold mb-1">
+                        {selectedMetric === 'views' && 'Views Trend'}
+                        {selectedMetric === 'watchTime' && 'Watch Time Trend'}
+                        {selectedMetric === 'engagement' && 'Engagement Trend'}
+                        {selectedMetric === 'subscribers' && 'Subscriber Growth'}
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedMetric === 'views' && 'Channel views over the selected period'}
+                        {selectedMetric === 'watchTime' && 'Total watch hours over the selected period'}
+                        {selectedMetric === 'engagement' && 'Likes and comments over the selected period'}
+                        {selectedMetric === 'subscribers' && 'Net subscriber growth over the selected period'}
+                      </p>
+                    </div>
+                    
+                    <div className="h-[300px] w-full">
+                      {selectedMetric === 'views' && <Line options={lineOptions} data={youtubeViewsData} plugins={[videoMarkersPlugin]} />}
+                      {selectedMetric === 'watchTime' && <Line options={lineOptions} data={youtubeWatchTimeDetailedData} plugins={[videoMarkersPlugin]} />}
+                      {selectedMetric === 'engagement' && <Line options={lineOptions} data={youtubeEngagementTimeSeriesData} plugins={[videoMarkersPlugin]} />}
+                      {selectedMetric === 'subscribers' && <Line options={lineOptions} data={youtubeSubscribersTimeSeriesData} plugins={[videoMarkersPlugin]} />}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Top Content Table */}
@@ -1149,8 +1119,8 @@ export default function Analytics() {
 
           {/* Large View Layout - Skeleton */}
           {selectedPlatform === 'youtube' && youtubeLoading && layoutMode === 'large' && (
-            <div className="mt-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="mt-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="card-elevo p-6">
                     <Skeleton className="h-6 w-32 mb-2" />
@@ -1158,6 +1128,13 @@ export default function Analytics() {
                     <Skeleton className="h-[250px] w-full" />
                   </div>
                 ))}
+              </div>
+              
+              {/* Skeleton Videos Posted Heatmap */}
+              <div className="card-elevo p-6">
+                <Skeleton className="h-7 w-56 mb-2" />
+                <Skeleton className="h-4 w-64 mb-6" />
+                <Skeleton className="h-[200px] w-full" />
               </div>
               
               {/* Skeleton Top Content */}
@@ -1180,11 +1157,11 @@ export default function Analytics() {
             </div>
           )}
           
-          {/* Large View Layout - 4 Equal Graphs in 2x2 Grid */}
+          {/* Large View Layout - 4 Graphs in 2x2 Grid + Videos Posted Heatmap */}
           {selectedPlatform === 'youtube' && youtubeStats && layoutMode === 'large' && (
-            <div className="mt-8">
+            <div className="mt-8 space-y-6">
               {/* 2x2 Grid of Charts */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Top Left: Views */}
                 <div className="card-elevo p-6">
                   <div className="mb-4">
@@ -1250,7 +1227,16 @@ export default function Analytics() {
                 </div>
               </div>
 
-              {/* Top Content Table Below Graphs */}
+              {/* Videos Posted Heatmap - Full Width */}
+              <div className="card-elevo p-6">
+                <VideoHeatmap
+                  videosData={[]}
+                  title="Videos Posted Activity"
+                  description="Daily video posting frequency over the selected period"
+                />
+              </div>
+
+              {/* Top Content Table Below All Graphs */}
               <TopContentTable
                 startDate={comparisonStartDate}
                 endDate={comparisonEndDate}
