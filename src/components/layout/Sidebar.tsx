@@ -1,8 +1,9 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
+import { useState } from 'react';
 import { 
   Plus, 
   LayoutDashboard, 
@@ -10,7 +11,9 @@ import {
   Rocket, 
   Library,
   Settings,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,7 +31,9 @@ const navItems = [
 
 export function Sidebar({ onLinkClick }: SidebarProps = {}) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   // Get username from email (before @ symbol)
   const username = user?.email?.split('@')[0] || 'User';
@@ -36,12 +41,21 @@ export function Sidebar({ onLinkClick }: SidebarProps = {}) {
   // Get first letter for avatar
   const avatarLetter = username.charAt(0).toUpperCase();
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/');
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    }
+  };
+
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-black border-r border-border/50 flex flex-col z-50">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-[#0a0a0a] border-r border-border/30 flex flex-col z-50 shadow-2xl">
       {/* Logo Section */}
-      <div className="p-6 border-b border-border/50">
+      <div className="p-6 border-b border-border/30">
         <Link href="/dashboard" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center shadow-lg">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center shadow-lg shadow-primary/20">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent group-hover:from-primary group-hover:to-orange-400 transition-all duration-300">
@@ -51,7 +65,7 @@ export function Sidebar({ onLinkClick }: SidebarProps = {}) {
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
@@ -79,8 +93,9 @@ export function Sidebar({ onLinkClick }: SidebarProps = {}) {
         })}
       </nav>
 
-      {/* Settings */}
-      <div className="p-4 border-t border-border/50">
+      {/* Bottom Section: Settings + Profile */}
+      <div className="p-4 border-t border-border/30 space-y-2">
+        {/* Settings Link */}
         <Link
           href="/settings"
           onClick={onLinkClick}
@@ -95,26 +110,60 @@ export function Sidebar({ onLinkClick }: SidebarProps = {}) {
           <Settings className="w-5 h-5" />
           <span className="text-sm">Settings</span>
         </Link>
-      </div>
 
-      {/* User Profile */}
-      <div className="p-4 border-t border-border/50">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 border border-border/50">
-          {/* Avatar */}
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center text-white font-bold shadow-lg">
-            {avatarLetter}
-          </div>
-          
-          {/* User Info */}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate">
-              {username}
-            </p>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-primary" />
-              Pro Account
-            </p>
-          </div>
+        {/* User Profile with Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+            className="w-full flex items-center gap-3 p-3 rounded-xl bg-muted/20 border border-border/50 hover:bg-muted/30 hover:border-border transition-all duration-200 group"
+          >
+            {/* Avatar */}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-orange-600 flex items-center justify-center text-white font-bold shadow-lg">
+              {avatarLetter}
+            </div>
+            
+            {/* User Info */}
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-sm font-semibold text-foreground truncate">
+                {username}
+              </p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-primary" />
+                Pro Account
+              </p>
+            </div>
+
+            {/* Dropdown Arrow */}
+            <ChevronDown className={cn(
+              "w-4 h-4 text-muted-foreground transition-transform duration-200",
+              profileDropdownOpen && "rotate-180"
+            )} />
+          </button>
+
+          {/* Dropdown Menu */}
+          {profileDropdownOpen && (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setProfileDropdownOpen(false)}
+              />
+              
+              {/* Menu */}
+              <div className="absolute bottom-full left-0 right-0 mb-2 p-2 rounded-xl bg-card border border-border shadow-2xl z-50">
+                <button
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </aside>
