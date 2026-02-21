@@ -1664,48 +1664,57 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   // VALIDATION: Check if we have valid word timestamps
   if (!Array.isArray(wordTimestamps) || wordTimestamps.length === 0) {
     console.warn('[captions] No valid word timestamps, skipping captions entirely');
-    // Skip captions - current stays as 'v_banner'
+    // Skip captions - current stays as whatever it is (bg or v_banner)
   } else {
-    const assPath = path.join(tmpDir, `captions-${videoId}.ass`);
-    console.log('[captions] Creating ASS file with', wordTimestamps.length, 'words');
-    await writeAssWordCaptions({ outPath: assPath, wordTimestamps, offsetSec: openingDur });
-    console.log('[captions] ASS file created at:', assPath);
-    console.log('[captions] ASS file exists:', fs.existsSync(assPath));
-    
-    // DIAGNOSTIC: Check ASS file size and content validity
+    // CRITICAL FIX: Wrap ALL caption processing in a single try-catch to prevent partial state updates
     try {
-    const assStats = fs.statSync(assPath);
-    const assSizeMB = (assStats.size / (1024 * 1024)).toFixed(2);
-    console.log('[captions] ASS file size:', assSizeMB, 'MB');
-    
-    // Read first and last few lines to verify format
-    const assContent = await fsp.readFile(assPath, 'utf-8');
-    const assLines = assContent.split('\n');
-    console.log('[captions] ASS file total lines:', assLines.length);
-    console.log('[captions] ASS file first 5 lines:', assLines.slice(0, 5).join('\\n'));
-    console.log('[captions] ASS file last 3 lines:', assLines.slice(-3).join('\\n'));
-    
-    // Count dialogue lines
-    const dialogueCount = assLines.filter(l => l.startsWith('Dialogue:')).length;
-    console.log('[captions] ASS file dialogue count:', dialogueCount);
-    
-    // CRITICAL FIX: For very long stories with many words, the ASS filter might fail
-    // If the file is too large (> 10MB or > 10000 dialogue lines), skip captions
-    const MAX_ASS_SIZE_MB = 10;
-    const MAX_DIALOGUE_LINES = 10000;
-    
-    if (assStats.size > MAX_ASS_SIZE_MB * 1024 * 1024) {
-      console.warn(`[captions] WARNING: ASS file too large (${assSizeMB}MB > ${MAX_ASS_SIZE_MB}MB), skipping captions to prevent FFmpeg failure`);
-      // Skip captions for this video - just use v_banner as final output
-      console.log('[captions] Skipping caption overlay, using v_banner as final output');
-      // current stays as 'v_banner', no v_cap created
-    } else if (dialogueCount > MAX_DIALOGUE_LINES) {
-      console.warn(`[captions] WARNING: Too many dialogue lines (${dialogueCount} > ${MAX_DIALOGUE_LINES}), skipping captions to prevent FFmpeg failure`);
-      console.log('[captions] Skipping caption overlay, using v_banner as final output');
-      // current stays as 'v_banner', no v_cap created
-    } else {
-      // Apply ass filter (libass) - CORRECT SYNTAX from working commit c8f0f5c
-      try {
+      const assPath = path.join(tmpDir, `captions-${videoId}.ass`);
+      console.log('[captions] Creating ASS file with', wordTimestamps.length, 'words');
+      
+      // CRITICAL: This call can throw if wordTimestamps are malformed
+      await writeAssWordCaptions({ outPath: assPath, wordTimestamps, offsetSec: openingDur });
+      console.log('[captions] ASS file created at:', assPath);
+      
+      // Verify file exists before proceeding
+      if (!fs.existsSync(assPath)) {
+        console.error('[captions] ERROR: ASS file was not created despite no error thrown');
+        throw new Error('ASS file creation failed silently');
+      }
+      console.log('[captions] ASS file exists: true');
+      
+      // DIAGNOSTIC: Check ASS file size and content validity
+      const assStats = fs.statSync(assPath);
+      const assSizeMB = (assStats.size / (1024 * 1024)).toFixed(2);
+      console.log('[captions] ASS file size:', assSizeMB, 'MB');
+      
+      // Read first and last few lines to verify format
+      const assContent = await fsp.readFile(assPath, 'utf-8');
+      const assLines = assContent.split('\n');
+      console.log('[captions] ASS file total lines:', assLines.length);
+      console.log('[captions] ASS file first 5 lines:', assLines.slice(0, 5).join('\\n'));
+      console.log('[captions] ASS file last 3 lines:', assLines.slice(-3).join('\\n'));
+      
+      // Count dialogue lines
+      const dialogueCount = assLines.filter(l => l.startsWith('Dialogue:')).length;
+      console.log('[captions] ASS file dialogue count:', dialogueCount);
+      
+      // CRITICAL FIX: For very long stories with many words, the ASS filter might fail
+      // If the file is too large (> 10MB or > 10000 dialogue lines), skip captions
+      const MAX_ASS_SIZE_MB = 10;
+      const MAX_DIALOGUE_LINES = 10000;
+      
+      if (assStats.size > MAX_ASS_SIZE_MB * 1024 * 1024) {
+        console.warn(`[captions] WARNING: ASS file too large (${assSizeMB}MB > ${MAX_ASS_SIZE_MB}MB), skipping captions to prevent FFmpeg failure`);
+        // Skip captions for this video - just use current output (whatever it is)
+        console.log('[captions] Skipping caption overlay, keeping current output label:', current);
+        // current stays as-is, no v_cap created
+      } else if (dialogueCount > MAX_DIALOGUE_LINES) {
+        console.warn(`[captions] WARNING: Too many dialogue lines (${dialogueCount} > ${MAX_DIALOGUE_LINES}), skipping captions to prevent FFmpeg failure`);
+        // Skip captions for this video - just use current output (whatever it is)
+        console.log('[captions] Skipping caption overlay, keeping current output label:', current);
+        // current stays as-is, no v_cap created
+      } else {
+        // CRITICAL: Atomically update BOTH filter string AND current label to prevent inconsistent state
         // Escape commas/colons for filtergraph option parsing (simple escaping, no quotes)
         const assEsc = assPath.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/,/g, '\\,');
         const fontsDir = path.join(__dirname, 'public', 'fonts');
@@ -1714,24 +1723,35 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
         
         console.log('[captions] Escaped ASS path:', assEsc);
         console.log('[captions] Fonts dir exists:', fontsDirExists);
+        console.log('[captions] Input label for caption filter:', current);
         
         // CRITICAL: Use FULL ass filter syntax with filename=, original_size=, and fontsdir= parameters
         // This is the EXACT syntax from commit c8f0f5c that was working
         const captionFilter = `;[${current}]ass=filename=${assEsc}:original_size=1080x1920${fontsDirExists ? `:fontsdir=${fontsDirEsc}` : ''}[v_cap]`;
-        filter += captionFilter;
-        current = 'v_cap';
-        console.log('[captions] Caption filter added to graph');
-        console.log('[captions] Caption filter string:', captionFilter);
-      } catch (captionBuildError) {
-        console.error('[captions] ERROR building caption filter:', captionBuildError.message);
-        console.log('[captions] Skipping captions due to filter build error, using v_banner as final output');
-        // current stays as 'v_banner', no v_cap created
+        
+        // ATOMIC UPDATE: Only update current AFTER successfully updating filter
+        const oldFilter = filter;
+        const oldCurrent = current;
+        try {
+          filter += captionFilter;
+          current = 'v_cap';
+          console.log('[captions] ✅ Caption filter added to graph successfully');
+          console.log('[captions] Caption filter string:', captionFilter);
+          console.log('[captions] New output label:', current);
+        } catch (atomicError) {
+          // Rollback if string concatenation somehow failed
+          filter = oldFilter;
+          current = oldCurrent;
+          console.error('[captions] ERROR during atomic filter update:', atomicError.message);
+          throw atomicError;
+        }
       }
-    }
     } catch (err) {
-      console.error('[captions] ERROR checking ASS file:', err.message);
-      console.log('[captions] Continuing without captions due to error');
-      // current stays as 'v_banner', no v_cap created
+      // Catch ALL caption-related errors (writeAssWordCaptions, file checks, filter building)
+      console.error('[captions] ERROR in caption processing:', err.message);
+      console.error('[captions] Error stack:', err.stack);
+      console.log('[captions] Continuing without captions, current output label:', current);
+      // current stays as whatever it was before caption processing (bg or v_banner)
     }
   }
 
@@ -1796,6 +1816,41 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   console.log('[ffmpeg] Current label for output mapping:', current);
   console.log('FFMPEG FILTER_COMPLEX =>', filter);
   console.log('FFMPEG ARGS =>', JSON.stringify(args));
+
+  // CRITICAL VALIDATION: Ensure the current label actually exists in the filter graph
+  // This prevents the "Output with label 'X' does not exist" error from ffmpeg
+  if (current !== 'bg') {
+    const labelPattern = new RegExp(`\\[${current}\\](?!:)`, 'g');
+    const matches = (filter.match(labelPattern) || []).length;
+    console.log(`[ffmpeg] Validation: Label [${current}] appears ${matches} time(s) in filter graph`);
+    
+    if (matches === 0) {
+      console.error(`[ffmpeg] ❌ CRITICAL ERROR: Output label [${current}] does not exist in filter graph!`);
+      console.error(`[ffmpeg] This indicates a bug in filter construction. Resetting to last known good label.`);
+      
+      // Fallback: find the last valid label in the filter graph
+      if (filter.includes('[v_speed]')) {
+        current = 'v_speed';
+        console.log(`[ffmpeg] Falling back to label: ${current}`);
+      } else if (filter.includes('[v_cap]')) {
+        current = 'v_cap';
+        console.log(`[ffmpeg] Falling back to label: ${current}`);
+      } else if (filter.includes('[v_banner]')) {
+        current = 'v_banner';
+        console.log(`[ffmpeg] Falling back to label: ${current}`);
+      } else {
+        current = 'bg';
+        console.log(`[ffmpeg] Falling back to base label: ${current}`);
+      }
+      
+      // Update the args array with the corrected label
+      const mapIndex = args.findIndex(arg => arg === '-map');
+      if (mapIndex >= 0 && args[mapIndex + 1]) {
+        args[mapIndex + 1] = `[${current}]`;
+        console.log(`[ffmpeg] Updated -map argument to: [${current}]`);
+      }
+    }
+  }
 
   try {
     console.log('[ffmpeg] Spawning ffmpeg process...');
