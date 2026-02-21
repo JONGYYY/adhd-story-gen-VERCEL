@@ -271,21 +271,34 @@ export async function POST(request: NextRequest) {
         // Auto-post to TikTok if enabled and videos were generated
         let tiktokPostResults;
         if (campaign.autoPostToTikTok && result.videoIds.length > 0) {
+          console.log(`[Campaign Scheduler] ========================================`);
           console.log(`[Campaign Scheduler] Auto-posting ${result.videoIds.length} videos to TikTok...`);
+          console.log(`[Campaign Scheduler] Campaign: ${campaign.name} (${campaign.id})`);
+          console.log(`[Campaign Scheduler] User: ${campaign.userId}`);
+          console.log(`[Campaign Scheduler] Video IDs: ${result.videoIds.join(', ')}`);
+          console.log(`[Campaign Scheduler] ========================================`);
+          
           try {
             tiktokPostResults = await postBatchToTikTok(
               campaign.userId,
               result.videoIds,
               railwayApiUrl
             );
-            console.log(`[Campaign Scheduler] TikTok posting complete: ${tiktokPostResults.successCount}/${result.videoIds.length} succeeded`);
+            console.log(`[Campaign Scheduler] ========================================`);
+            console.log(`[Campaign Scheduler] TikTok posting complete: ${tiktokPostResults.successCount}/${result.videoIds.length} succeeded, ${tiktokPostResults.failureCount} failed`);
+            console.log(`[Campaign Scheduler] ========================================`);
             
             // Log detailed results for debugging
             tiktokPostResults.results.forEach((result, index) => {
               if (result.success) {
-                console.log(`[Campaign Scheduler] TikTok video ${index + 1}/${tiktokPostResults.results.length}: SUCCESS (publish_id: ${result.publishId})`);
+                console.log(`[Campaign Scheduler] ✅ TikTok video ${index + 1}/${tiktokPostResults.results.length}: SUCCESS`);
+                console.log(`[Campaign Scheduler]    Video ID: ${result.videoId}`);
+                console.log(`[Campaign Scheduler]    Publish ID: ${result.publishId}`);
               } else {
-                console.error(`[Campaign Scheduler] TikTok video ${index + 1}/${tiktokPostResults.results.length}: FAILED - ${result.error} (type: ${result.errorType})`);
+                console.error(`[Campaign Scheduler] ❌ TikTok video ${index + 1}/${tiktokPostResults.results.length}: FAILED`);
+                console.error(`[Campaign Scheduler]    Video ID: ${result.videoId}`);
+                console.error(`[Campaign Scheduler]    Error: ${result.error}`);
+                console.error(`[Campaign Scheduler]    Error Type: ${result.errorType}`);
               }
             });
             
@@ -342,8 +355,30 @@ export async function POST(request: NextRequest) {
               continue; // Skip to next campaign
             }
           } catch (tiktokError) {
-            console.error('[Campaign Scheduler] TikTok auto-posting failed:', tiktokError);
+            console.error('[Campaign Scheduler] ========================================');
+            console.error('[Campaign Scheduler] TikTok auto-posting CATASTROPHIC ERROR');
+            console.error('[Campaign Scheduler] ========================================');
+            console.error('[Campaign Scheduler] Error type:', tiktokError instanceof Error ? tiktokError.name : typeof tiktokError);
+            console.error('[Campaign Scheduler] Error message:', tiktokError instanceof Error ? tiktokError.message : String(tiktokError));
+            console.error('[Campaign Scheduler] Error stack:', tiktokError instanceof Error ? tiktokError.stack : 'No stack trace');
+            console.error('[Campaign Scheduler] ========================================');
+            
+            // Set empty results to indicate complete failure
+            tiktokPostResults = {
+              successCount: 0,
+              failureCount: result.videoIds.length,
+              results: result.videoIds.map(videoId => ({
+                videoId,
+                success: false,
+                error: tiktokError instanceof Error ? tiktokError.message : String(tiktokError),
+                errorType: 'UNKNOWN' as const,
+              })),
+            };
           }
+        } else if (campaign.autoPostToTikTok && result.videoIds.length === 0) {
+          console.log(`[Campaign Scheduler] Skipping TikTok auto-post: no videos generated`);
+        } else if (!campaign.autoPostToTikTok) {
+          console.log(`[Campaign Scheduler] TikTok auto-post is disabled for this campaign`);
         }
 
         // Auto-post to YouTube if enabled and videos were generated

@@ -585,6 +585,7 @@ export class TikTokAPI {
 
   async uploadVideo(accessToken: string, videoData: {
     title: string;
+    description?: string;
     video_file: Buffer;
     privacy_level?: 'PUBLIC_TO_EVERYONE' | 'SELF_ONLY' | 'MUTUAL_FOLLOW_FRIENDS';
     disable_comment?: boolean;
@@ -649,6 +650,7 @@ export class TikTokAPI {
         body: JSON.stringify({
           post_info: {
             title: videoData.title,
+              ...(videoData.description && { description: videoData.description }),
               privacy_level: privacyLevel,
               disable_comment: videoData.disable_comment ?? false,
               disable_duet: videoData.disable_duet ?? false,
