@@ -43,6 +43,14 @@ export function Navigation() {
   const isLoggedIn = !!user;
   const userEmail = user?.email;
 
+  // Only show Navigation on landing page and auth pages
+  // Authenticated pages (dashboard, analytics, etc.) use AppLayout with sidebar
+  const showNavigation = pathname === '/' || pathname?.startsWith('/auth/');
+  
+  if (!showNavigation) {
+    return null;
+  }
+
   // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {

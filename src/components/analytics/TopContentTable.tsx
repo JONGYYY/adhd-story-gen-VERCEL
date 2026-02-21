@@ -62,17 +62,33 @@ export function TopContentTable({ startDate, endDate }: TopContentTableProps) {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const formatAvgDuration = (seconds?: number) => {
+  const formatAvgDuration = (seconds?: number, totalDurationISO?: string) => {
     if (!seconds) return 'N/A';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+    
+    // Calculate retention percentage if total duration is available
+    if (totalDurationISO) {
+      const match = totalDurationISO.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      if (match) {
+        const hours = parseInt(match[1] || '0');
+        const minutes = parseInt(match[2] || '0');
+        const totalSeconds = parseInt(match[3] || '0') + (minutes * 60) + (hours * 3600);
+        if (totalSeconds > 0) {
+          const retentionPercent = ((seconds / totalSeconds) * 100).toFixed(1);
+          return `${timeStr} (${retentionPercent}%)`;
+        }
+      }
+    }
+    
+    return timeStr;
   };
 
   if (loading) {
     return (
       <div className="card-elevo p-6">
-        <h2 className="text-2xl font-bold mb-6">Your Top Content</h2>
+        <h2 className="text-2xl font-bold mb-6">Your Top Content in This Period</h2>
         <div className="space-y-4">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="animate-pulse flex gap-4">
@@ -149,7 +165,7 @@ export function TopContentTable({ startDate, endDate }: TopContentTableProps) {
                   {video.averageViewDuration && (
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <Clock className="w-3 h-3" />
-                      <span className="font-medium">{formatAvgDuration(video.averageViewDuration)}</span>
+                      <span className="font-medium">{formatAvgDuration(video.averageViewDuration, video.duration)}</span>
                     </div>
                   )}
                 </div>

@@ -61,6 +61,8 @@ ChartJS.register(
   Filler
 );
 
+// Video markers plugin will be registered per-chart
+
 export default function Analytics() {
   const [selectedPlatform, setSelectedPlatform] = useState<SocialPlatform>('tiktok');
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('30d');
@@ -70,10 +72,11 @@ export default function Analytics() {
   const [userStats, setUserStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [youtubeLoading, setYoutubeLoading] = useState(true);
+  const [youtubeVideos, setYoutubeVideos] = useState<any[]>([]);
   
   // New state for redesigned analytics
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('single');
-  const [selectedMetric, setSelectedMetric] = useState<'watchTime' | 'engagement' | 'subscribers'>('watchTime');
+  const [selectedMetric, setSelectedMetric] = useState<'views' | 'watchTime' | 'engagement' | 'subscribers'>('views');
   const [customTimeFrame, setCustomTimeFrame] = useState<TimeFrameOption>('1month');
   const [comparisonStartDate, setComparisonStartDate] = useState<string>('');
   const [comparisonEndDate, setComparisonEndDate] = useState<string>('');
@@ -83,7 +86,40 @@ export default function Analytics() {
     fetchUserStats();
     fetchTiktokStats();
     fetchYoutubeStats();
+    fetchYoutubeVideos();
   }, []);
+
+  const fetchYoutubeVideos = async () => {
+    try {
+      const response = await fetch('/api/social-media/youtube/videos');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.videos) {
+          setYoutubeVideos(data.videos);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch YouTube videos:', error);
+    }
+  };
+
+  // Map custom time frame to internal time frame
+  useEffect(() => {
+    const timeFrameMap: Record<TimeFrameOption, TimeFrame> = {
+      'today': '7d',
+      '1week': '7d',
+      '1month': '30d',
+      '1year': 'all',
+    };
+    setTimeFrame(timeFrameMap[customTimeFrame]);
+  }, [customTimeFrame]);
+
+  // Refetch data when time frame changes
+  useEffect(() => {
+    if (mounted) {
+      fetchYoutubeStats();
+    }
+  }, [timeFrame]);
 
   const fetchUserStats = async () => {
     try {
@@ -344,14 +380,14 @@ export default function Analytics() {
     ],
   };
 
-  // YouTube Subscriber Growth Chart with REAL data
-  const subscribersTimeSeriesData = getYouTubeTimeSeriesData('subscribersGained', timeFrame);
+  // YouTube Subscriber Growth Chart with REAL data (OLD - kept for compatibility)
+  const subscribersGainedData = getYouTubeTimeSeriesData('subscribersGained', timeFrame);
   const youtubeSubscriberGrowthData = {
-    labels: subscribersTimeSeriesData.labels.length > 0 ? subscribersTimeSeriesData.labels : ['No Data'],
+    labels: subscribersGainedData.labels.length > 0 ? subscribersGainedData.labels : ['No Data'],
     datasets: [
       {
         label: 'New Subscribers',
-        data: subscribersTimeSeriesData.data.length > 0 ? subscribersTimeSeriesData.data : [0],
+        data: subscribersGainedData.data.length > 0 ? subscribersGainedData.data : [0],
         borderColor: 'rgb(249, 115, 22)',
         backgroundColor: 'rgba(249, 115, 22, 0.1)',
           tension: 0.4,
@@ -388,6 +424,41 @@ export default function Analytics() {
     ],
   };
 
+  // Engagement time series (line chart for large view)
+  const getEngagementTimeSeries = () => {
+    if (!youtubeStats?.timeSeries?.[timeFrame]) {
+      return { labels: [], data: [] };
+    }
+
+    const dataSource = youtubeStats.timeSeries[timeFrame];
+    const labels = dataSource.map((item: any) => formatDateLabel(item.date));
+    const data = dataSource.map((item: any) => (item.likes || 0) + (item.comments || 0) + (item.shares || 0));
+
+    return { labels, data };
+  };
+
+  const engagementTimeSeriesData = getEngagementTimeSeries();
+  const youtubeEngagementTimeSeriesData = {
+    labels: engagementTimeSeriesData.labels.length > 0 ? engagementTimeSeriesData.labels : ['No Data'],
+    datasets: [
+      {
+        label: 'Total Engagement',
+        data: engagementTimeSeriesData.data.length > 0 ? engagementTimeSeriesData.data : [0],
+        borderColor: 'rgb(16, 185, 129)',
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: 'rgb(16, 185, 129)',
+        pointBorderColor: 'white',
+        pointBorderWidth: 2,
+        borderWidth: 3,
+      },
+    ],
+  };
+
+  // Engagement breakdown (doughnut chart)
   const youtubeEngagementData = {
     labels: ['Likes', 'Comments', 'Shares'],
     datasets: [
@@ -408,6 +479,40 @@ export default function Analytics() {
           'rgb(34, 197, 94)',
         ],
         borderWidth: 2,
+      },
+    ],
+  };
+
+  // Subscriber time series
+  const getSubscribersTimeSeries = () => {
+    if (!youtubeStats?.timeSeries?.[timeFrame]) {
+      return { labels: [], data: [] };
+    }
+
+    const dataSource = youtubeStats.timeSeries[timeFrame];
+    const labels = dataSource.map((item: any) => formatDateLabel(item.date));
+    const data = dataSource.map((item: any) => (item.subscribersGained || 0) - (item.subscribersLost || 0));
+
+    return { labels, data };
+  };
+
+  const subscribersTimeSeriesData = getSubscribersTimeSeries();
+  const youtubeSubscribersTimeSeriesData = {
+    labels: subscribersTimeSeriesData.labels.length > 0 ? subscribersTimeSeriesData.labels : ['No Data'],
+    datasets: [
+      {
+        label: 'Net Subscribers',
+        data: subscribersTimeSeriesData.data.length > 0 ? subscribersTimeSeriesData.data : [0],
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: 'rgb(59, 130, 246)',
+        pointBorderColor: 'white',
+        pointBorderWidth: 2,
+        borderWidth: 3,
       },
     ],
   };
@@ -533,6 +638,63 @@ export default function Analytics() {
     },
   };
 
+  // Helper function to count videos posted on each day in the time series
+  const getVideoPostCounts = () => {
+    if (!youtubeVideos || !youtubeStats?.timeSeries?.[timeFrame]) {
+      return {};
+    }
+
+    const counts: Record<string, number> = {};
+    const timeSeriesLabels = youtubeStats.timeSeries[timeFrame].map((d: any) => formatDateLabel(d.date));
+
+    youtubeVideos.forEach((video: any) => {
+      const publishDate = new Date(video.publishedAt);
+      const label = formatDateLabel(publishDate.toISOString());
+      if (timeSeriesLabels.includes(label)) {
+        counts[label] = (counts[label] || 0) + 1;
+      }
+    });
+
+    return counts;
+  };
+
+  const videoPostCounts = getVideoPostCounts();
+
+  // Chart.js plugin to draw video post markers
+  const videoMarkersPlugin = {
+    id: 'videoMarkers',
+    afterDatasetsDraw(chart: any) {
+      const { ctx, scales: { x, y }, chartArea: { bottom } } = chart;
+      const labels = chart.data.labels || [];
+
+      ctx.save();
+      labels.forEach((label: string, index: number) => {
+        const count = videoPostCounts[label];
+        if (count && count > 0) {
+          const xPos = x.getPixelForValue(index);
+          const yPos = bottom + 25;
+
+          // Draw circle marker
+          ctx.beginPath();
+          ctx.arc(xPos, yPos, 8, 0, Math.PI * 2);
+          ctx.fillStyle = '#EF4444';
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Draw count text
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(count.toString(), xPos, yPos);
+        }
+      });
+      ctx.restore();
+    },
+  };
+
   const lineOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -552,6 +714,7 @@ export default function Analytics() {
         borderColor: 'rgba(255, 107, 53, 0.3)',
         borderWidth: 1,
       },
+      videoMarkers: true,
     },
     scales: {
       y: {
@@ -585,6 +748,11 @@ export default function Analytics() {
         border: {
           display: false,
         },
+      },
+    },
+    layout: {
+      padding: {
+        bottom: 40,
       },
     },
   };
@@ -882,31 +1050,41 @@ export default function Analytics() {
           {selectedPlatform === 'youtube' && youtubeStats && layoutMode === 'single' && (
             <div className="mt-8 space-y-6">
               {/* Mini Metric Cards Row */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <MiniMetricCard
-                  title="Watch Time (Hours)"
+                  title="Views"
+                  value={youtubeStats.last30Days?.views?.toLocaleString() || '0'}
+                  data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => d.views || 0) || Array(30).fill(0)}
+                  growth={15.2}
+                  isSelected={selectedMetric === 'views'}
+                  onClick={() => setSelectedMetric('views')}
+                  color="#EF4444"
+                />
+
+                <MiniMetricCard
+                  title="Watch Time"
                   value={`${Math.round((youtubeStats.last30Days?.watchTime || 0) / 60)}h`}
-                  data={youtubeStats.timeSeries?.['30d']?.map((d: any) => d.watchTime / 60) || Array(30).fill(0)}
+                  data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.watchTime || 0) / 60) || Array(30).fill(0)}
                   growth={12.5}
                   isSelected={selectedMetric === 'watchTime'}
                   onClick={() => setSelectedMetric('watchTime')}
-                  color="#FF7847"
+                  color="#A855F7"
                 />
                 
                 <MiniMetricCard
                   title="Engagement"
-                  value={((youtubeStats.last30Days?.likes || 0) + (youtubeStats.last30Days?.comments || 0)).toLocaleString()}
-                  data={youtubeStats.timeSeries?.['30d']?.map((d: any) => (d.likes || 0) + (d.comments || 0)) || Array(30).fill(0)}
+                  value={((youtubeStats.last30Days?.likes || 0) + (youtubeStats.last30Days?.comments || 0) + (youtubeStats.last30Days?.shares || 0)).toLocaleString()}
+                  data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.likes || 0) + (d.comments || 0) + (d.shares || 0)) || Array(30).fill(0)}
                   growth={8.3}
                   isSelected={selectedMetric === 'engagement'}
                   onClick={() => setSelectedMetric('engagement')}
                   color="#10B981"
                 />
-                
+
                 <MiniMetricCard
                   title="Subscribers"
                   value={((youtubeStats.last30Days?.subscribersGained || 0) - (youtubeStats.last30Days?.subscribersLost || 0)).toLocaleString()}
-                  data={youtubeStats.timeSeries?.['30d']?.map((d: any) => (d.subscribersGained || 0) - (d.subscribersLost || 0)) || Array(30).fill(0)}
+                  data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.subscribersGained || 0) - (d.subscribersLost || 0)) || Array(30).fill(0)}
                   growth={5.7}
                   isSelected={selectedMetric === 'subscribers'}
                   onClick={() => setSelectedMetric('subscribers')}
@@ -914,18 +1092,28 @@ export default function Analytics() {
                 />
               </div>
 
-              {/* Main Graph - Placeholder for now, will be enhanced */}
+              {/* Main Graph with existing views chart */}
               <div className="card-elevo p-6">
-                <h2 className="text-2xl font-bold mb-4">
-                  {selectedMetric === 'watchTime' && 'Watch Time Trend'}
-                  {selectedMetric === 'engagement' && 'Engagement Trend'}
-                  {selectedMetric === 'subscribers' && 'Subscriber Growth'}
-                </h2>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Detailed view with comparison data
-                </p>
-                <div className="h-64 flex items-center justify-center border-2 border-dashed border-border rounded-xl">
-                  <p className="text-muted-foreground">Main graph with comparison data coming soon</p>
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold mb-1">
+                    {selectedMetric === 'views' && 'Views Trend'}
+                    {selectedMetric === 'watchTime' && 'Watch Time Trend'}
+                    {selectedMetric === 'engagement' && 'Engagement Trend'}
+                    {selectedMetric === 'subscribers' && 'Subscriber Growth'}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedMetric === 'views' && 'Channel views over the selected period'}
+                    {selectedMetric === 'watchTime' && 'Total watch hours over the selected period'}
+                    {selectedMetric === 'engagement' && 'Likes and comments over the selected period'}
+                    {selectedMetric === 'subscribers' && 'Net subscriber growth over the selected period'}
+                  </p>
+                </div>
+                
+                <div className="h-[300px] w-full">
+                  {selectedMetric === 'views' && <Line options={lineOptions} data={youtubeViewsData} plugins={[videoMarkersPlugin]} />}
+                  {selectedMetric === 'watchTime' && <Line options={lineOptions} data={youtubeWatchTimeDetailedData} plugins={[videoMarkersPlugin]} />}
+                  {selectedMetric === 'engagement' && <Line options={lineOptions} data={youtubeEngagementTimeSeriesData} plugins={[videoMarkersPlugin]} />}
+                  {selectedMetric === 'subscribers' && <Line options={lineOptions} data={youtubeSubscribersTimeSeriesData} plugins={[videoMarkersPlugin]} />}
                 </div>
               </div>
 
@@ -937,111 +1125,144 @@ export default function Analytics() {
             </div>
           )}
 
-          {/* Large View Layout - Keep existing charts */}
+          {/* Large View Layout - 4 Equal Graphs in 2x2 Grid */}
           {selectedPlatform === 'youtube' && youtubeStats && layoutMode === 'large' && (
+            <div className="mt-8">
+              {/* 2x2 Grid of Charts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                {/* Top Left: Views */}
+                <div className="card-elevo p-6">
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Eye className="w-5 h-5 text-red-400" />
+                      <h2 className="text-xl font-bold">Views</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Channel views over the selected period
+                    </p>
+                  </div>
+                  <div className="h-[250px] w-full">
+                    <Line options={lineOptions} data={youtubeViewsData} plugins={[videoMarkersPlugin]} />
+                  </div>
+                </div>
+
+                {/* Top Right: Watch Time */}
+                <div className="card-elevo p-6">
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock className="w-5 h-5 text-purple-400" />
+                      <h2 className="text-xl font-bold">Watch Time</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Total watch time in minutes
+                    </p>
+                  </div>
+                  <div className="h-[250px] w-full">
+                    <Line options={lineOptions} data={youtubeWatchTimeDetailedData} plugins={[videoMarkersPlugin]} />
+                  </div>
+                </div>
+
+                {/* Bottom Left: Engagement */}
+                <div className="card-elevo p-6">
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <ThumbsUp className="w-5 h-5 text-green-400" />
+                      <h2 className="text-xl font-bold">Engagement</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Total likes, comments, and shares over time
+                    </p>
+                  </div>
+                  <div className="h-[250px] w-full">
+                    <Line options={lineOptions} data={youtubeEngagementTimeSeriesData} plugins={[videoMarkersPlugin]} />
+                  </div>
+                </div>
+
+                {/* Bottom Right: Subscribers */}
+                <div className="card-elevo p-6">
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="w-5 h-5 text-blue-400" />
+                      <h2 className="text-xl font-bold">Subscribers</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Net subscriber growth over time
+                    </p>
+                  </div>
+                  <div className="h-[250px] w-full">
+                    <Line options={lineOptions} data={youtubeSubscribersTimeSeriesData} plugins={[videoMarkersPlugin]} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Top Content Table Below Graphs */}
+              <TopContentTable
+                startDate={comparisonStartDate}
+                endDate={comparisonEndDate}
+              />
+            </div>
+          )}
+
+          {/* TikTok View - Always show old charts */}
+          {selectedPlatform === 'tiktok' && (
             <div className="mt-8">
               <div className="grid lg:grid-cols-3 gap-8">
                 {/* Left Column - Charts */}
                 <div className="lg:col-span-2 space-y-8">
-              {/* Timeline Chart - Platform Specific */}
+              {/* Timeline Chart - TikTok */}
               <div className="card-elevo p-6">
                 <div className="mb-6">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className={cn(
-                      'p-2 rounded-xl bg-gradient-to-br',
-                      selectedPlatform === 'youtube' 
-                        ? 'from-red-500/20 to-red-600/20'
-                        : 'from-pink-500/20 to-cyan-500/20'
-                    )}>
-                      <span className="text-2xl">{selectedPlatform === 'youtube' ? '▶️' : '🎵'}</span>
-                          </div>
-                          <div>
-                      <h2 className="text-2xl font-bold">
-                        {selectedPlatform === 'youtube' ? 'YouTube Views (30d)' : 'Video Creation Timeline'}
-                      </h2>
+                    <div className="p-2 rounded-xl bg-gradient-to-br from-pink-500/20 to-cyan-500/20">
+                      <span className="text-2xl">🎵</span>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold">Video Creation Timeline</h2>
                       <p className="text-sm text-muted-foreground">
-                        {selectedPlatform === 'youtube' 
-                          ? 'Channel views over the past month' 
-                          : 'Videos created over the past month'}
+                        Videos created over the past month
                       </p>
-                          </div>
-                        </div>
-                      </div>
+                    </div>
+                  </div>
+                </div>
                 
                 <div className="h-[300px] w-full">
-                  {selectedPlatform === 'youtube' ? (
-                    <Line options={lineOptions} data={youtubeViewsData} />
-                  ) : (
-                    <Line options={lineOptions} data={timelineData} />
-                  )}
+                  <Line options={lineOptions} data={timelineData} />
                 </div>
               </div>
 
-              {/* Charts Row - Platform Specific */}
-              {selectedPlatform === 'youtube' ? (
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* YouTube Engagement */}
-                  <div className="card-elevo p-6">
-                    <div className="mb-6">
-                      <h2 className="text-xl font-bold mb-1">Engagement Breakdown</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Likes, comments, and shares (30d)
-                      </p>
-                    </div>
-                    
-                    <div className="h-[300px] w-full">
-                      <Doughnut options={doughnutOptions} data={youtubeEngagementData} />
-                    </div>
+              {/* Charts Row - TikTok */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Subreddit Distribution */}
+                <div className="card-elevo p-6">
+                  <div className="mb-6">
+                    <h2 className="text-xl font-bold mb-1">Content Distribution</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Videos by subreddit
+                    </p>
                   </div>
-
-                  {/* YouTube Watch Time */}
-                  <div className="card-elevo p-6">
-                    <div className="mb-6">
-                      <h2 className="text-xl font-bold mb-1">Watch Time</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Hours watched per week (30d)
-                      </p>
-                    </div>
-                    
-                    <div className="h-[300px] w-full">
-                      <Bar options={barOptions} data={youtubeWatchTimeData} />
-                    </div>
+                  
+                  <div className="h-[300px] w-full">
+                    <Doughnut options={doughnutOptions} data={subredditData} />
                   </div>
                 </div>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Subreddit Distribution */}
-                  <div className="card-elevo p-6">
-                    <div className="mb-6">
-                      <h2 className="text-xl font-bold mb-1">Content Distribution</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Videos by subreddit
-                      </p>
-              </div>
-                    
-                    <div className="h-[300px] w-full">
-                      <Doughnut options={doughnutOptions} data={subredditData} />
-              </div>
-            </div>
 
-                  {/* Voice Usage */}
-                  <div className="card-elevo p-6">
-                    <div className="mb-6">
-                      <h2 className="text-xl font-bold mb-1">Voice Usage</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Videos by voice actor
-                      </p>
-                    </div>
-                    
-                    <div className="h-[300px] w-full">
-                      <Bar options={barOptions} data={voiceData} />
-                    </div>
+                {/* Voice Usage */}
+                <div className="card-elevo p-6">
+                  <div className="mb-6">
+                    <h2 className="text-xl font-bold mb-1">Voice Usage</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Videos by voice actor
+                    </p>
+                  </div>
+                  
+                  <div className="h-[300px] w-full">
+                    <Bar options={barOptions} data={voiceData} />
                   </div>
                 </div>
-              )}
+              </div>
 
-              {/* YouTube Additional Charts - Subscriber Growth & Watch Time */}
-              {selectedPlatform === 'youtube' && (
+              {/* TikTok Additional Charts placeholder */}
+              {false && (
                 <div className="grid md:grid-cols-2 gap-8">
                   {/* Subscriber Growth Chart */}
                   <div className="card-elevo p-6">

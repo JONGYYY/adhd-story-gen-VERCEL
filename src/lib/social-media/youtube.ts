@@ -485,18 +485,49 @@ export class YouTubeAPI {
       return [];
     }
 
-    // Transform to our format
-    return videosRes.data.items.map(video => ({
-      id: video.id || '',
-      title: video.snippet?.title || 'Untitled',
-      thumbnail: video.snippet?.thumbnails?.medium?.url || video.snippet?.thumbnails?.default?.url || '',
-      publishedAt: video.snippet?.publishedAt || '',
-      views: parseInt(video.statistics?.viewCount || '0'),
-      likes: parseInt(video.statistics?.likeCount || '0'),
-      comments: parseInt(video.statistics?.commentCount || '0'),
-      duration: video.contentDetails?.duration || '',
-      url: `https://www.youtube.com/watch?v=${video.id}`,
-    }));
+    // Get analytics data for each video to include average view duration
+    const youtubeAnalytics = google.youtubeAnalytics('v2');
+    
+    // Fetch analytics for each video
+    const videosWithAnalytics = await Promise.all(
+      videosRes.data.items.map(async (video) => {
+        let averageViewDuration = undefined;
+        
+        try {
+          // Get video-specific analytics for average view duration
+          const analyticsRes = await youtubeAnalytics.reports.query({
+            auth: this.oauth2Client,
+            ids: 'channel==MINE',
+            startDate: '2020-01-01', // Get all-time data
+            endDate: new Date().toISOString().split('T')[0],
+            metrics: 'averageViewDuration',
+            dimensions: 'video',
+            filters: `video==${video.id}`,
+          });
+          
+          if (analyticsRes.data.rows && analyticsRes.data.rows.length > 0) {
+            averageViewDuration = analyticsRes.data.rows[0][1] as number; // Second column is the metric value
+          }
+        } catch (error) {
+          console.log(`Could not fetch analytics for video ${video.id}:`, error);
+        }
+        
+        return {
+          id: video.id || '',
+          title: video.snippet?.title || 'Untitled',
+          thumbnail: video.snippet?.thumbnails?.medium?.url || video.snippet?.thumbnails?.default?.url || '',
+          publishedAt: video.snippet?.publishedAt || '',
+          views: parseInt(video.statistics?.viewCount || '0'),
+          likes: parseInt(video.statistics?.likeCount || '0'),
+          comments: parseInt(video.statistics?.commentCount || '0'),
+          duration: video.contentDetails?.duration || '',
+          url: `https://www.youtube.com/watch?v=${video.id}`,
+          averageViewDuration,
+        };
+      })
+    );
+    
+    return videosWithAnalytics;
   }
 
   async getChannelAnalytics(accessToken: string) {
