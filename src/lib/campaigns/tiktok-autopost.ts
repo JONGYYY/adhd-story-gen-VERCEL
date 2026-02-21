@@ -107,7 +107,31 @@ async function downloadVideoFile(videoUrl: string): Promise<Buffer | null> {
 }
 
 /**
- * Post a single video to TikTok
+ * Update user's TikTok access token in Firestore
+ */
+async function updateTikTokAccessToken(userId: string, accessToken: string, refreshToken?: string): Promise<void> {
+  try {
+    const db = await getAdminFirestore();
+    const updateData: any = {
+      accessToken,
+      updatedAt: Date.now(),
+    };
+    
+    // Update refresh token if provided (TikTok may return new refresh token)
+    if (refreshToken) {
+      updateData.refreshToken = refreshToken;
+    }
+    
+    await db.collection(SOCIAL_CREDENTIALS_COLLECTION).doc(`${userId}_tiktok`).update(updateData);
+    console.log(`[TikTok Auto-Post] Updated access token for user ${userId}`);
+  } catch (error) {
+    console.error('[TikTok Auto-Post] Failed to update access token:', error);
+    throw error;
+  }
+}
+
+/**
+ * Post a single video to TikTok with automatic token refresh
  */
 export async function postVideoToTikTok(
   userId: string,
@@ -118,18 +142,20 @@ export async function postVideoToTikTok(
 ): Promise<{
   success: boolean;
   error?: string;
+  errorType?: 'TOKEN_EXPIRED' | 'TOKEN_REFRESH_FAILED' | 'UPLOAD_FAILED' | 'UNKNOWN';
   publishId?: string;
 }> {
   try {
     console.log(`[TikTok Auto-Post] Posting video ${videoId} for user ${userId}`);
     
     // Get user's TikTok credentials
-    const credentials = await getUserTikTokCredentials(userId);
+    let credentials = await getUserTikTokCredentials(userId);
     if (!credentials) {
       console.error(`[TikTok Auto-Post] No TikTok credentials found for user ${userId}`);
       return {
         success: false,
         error: 'TikTok not connected',
+        errorType: 'UNKNOWN',
       };
     }
     
@@ -144,6 +170,7 @@ export async function postVideoToTikTok(
       return {
         success: false,
         error: 'Failed to get video URL from metadata',
+        errorType: 'UPLOAD_FAILED',
       };
     }
     
@@ -155,6 +182,7 @@ export async function postVideoToTikTok(
       return {
         success: false,
         error: 'Failed to download video file',
+        errorType: 'UPLOAD_FAILED',
       };
     }
     
@@ -162,31 +190,100 @@ export async function postVideoToTikTok(
     const finalTitle = title || metadata.title || 'New Story';
 
     // Initialize TikTok API
-    const tiktokApi = new TikTokAPI(
-      process.env.TIKTOK_CLIENT_KEY!,
-      process.env.TIKTOK_CLIENT_SECRET!
-    );
+    const tiktokApi = new TikTokAPI();
 
-    // Upload to TikTok
-    const result = await tiktokApi.uploadVideo(credentials.accessToken, {
-      video_file: videoFile,
-      title: finalTitle,
-      description: description || `Watch this story from ${metadata.title || 'Reddit'}!`,
-      privacy_level: 'PUBLIC_TO_EVERYONE', // Production mode: public posts
-      disable_comment: false,
-      disable_duet: false,
-      disable_stitch: false,
-    });
+    // Try to upload - with automatic token refresh on failure
+    let uploadAttempt = 0;
+    const maxAttempts = 2;
+    
+    while (uploadAttempt < maxAttempts) {
+      uploadAttempt++;
+      
+      try {
+        console.log(`[TikTok Auto-Post] Upload attempt ${uploadAttempt}/${maxAttempts}`);
+        
+        // Upload to TikTok
+        const result = await tiktokApi.uploadVideo(credentials.accessToken, {
+          video_file: videoFile,
+          title: finalTitle,
+          description: description || `Watch this story from ${metadata.title || 'Reddit'}!`,
+          privacy_level: 'PUBLIC_TO_EVERYONE', // Production mode: public posts
+          disable_comment: false,
+          disable_duet: false,
+          disable_stitch: false,
+        });
 
+        console.log(`[TikTok Auto-Post] Video uploaded successfully to TikTok`);
+        return {
+          success: true,
+          publishId: result.publish_id,
+        };
+      } catch (uploadError) {
+        const errorMessage = uploadError instanceof Error ? uploadError.message : String(uploadError);
+        console.error(`[TikTok Auto-Post] Upload attempt ${uploadAttempt} failed:`, errorMessage);
+        
+        // Check if error is due to token expiry (401, 403, TOKEN_EXPIRED prefix, or specific error messages)
+        const isTokenError = 
+          errorMessage.includes('TOKEN_EXPIRED:') ||
+          errorMessage.includes('401') ||
+          errorMessage.includes('Unauthorized') ||
+          errorMessage.includes('access token is invalid') ||
+          errorMessage.includes('access_token_invalid') ||
+          errorMessage.includes('invalid_token') ||
+          errorMessage.includes('token expired') ||
+          errorMessage.includes('403') ||
+          errorMessage.includes('Permission denied');
+        
+        if (isTokenError && uploadAttempt < maxAttempts) {
+          console.log(`[TikTok Auto-Post] Token error detected, attempting to refresh...`);
+          
+          try {
+            // Attempt to refresh the token
+            const refreshedTokens = await tiktokApi.refreshAccessToken(credentials.refreshToken);
+            console.log(`[TikTok Auto-Post] Token refreshed successfully`);
+            
+            // Update credentials in Firestore
+            await updateTikTokAccessToken(userId, refreshedTokens.access_token, refreshedTokens.refresh_token);
+            
+            // Update our local credentials object for retry
+            credentials = {
+              accessToken: refreshedTokens.access_token,
+              refreshToken: refreshedTokens.refresh_token || credentials.refreshToken,
+            };
+            
+            console.log(`[TikTok Auto-Post] Retrying upload with new token...`);
+            continue; // Retry upload with new token
+          } catch (refreshError) {
+            console.error(`[TikTok Auto-Post] Token refresh failed:`, refreshError);
+            return {
+              success: false,
+              error: `Token expired and refresh failed: ${refreshError instanceof Error ? refreshError.message : 'Unknown error'}`,
+              errorType: 'TOKEN_REFRESH_FAILED',
+            };
+          }
+        }
+        
+        // If not a token error, or we've exhausted retries, return failure
+        return {
+          success: false,
+          error: errorMessage,
+          errorType: isTokenError ? 'TOKEN_EXPIRED' : 'UPLOAD_FAILED',
+        };
+      }
+    }
+    
+    // Should never reach here, but just in case
     return {
-      success: true,
-      publishId: result.publish_id,
+      success: false,
+      error: 'Upload failed after all retry attempts',
+      errorType: 'UPLOAD_FAILED',
     };
   } catch (error) {
-    console.error('Failed to post video to TikTok:', error);
+    console.error('[TikTok Auto-Post] Unexpected error in postVideoToTikTok:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
+      errorType: 'UNKNOWN',
     };
   }
 }
@@ -205,6 +302,7 @@ export async function postBatchToTikTok(
     videoId: string;
     success: boolean;
     error?: string;
+    errorType?: 'TOKEN_EXPIRED' | 'TOKEN_REFRESH_FAILED' | 'UPLOAD_FAILED' | 'UNKNOWN';
     publishId?: string;
   }>;
 }> {
@@ -226,9 +324,9 @@ export async function postBatchToTikTok(
       ...result,
     });
 
-    // Add delay between posts to avoid rate limiting
+    // Add delay between posts to avoid rate limiting (TikTok has a 15 posts/24h limit)
     if (videoId !== videoIds[videoIds.length - 1]) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
     }
   }
 

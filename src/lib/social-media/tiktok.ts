@@ -137,6 +137,95 @@ export class TikTokAPI {
     }
   }
 
+  /**
+   * Refresh TikTok access token using refresh token
+   * TikTok access tokens expire after 24 hours
+   * Refresh tokens are valid for 365 days
+   */
+  async refreshAccessToken(refreshToken: string) {
+    console.log('Refreshing TikTok access token...');
+    
+    // In test mode, return mock tokens
+    if (TEST_MODE) {
+      console.log('TikTok TEST MODE: Returning mock refreshed tokens');
+      return {
+        access_token: 'test_access_token_refreshed_' + Date.now(),
+        refresh_token: refreshToken, // Usually same refresh token
+        expires_in: 86400, // 24 hours
+        token_type: 'Bearer',
+        open_id: 'test_open_id'
+      };
+    }
+    
+    try {
+      const tokenUrl = 'https://open.tiktokapis.com/v2/oauth/token/';
+      console.log('Token refresh endpoint:', tokenUrl);
+
+      const params = new URLSearchParams({
+        client_key: TIKTOK_OAUTH_CONFIG.clientKey,
+        client_secret: TIKTOK_OAUTH_CONFIG.clientSecret,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      });
+
+      console.log('Token refresh request params:', {
+        client_key: `${TIKTOK_OAUTH_CONFIG.clientKey.substring(0, 8)}...`,
+        client_secret: 'HIDDEN',
+        grant_type: 'refresh_token',
+        refresh_token: `${refreshToken.substring(0, 10)}...`,
+      });
+
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.error('Token refresh timed out after 30 seconds');
+        controller.abort();
+      }, 30000); // 30 second timeout
+
+      let response;
+      try {
+        response = await fetch(tokenUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Cache-Control': 'no-cache',
+          },
+          body: params.toString(),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.error('Token refresh request timed out');
+          throw new Error('TikTok token refresh timed out. Please try again.');
+        }
+        throw fetchError;
+      }
+
+      console.log('Token refresh response received - status:', response.status);
+      const data = await response.json();
+      console.log('Token refresh response parsed successfully');
+      
+      if (!response.ok) {
+        console.error('Token refresh error response:', data);
+        throw new Error(`TikTok token refresh error: ${data.error?.message || data.message || 'Failed to refresh access token'}`);
+      }
+
+      if (!data.access_token) {
+        console.error('No access token in refresh response:', data);
+        throw new Error('No access token received from TikTok refresh');
+      }
+
+      console.log('Successfully refreshed TikTok access token');
+      console.log('New token expires in:', data.expires_in, 'seconds (24 hours)');
+      return data;
+    } catch (error) {
+      console.error('Error refreshing TikTok access token:', error);
+      throw error;
+    }
+  }
+
   async getAccessToken(code: string, opts?: { codeVerifier?: string; redirectUri?: string }) {
     console.log('Getting access token from code...');
     
@@ -591,7 +680,7 @@ export class TikTokAPI {
         if (initResponse.status === 401) {
           console.error('Init returned 401 Unauthorized - access token is invalid or expired');
           throw new Error(
-            `TikTok access token is invalid or expired. Please go to Settings → Social Media → Disconnect and then Reconnect your TikTok account.`
+            `TOKEN_EXPIRED: TikTok access token is invalid or expired (401)`
           );
         }
         
@@ -611,7 +700,7 @@ export class TikTokAPI {
             console.error('Could not parse 403 error body:', e);
           }
           throw new Error(
-            `TikTok upload permission denied (403): ${errorDetails}. Please reconnect your TikTok account in Settings → Social Media.`
+            `TOKEN_EXPIRED: TikTok upload permission denied (403): ${errorDetails}`
           );
         }
 
@@ -651,7 +740,33 @@ export class TikTokAPI {
         if (!initResponse.ok) {
           console.error('Init error response:', initData);
           const errorMessage = initData.error?.message || initData.message || 'Unknown error';
+          const errorCode = initData.error?.code || 'unknown';
+          
+          // Check for token-related error codes
+          if (errorCode === 'access_token_invalid' || errorCode === 'invalid_token' || errorMessage.toLowerCase().includes('token')) {
+            throw new Error(`TOKEN_EXPIRED: ${errorMessage}`);
+          }
+          
           throw new Error(`Failed to initialize video upload (${initResponse.status}): ${errorMessage}`);
+        }
+        
+        // Also check if response is "ok" but has error in data (TikTok sometimes returns 200 with errors)
+        if (initData.error && initData.error.code && initData.error.code !== 'ok') {
+          console.error('Init returned error in response body:', initData.error);
+          const errorCode = initData.error.code;
+          const errorMessage = initData.error.message || 'Unknown error';
+          
+          // Check for token-related error codes
+          if (errorCode === 'access_token_invalid' || errorCode === 'invalid_token') {
+            throw new Error(`TOKEN_EXPIRED: ${errorMessage}`);
+          }
+          
+          // Handle rate limiting
+          if (errorCode === 'spam_risk_too_many_posts') {
+            throw new Error('RATE_LIMITED: You have reached the daily post limit (15 posts/24h). Please try again later.');
+          }
+          
+          throw new Error(`TikTok API error (${errorCode}): ${errorMessage}`);
         }
 
         // Most v2 APIs return payload under { data: ... }

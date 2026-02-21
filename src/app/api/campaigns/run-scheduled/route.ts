@@ -279,6 +279,68 @@ export async function POST(request: NextRequest) {
               railwayApiUrl
             );
             console.log(`[Campaign Scheduler] TikTok posting complete: ${tiktokPostResults.successCount}/${result.videoIds.length} succeeded`);
+            
+            // Log detailed results for debugging
+            tiktokPostResults.results.forEach((result, index) => {
+              if (result.success) {
+                console.log(`[Campaign Scheduler] TikTok video ${index + 1}/${tiktokPostResults.results.length}: SUCCESS (publish_id: ${result.publishId})`);
+              } else {
+                console.error(`[Campaign Scheduler] TikTok video ${index + 1}/${tiktokPostResults.results.length}: FAILED - ${result.error} (type: ${result.errorType})`);
+              }
+            });
+            
+            // Check for token-related failures in batch results
+            const tokenFailures = tiktokPostResults.results.filter(
+              r => !r.success && (r.errorType === 'TOKEN_EXPIRED' || r.errorType === 'TOKEN_REFRESH_FAILED')
+            );
+            
+            if (tokenFailures.length > 0) {
+              // Pause campaign if any video failed due to token issues
+              const errorMessage = tokenFailures[0].error || 'TikTok token expired or refresh failed';
+              console.error(`[Campaign Scheduler] TikTok token failure detected: ${errorMessage}`);
+              
+              await updateCampaign(campaign.id, {
+                status: 'paused',
+                lastFailureAt: Date.now(),
+                failureReason: errorMessage,
+                currentlyRunning: false, // Clear running flag on TikTok token failure
+              });
+              
+              // Update campaign run as failed
+              await updateCampaignRun(runId, {
+                status: 'failed',
+                videoIds: result.videoIds,
+                completedVideos: tiktokPostResults.successCount,
+                failedVideos: tokenFailures.length,
+                completedAt: Date.now(),
+                errors: tokenFailures.map((failure, index) => ({
+                  videoIndex: index,
+                  error: failure.error || 'TikTok token error',
+                  timestamp: Date.now(),
+                })),
+              });
+              
+              // Send failure notification
+              const userEmail = await getUserEmail(campaign.userId);
+              if (userEmail) {
+                await sendCampaignFailureEmail({
+                  to: userEmail,
+                  campaignName: campaign.name,
+                  error: errorMessage,
+                  campaignId: campaign.id,
+                });
+                console.log(`[Campaign Scheduler] TikTok failure email sent to ${userEmail}`);
+              }
+              
+              results.push({
+                campaignId: campaign.id,
+                campaignName: campaign.name,
+                success: false,
+                error: errorMessage,
+              });
+              
+              continue; // Skip to next campaign
+            }
           } catch (tiktokError) {
             console.error('[Campaign Scheduler] TikTok auto-posting failed:', tiktokError);
           }
