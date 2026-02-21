@@ -20,9 +20,25 @@ export function ComparisonDatePicker({ startDate, endDate, onDatesChange, onClea
 
   const handleApply = () => {
     if (tempStartDate && tempEndDate) {
+      // Validate that end date is after start date
+      const start = new Date(tempStartDate);
+      const end = new Date(tempEndDate);
+      
+      if (end < start) {
+        alert('End date must be after start date');
+        return;
+      }
+      
       onDatesChange(tempStartDate, tempEndDate);
       setIsExpanded(false);
     }
+  };
+
+  // Update temp dates when props change (e.g., when cleared externally)
+  const handleOpen = () => {
+    setTempStartDate(startDate || '');
+    setTempEndDate(endDate || '');
+    setIsExpanded(true);
   };
 
   const formatDateLabel = () => {
@@ -35,7 +51,7 @@ export function ComparisonDatePicker({ startDate, endDate, onDatesChange, onClea
   return (
     <div className="relative">
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => isExpanded ? setIsExpanded(false) : handleOpen()}
         className={cn(
           'flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all duration-200',
           'bg-background hover:bg-muted/50',
@@ -92,6 +108,7 @@ export function ComparisonDatePicker({ startDate, endDate, onDatesChange, onClea
                     type="date"
                     value={tempStartDate}
                     onChange={(e) => setTempStartDate(e.target.value)}
+                    max={tempEndDate || new Date().toISOString().split('T')[0]}
                     className="w-full px-3 py-2 rounded-lg border-2 border-border bg-background text-sm focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -102,6 +119,8 @@ export function ComparisonDatePicker({ startDate, endDate, onDatesChange, onClea
                     type="date"
                     value={tempEndDate}
                     onChange={(e) => setTempEndDate(e.target.value)}
+                    min={tempStartDate || undefined}
+                    max={new Date().toISOString().split('T')[0]}
                     className="w-full px-3 py-2 rounded-lg border-2 border-border bg-background text-sm focus:border-primary focus:outline-none"
                   />
                 </div>

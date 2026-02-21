@@ -117,6 +117,17 @@ export default function Analytics() {
     setTimeFrame(timeFrameMap[customTimeFrame]);
   }, [customTimeFrame]);
 
+  // Helper to get number of days from timeframe
+  const getTimeFrameDays = (timeFrame: TimeFrameOption): number => {
+    const daysMap: Record<TimeFrameOption, number> = {
+      'today': 1,
+      '1week': 7,
+      '1month': 30,
+      '1year': 365,
+    };
+    return daysMap[timeFrame];
+  };
+
   // Refetch data when time frame changes
   useEffect(() => {
     if (mounted) {
@@ -1081,6 +1092,7 @@ export default function Analytics() {
                     videosData={youtubeStats.videosHeatmapData || []}
                     title="Videos Posted Activity"
                     description="Daily video posting frequency over time"
+                    days={getTimeFrameDays(customTimeFrame)}
                   />
                 ) : (
                   <>
@@ -1233,6 +1245,7 @@ export default function Analytics() {
                   videosData={youtubeStats.videosHeatmapData || []}
                   title="Videos Posted Activity"
                   description="Daily video posting frequency over the selected period"
+                  days={getTimeFrameDays(customTimeFrame)}
                 />
               </div>
 

@@ -10,9 +10,10 @@ interface VideoHeatmapProps {
   }>;
   title?: string;
   description?: string;
+  days?: number; // Number of days to show (default 90)
 }
 
-export function VideoHeatmap({ videosData, title = 'Videos Posted Activity', description = 'Daily video posting frequency over time' }: VideoHeatmapProps) {
+export function VideoHeatmap({ videosData, title = 'Videos Posted Activity', description = 'Daily video posting frequency over time', days = 90 }: VideoHeatmapProps) {
   // Generate calendar grid data (similar to GitHub contribution graph)
   const heatmapData = useMemo(() => {
     // Create a map of date -> count
@@ -23,10 +24,10 @@ export function VideoHeatmap({ videosData, title = 'Videos Posted Activity', des
       });
     }
 
-    // Use last 90 days as default range (like GitHub shows ~1 year)
+    // Use specified number of days for range
     const maxDate = new Date();
     const minDate = new Date();
-    minDate.setDate(minDate.getDate() - 90);
+    minDate.setDate(minDate.getDate() - days);
 
     // Adjust to start on Sunday
     const startDate = new Date(minDate);
@@ -60,7 +61,7 @@ export function VideoHeatmap({ videosData, title = 'Videos Posted Activity', des
     if (currentWeek.length > 0) weeks.push(currentWeek);
 
     return weeks;
-  }, [videosData]);
+  }, [videosData, days]);
 
   // Get color intensity based on count
   const getColor = (count: number): string => {
