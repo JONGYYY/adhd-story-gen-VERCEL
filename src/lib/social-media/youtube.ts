@@ -602,7 +602,7 @@ export class YouTubeAPI {
         ids: 'channel==MINE',
         startDate: startDate30,
         endDate,
-        metrics: 'views,estimatedMinutesWatched,subscribersGained',
+        metrics: 'views,likes,comments,shares,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost',
         dimensions: 'day',
         sort: 'day',
       });
@@ -613,7 +613,7 @@ export class YouTubeAPI {
         ids: 'channel==MINE',
         startDate: startDate7,
         endDate,
-        metrics: 'views,estimatedMinutesWatched,subscribersGained',
+        metrics: 'views,likes,comments,shares,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost',
         dimensions: 'day',
         sort: 'day',
       });
@@ -624,31 +624,46 @@ export class YouTubeAPI {
         ids: 'channel==MINE',
         startDate: startDate90,
         endDate,
-        metrics: 'views,estimatedMinutesWatched,subscribersGained',
+        metrics: 'views,likes,comments,shares,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost',
         dimensions: 'day',
         sort: 'day',
       });
 
-      // Parse daily data
+      // Parse daily data (8 metrics + date dimension = 9 columns)
       const dailyData = (dailyAnalyticsRes.data.rows || []).map((row: any[]) => ({
         date: row[0], // YYYY-MM-DD
         views: row[1] || 0,
-        watchTime: row[2] || 0, // minutes
-        subscribersGained: row[3] || 0,
+        likes: row[2] || 0,
+        comments: row[3] || 0,
+        shares: row[4] || 0,
+        watchTime: row[5] || 0, // minutes
+        averageViewDuration: row[6] || 0, // seconds
+        subscribersGained: row[7] || 0,
+        subscribersLost: row[8] || 0,
       }));
 
       const weeklyData = (weeklyAnalyticsRes.data.rows || []).map((row: any[]) => ({
         date: row[0],
         views: row[1] || 0,
-        watchTime: row[2] || 0,
-        subscribersGained: row[3] || 0,
+        likes: row[2] || 0,
+        comments: row[3] || 0,
+        shares: row[4] || 0,
+        watchTime: row[5] || 0,
+        averageViewDuration: row[6] || 0,
+        subscribersGained: row[7] || 0,
+        subscribersLost: row[8] || 0,
       }));
 
       const ninetyDayData = (ninetyDayAnalyticsRes.data.rows || []).map((row: any[]) => ({
         date: row[0],
         views: row[1] || 0,
-        watchTime: row[2] || 0,
-        subscribersGained: row[3] || 0,
+        likes: row[2] || 0,
+        comments: row[3] || 0,
+        shares: row[4] || 0,
+        watchTime: row[5] || 0,
+        averageViewDuration: row[6] || 0,
+        subscribersGained: row[7] || 0,
+        subscribersLost: row[8] || 0,
       }));
 
       // Handle hidden subscriber count
@@ -683,9 +698,13 @@ export class YouTubeAPI {
           subscribersGained: metrics[6] || 0,
           subscribersLost: metrics[7] || 0,
         },
-        // Time-series data for charts
+        // Time-series data for charts - map to expected keys
         timeSeries: {
-          last7Days: weeklyData,
+          '7d': weeklyData,
+          '30d': dailyData,
+          '90d': ninetyDayData,
+          'all': ninetyDayData, // Use 90-day data for 'all' timeframe
+          last7Days: weeklyData, // Keep for backwards compatibility
           last30Days: dailyData,
           last90Days: ninetyDayData,
         },

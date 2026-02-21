@@ -51,7 +51,7 @@ export function Sidebar({ onLinkClick }: SidebarProps = {}) {
   };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-[#0a0a0a] border-r border-border/30 flex flex-col z-50 shadow-2xl">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-[#151515] border-r border-border/30 flex flex-col z-50 shadow-2xl">
       {/* Logo Section */}
       <div className="p-6 border-b border-border/30">
         <Link href="/dashboard" className="flex items-center gap-3 group">

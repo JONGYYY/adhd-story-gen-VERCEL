@@ -21,8 +21,15 @@ const authPaths = [
 ];
 
 export async function middleware(request: NextRequest) {
+  const startTime = Date.now();
+  
   // Get the pathname of the request
   const path = request.nextUrl.pathname;
+
+  // Log root path access for debugging slow load issues
+  if (path === '/') {
+    console.log('[Middleware] Root path accessed at', new Date().toISOString());
+  }
 
   // Skip middleware for API routes
   if (path.startsWith('/api/')) {
@@ -32,6 +39,10 @@ export async function middleware(request: NextRequest) {
   // Get the session cookie (simple check - detailed verification happens in API routes)
   const session = request.cookies.get('session')?.value;
   const isLoggedIn = !!session; // Simple check - just verify cookie exists
+  
+  if (path === '/') {
+    console.log('[Middleware] Root path - isLoggedIn:', isLoggedIn, 'session exists:', !!session);
+  }
 
   // If the path is protected and user is not logged in
   if (protectedPaths.some(p => path.startsWith(p)) && !isLoggedIn) {
@@ -57,7 +68,15 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  
+  // Log middleware execution time for root path
+  if (path === '/') {
+    const duration = Date.now() - startTime;
+    console.log('[Middleware] Root path middleware completed in', duration, 'ms');
+  }
+  
+  return response;
 }
 
 export const config = {

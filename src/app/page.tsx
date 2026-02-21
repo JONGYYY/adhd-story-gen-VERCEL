@@ -12,7 +12,7 @@ export default function LandingPage() {
   const [showDemo, setShowDemo] = useState(false);
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background pt-16">
       {/* Hero Section */}
       <section className="section-py relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent opacity-50" />

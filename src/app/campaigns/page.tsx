@@ -22,6 +22,7 @@ import {
   Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 export default function CampaignsPage() {
@@ -213,7 +214,22 @@ export default function CampaignsPage() {
                 <div className="card-elevo">
                   <h2 className="text-xl font-bold mb-4">Your Campaigns</h2>
                   <div className="space-y-2">
-                    {campaigns.map((campaign) => (
+                    {loading ? (
+                      <>
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="p-4 rounded-xl bg-muted/30 border-2 border-transparent">
+                            <div className="flex items-start justify-between mb-2">
+                              <Skeleton className="h-5 w-32" />
+                              <Skeleton className="w-2 h-2 rounded-full" />
+                            </div>
+                            <Skeleton className="h-3 w-48 mb-2" />
+                            <Skeleton className="h-3 w-24" />
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        {campaigns.map((campaign) => (
                       <button
                         key={campaign.id}
                         onClick={() => setSelectedCampaign(campaign)}
@@ -235,7 +251,9 @@ export default function CampaignsPage() {
                           {campaign.totalVideosGenerated} videos generated
                         </p>
                       </button>
-                    ))}
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

@@ -45,6 +45,7 @@ import { ComparisonDatePicker } from '@/components/analytics/ComparisonDatePicke
 import { LayoutToggle, LayoutMode } from '@/components/analytics/LayoutToggle';
 import { MiniMetricCard } from '@/components/analytics/MiniMetricCard';
 import { TopContentTable } from '@/components/analytics/TopContentTable';
+import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 
 // Register Chart.js components
@@ -321,6 +322,23 @@ export default function Analytics() {
   const formatDateLabel = (dateStr: string): string => {
     const date = new Date(dateStr);
     return `${date.getMonth() + 1}/${date.getDate()}`;
+  };
+
+  // Helper function to calculate growth percentage from time series data
+  const calculateGrowth = (timeSeriesData: any[], metricExtractor: (item: any) => number): number => {
+    if (!timeSeriesData || timeSeriesData.length < 2) return 0;
+    
+    const halfPoint = Math.floor(timeSeriesData.length / 2);
+    const firstHalf = timeSeriesData.slice(0, halfPoint);
+    const secondHalf = timeSeriesData.slice(halfPoint);
+    
+    const firstHalfTotal = firstHalf.reduce((sum, item) => sum + metricExtractor(item), 0);
+    const secondHalfTotal = secondHalf.reduce((sum, item) => sum + metricExtractor(item), 0);
+    
+    if (firstHalfTotal === 0) return secondHalfTotal > 0 ? 100 : 0;
+    
+    const growth = ((secondHalfTotal - firstHalfTotal) / firstHalfTotal) * 100;
+    return Math.round(growth * 10) / 10; // Round to 1 decimal place
   };
 
   // Helper function to get real YouTube time-series data based on time frame
@@ -807,7 +825,7 @@ export default function Analytics() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-background">
+      <div>
       {/* Redesigned Header */}
       <div className="border-b border-border/50 bg-background">
         <div className="container-wide py-8">
@@ -905,6 +923,20 @@ export default function Analytics() {
             )}
 
           {/* Main Metrics Bar (HR-style horizontal bar with 5 sections) */}
+          {selectedPlatform === 'youtube' && youtubeLoading && (
+            <div className="mt-8 card-elevo overflow-hidden">
+              <div className="flex flex-col md:flex-row">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex-1 p-6 border-b md:border-b-0 md:border-r last:border-r-0 border-border/50">
+                    <Skeleton className="h-4 w-24 mb-3" />
+                    <Skeleton className="h-8 w-20 mb-2" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           {selectedPlatform === 'youtube' && youtubeStats && (
             <div className="mt-8 card-elevo overflow-hidden">
               <div className="flex flex-col md:flex-row">
@@ -1047,6 +1079,49 @@ export default function Analytics() {
           )}
 
           {/* Single View Layout - Mini Metrics + Main Graph */}
+          {selectedPlatform === 'youtube' && youtubeLoading && layoutMode === 'single' && (
+            <div className="mt-8 space-y-6">
+              {/* Skeleton Mini Metric Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="card-elevo p-6">
+                    <Skeleton className="h-4 w-24 mb-4" />
+                    <div className="flex items-end justify-between gap-4">
+                      <Skeleton className="h-9 w-20" />
+                      <Skeleton className="h-16 flex-1" />
+                      <Skeleton className="h-8 w-16" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Skeleton Main Graph */}
+              <div className="card-elevo p-6">
+                <Skeleton className="h-7 w-48 mb-2" />
+                <Skeleton className="h-4 w-64 mb-6" />
+                <Skeleton className="h-[300px] w-full" />
+              </div>
+              
+              {/* Skeleton Top Content */}
+              <div className="card-elevo p-6">
+                <Skeleton className="h-7 w-56 mb-6" />
+                <div className="space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex gap-4">
+                      <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
+                      <Skeleton className="w-40 h-24 rounded-xl flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                        <Skeleton className="h-3 w-1/4" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          
           {selectedPlatform === 'youtube' && youtubeStats && layoutMode === 'single' && (
             <div className="mt-8 space-y-6">
               {/* Mini Metric Cards Row */}
@@ -1055,7 +1130,7 @@ export default function Analytics() {
                   title="Views"
                   value={youtubeStats.last30Days?.views?.toLocaleString() || '0'}
                   data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => d.views || 0) || Array(30).fill(0)}
-                  growth={15.2}
+                  growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => d.views || 0)}
                   isSelected={selectedMetric === 'views'}
                   onClick={() => setSelectedMetric('views')}
                   color="#EF4444"
@@ -1065,17 +1140,17 @@ export default function Analytics() {
                   title="Watch Time"
                   value={`${Math.round((youtubeStats.last30Days?.watchTime || 0) / 60)}h`}
                   data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.watchTime || 0) / 60) || Array(30).fill(0)}
-                  growth={12.5}
+                  growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => d.watchTime || 0)}
                   isSelected={selectedMetric === 'watchTime'}
                   onClick={() => setSelectedMetric('watchTime')}
                   color="#A855F7"
                 />
-                
+
                 <MiniMetricCard
                   title="Engagement"
                   value={((youtubeStats.last30Days?.likes || 0) + (youtubeStats.last30Days?.comments || 0) + (youtubeStats.last30Days?.shares || 0)).toLocaleString()}
                   data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.likes || 0) + (d.comments || 0) + (d.shares || 0)) || Array(30).fill(0)}
-                  growth={8.3}
+                  growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => (d.likes || 0) + (d.comments || 0) + (d.shares || 0))}
                   isSelected={selectedMetric === 'engagement'}
                   onClick={() => setSelectedMetric('engagement')}
                   color="#10B981"
@@ -1085,7 +1160,7 @@ export default function Analytics() {
                   title="Subscribers"
                   value={((youtubeStats.last30Days?.subscribersGained || 0) - (youtubeStats.last30Days?.subscribersLost || 0)).toLocaleString()}
                   data={youtubeStats.timeSeries?.[timeFrame]?.map((d: any) => (d.subscribersGained || 0) - (d.subscribersLost || 0)) || Array(30).fill(0)}
-                  growth={5.7}
+                  growth={calculateGrowth(youtubeStats.timeSeries?.[timeFrame] || [], (d) => (d.subscribersGained || 0) - (d.subscribersLost || 0))}
                   isSelected={selectedMetric === 'subscribers'}
                   onClick={() => setSelectedMetric('subscribers')}
                   color="#3B82F6"
@@ -1125,6 +1200,39 @@ export default function Analytics() {
             </div>
           )}
 
+          {/* Large View Layout - Skeleton */}
+          {selectedPlatform === 'youtube' && youtubeLoading && layoutMode === 'large' && (
+            <div className="mt-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="card-elevo p-6">
+                    <Skeleton className="h-6 w-32 mb-2" />
+                    <Skeleton className="h-4 w-48 mb-4" />
+                    <Skeleton className="h-[250px] w-full" />
+                  </div>
+                ))}
+              </div>
+              
+              {/* Skeleton Top Content */}
+              <div className="card-elevo p-6">
+                <Skeleton className="h-7 w-56 mb-6" />
+                <div className="space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex gap-4">
+                      <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
+                      <Skeleton className="w-40 h-24 rounded-xl flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                        <Skeleton className="h-3 w-1/4" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Large View Layout - 4 Equal Graphs in 2x2 Grid */}
           {selectedPlatform === 'youtube' && youtubeStats && layoutMode === 'large' && (
             <div className="mt-8">

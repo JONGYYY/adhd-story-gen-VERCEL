@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { SocialPlatform } from '@/lib/social-media/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Grid3x3, List, Clock, Plus, Video, Eye, ThumbsUp, MessageSquare, ExternalLink } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AppLayout } from '@/components/layout/AppLayout';
 
 interface PlatformStatus {
@@ -258,9 +259,20 @@ export default function Library() {
 
           {/* Content */}
           {isLoading ? (
-            <div className="text-center py-20">
-              <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading your content...</p>
+            <div className={`grid ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'grid-cols-1 gap-4'}`}>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="card-elevo overflow-hidden">
+                  <Skeleton className="w-full h-48" />
+                  <div className="p-4 space-y-3">
+                    <Skeleton className="h-5 w-3/4" />
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : error ? (
             <div className="text-center py-20">

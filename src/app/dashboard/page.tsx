@@ -29,6 +29,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { AppLayout } from '@/components/layout/AppLayout';
 
@@ -204,7 +205,7 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-background">
+      <div>
       {/* Hero Section */}
       <div className="relative overflow-hidden border-b border-border/50 bg-gradient-to-br from-background via-background to-primary/5">
         <div className="absolute inset-0 bg-grid-white/[0.02] pointer-events-none" />
@@ -226,17 +227,24 @@ export default function Dashboard() {
               
               {/* Quick Stats Bar */}
               <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
-                  <Video className="w-4 h-4 text-primary" />
-                  <span className="text-sm">
-                    <span className="font-bold text-foreground">
-                      {selectedPlatform === 'youtube' && youtubeStats?.totalVideos 
-                        ? youtubeStats.totalVideos 
-                        : (userStats?.videosCreated || 0)}
-                    </span>
-                    <span className="text-muted-foreground ml-1">Videos {selectedPlatform === 'youtube' ? 'on YouTube' : 'Created'}</span>
-                  </span>
-                </div>
+                {loading ? (
+                  <>
+                    <Skeleton className="h-10 w-36 rounded-lg" />
+                    <Skeleton className="h-10 w-40 rounded-lg" />
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
+                      <Video className="w-4 h-4 text-primary" />
+                      <span className="text-sm">
+                        <span className="font-bold text-foreground">
+                          {selectedPlatform === 'youtube' && youtubeStats?.totalVideos 
+                            ? youtubeStats.totalVideos 
+                            : (userStats?.videosCreated || 0)}
+                        </span>
+                        <span className="text-muted-foreground ml-1">Videos {selectedPlatform === 'youtube' ? 'on YouTube' : 'Created'}</span>
+                      </span>
+                    </div>
                 {selectedPlatform === 'tiktok' && tiktokStats && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-pink-500/10 to-cyan-500/10 border border-pink-500/30">
                     <Users className="w-4 h-4 text-pink-400" />
@@ -256,8 +264,10 @@ export default function Dashboard() {
                         {new Intl.NumberFormat('en-US', { notation: 'compact' }).format(youtubeStats.subscribers)}
                       </span>
                       <span className="text-muted-foreground ml-1">YT Subscribers</span>
-                    </span>
-                  </div>
+                      </span>
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
             </div>
@@ -292,8 +302,24 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {stats.map((stat, i) => {
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="card-elevo p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-32 mb-3" />
+                      <Skeleton className="h-8 w-24 mb-2" />
+                      <Skeleton className="h-3 w-28" />
+                    </div>
+                    <Skeleton className="w-12 h-12 rounded-xl" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {stats.map((stat, i) => {
               const Icon = stat.icon;
               return (
                 <div
@@ -360,7 +386,8 @@ export default function Dashboard() {
                 </div>
               );
             })}
-          </div>
+            </div>
+          )}
 
           {/* Quick Actions Grid */}
           <div>
