@@ -15,18 +15,18 @@ interface VideoHeatmapProps {
 export function VideoHeatmap({ videosData, title = 'Videos Posted Activity', description = 'Daily video posting frequency over time' }: VideoHeatmapProps) {
   // Generate calendar grid data (similar to GitHub contribution graph)
   const heatmapData = useMemo(() => {
-    if (!videosData || videosData.length === 0) return [];
-
     // Create a map of date -> count
     const dateMap = new Map<string, number>();
-    videosData.forEach(item => {
-      dateMap.set(item.date, item.count);
-    });
+    if (videosData && videosData.length > 0) {
+      videosData.forEach(item => {
+        dateMap.set(item.date, item.count);
+      });
+    }
 
-    // Get date range
-    const dates = videosData.map(d => new Date(d.date));
-    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
-    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+    // Use last 90 days as default range (like GitHub shows ~1 year)
+    const maxDate = new Date();
+    const minDate = new Date();
+    minDate.setDate(minDate.getDate() - 90);
 
     // Adjust to start on Sunday
     const startDate = new Date(minDate);
@@ -46,7 +46,7 @@ export function VideoHeatmap({ videosData, title = 'Videos Posted Activity', des
       current.setDate(current.getDate() + 1);
     }
 
-    // Group by weeks
+    // Group by weeks (columns in the heatmap)
     const weeks: Array<Array<{ date: string; count: number; dayOfWeek: number }>> = [];
     let currentWeek: Array<{ date: string; count: number; dayOfWeek: number }> = [];
     
@@ -82,19 +82,23 @@ export function VideoHeatmap({ videosData, title = 'Videos Posted Activity', des
       </div>
 
       {/* Heatmap Grid */}
-      <div className="overflow-x-auto">
-        <div className="inline-flex gap-1">
+      <div className="overflow-x-auto pb-2">
+        <div className="inline-flex gap-[3px] p-4 bg-muted/20 rounded-xl border border-border/30">
           {/* Day labels */}
-          <div className="flex flex-col gap-1 mr-2 justify-around text-xs text-muted-foreground">
-            <div className="h-3">Mon</div>
-            <div className="h-3">Wed</div>
-            <div className="h-3">Fri</div>
+          <div className="flex flex-col gap-[3px] mr-2 text-[10px] text-muted-foreground font-medium">
+            <div className="h-[11px] flex items-center">Sun</div>
+            <div className="h-[11px] flex items-center"></div>
+            <div className="h-[11px] flex items-center">Tue</div>
+            <div className="h-[11px] flex items-center"></div>
+            <div className="h-[11px] flex items-center">Thu</div>
+            <div className="h-[11px] flex items-center"></div>
+            <div className="h-[11px] flex items-center">Sat</div>
           </div>
 
           {/* Weeks grid */}
           {heatmapData.map((week, weekIndex) => (
-            <div key={weekIndex} className="flex flex-col gap-1">
-              {week.map((day, dayIndex) => {
+            <div key={weekIndex} className="flex flex-col gap-[3px]">
+              {week.map((day) => {
                 const date = new Date(day.date);
                 const monthName = date.toLocaleDateString('en-US', { month: 'short' });
                 const dayNum = date.getDate();
@@ -103,7 +107,7 @@ export function VideoHeatmap({ videosData, title = 'Videos Posted Activity', des
                   <div
                     key={day.date}
                     className={cn(
-                      'w-3 h-3 rounded-sm transition-all duration-200 hover:ring-2 hover:ring-orange-500/50 cursor-pointer',
+                      'w-[11px] h-[11px] rounded-sm transition-all duration-150 hover:ring-1 hover:ring-orange-500 cursor-pointer border border-border/20',
                       getColor(day.count)
                     )}
                     title={`${monthName} ${dayNum}: ${day.count} video${day.count !== 1 ? 's' : ''}`}
@@ -115,17 +119,19 @@ export function VideoHeatmap({ videosData, title = 'Videos Posted Activity', des
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-2 mt-4 text-xs text-muted-foreground">
+        <div className="flex items-center gap-3 mt-6 text-xs text-muted-foreground">
           <span>Less</span>
-          <div className="flex gap-1">
-            <div className="w-3 h-3 rounded-sm bg-muted/30" />
-            <div className="w-3 h-3 rounded-sm bg-orange-500/20" />
-            <div className="w-3 h-3 rounded-sm bg-orange-500/40" />
-            <div className="w-3 h-3 rounded-sm bg-orange-500/60" />
-            <div className="w-3 h-3 rounded-sm bg-orange-500/80" />
+          <div className="flex gap-[3px]">
+            <div className="w-[11px] h-[11px] rounded-sm bg-muted/30 border border-border/20" />
+            <div className="w-[11px] h-[11px] rounded-sm bg-orange-500/20 border border-border/20" />
+            <div className="w-[11px] h-[11px] rounded-sm bg-orange-500/40 border border-border/20" />
+            <div className="w-[11px] h-[11px] rounded-sm bg-orange-500/60 border border-border/20" />
+            <div className="w-[11px] h-[11px] rounded-sm bg-orange-500/80 border border-border/20" />
           </div>
           <span>More</span>
-          <span className="ml-4">Peak: {maxCount} video{maxCount !== 1 ? 's' : ''}/day</span>
+          {maxCount > 0 && (
+            <span className="ml-4 text-primary font-medium">Peak: {maxCount} video{maxCount !== 1 ? 's' : ''}/day</span>
+          )}
         </div>
       </div>
     </div>

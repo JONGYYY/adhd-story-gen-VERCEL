@@ -115,11 +115,32 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      const channelAnalytics = await youtubeApi.getChannelAnalytics(accessToken);
+      // Fetch both channel analytics and video list
+      const [channelAnalytics, channelVideos] = await Promise.all([
+        youtubeApi.getChannelAnalytics(accessToken),
+        youtubeApi.getChannelVideos(accessToken, 50), // Get last 50 videos
+      ]);
+      
+      // Process video dates for heatmap
+      const videoPostingDates = channelVideos.reduce((acc: Record<string, number>, video) => {
+        if (video.publishedAt) {
+          const dateKey = video.publishedAt.split('T')[0]; // YYYY-MM-DD
+          acc[dateKey] = (acc[dateKey] || 0) + 1;
+        }
+        return acc;
+      }, {});
+      
+      const videosHeatmapData = Object.entries(videoPostingDates).map(([date, count]) => ({
+        date,
+        count: count as number,
+      }));
       
       return new Response(JSON.stringify({
         success: true,
-        channel: channelAnalytics,
+        channel: {
+          ...channelAnalytics,
+          videosHeatmapData,
+        },
         connected: true
       }), {
         status: 200,

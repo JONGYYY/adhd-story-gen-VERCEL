@@ -62,12 +62,16 @@ export function MetricsBar({ metrics }: MetricsBarProps) {
             key={metric.title}
             onClick={metric.onClick}
             className={cn(
-              'flex-1 p-6 transition-all duration-200',
+              'flex-1 p-6 transition-all duration-200 relative',
               !isLast && 'border-r border-border/50',
               metric.onClick && 'cursor-pointer hover:bg-muted/20',
-              metric.isSelected && 'bg-primary/5 ring-2 ring-primary/50 ring-inset'
+              metric.isSelected && 'bg-primary/5'
             )}
           >
+            {/* Selected indicator with rounded border */}
+            {metric.isSelected && (
+              <div className="absolute inset-0 border-2 border-primary rounded-xl pointer-events-none" />
+            )}
             {/* Growth Badge (Top Right) */}
             {metric.growth !== undefined && (
               <div className="flex justify-end mb-2">

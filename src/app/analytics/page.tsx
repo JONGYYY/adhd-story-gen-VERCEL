@@ -1078,7 +1078,7 @@ export default function Analytics() {
               <div className="card-elevo p-6">
                 {selectedMetric === 'videosPosted' ? (
                   <VideoHeatmap
-                    videosData={[]}
+                    videosData={youtubeStats.videosHeatmapData || []}
                     title="Videos Posted Activity"
                     description="Daily video posting frequency over time"
                   />
@@ -1230,7 +1230,7 @@ export default function Analytics() {
               {/* Videos Posted Heatmap - Full Width */}
               <div className="card-elevo p-6">
                 <VideoHeatmap
-                  videosData={[]}
+                  videosData={youtubeStats.videosHeatmapData || []}
                   title="Videos Posted Activity"
                   description="Daily video posting frequency over the selected period"
                 />
