@@ -618,6 +618,32 @@ export class TikTokAPI {
       const videoSize = videoData.video_file.length;
       const privacyLevel = videoData.privacy_level || 'PUBLIC_TO_EVERYONE';
       
+      // TikTok chunk size requirements:
+      // - Minimum: 5 MB
+      // - Maximum: 64 MB (67,108,864 bytes)
+      // - Files < 5 MB: upload as whole
+      // - Files > 64 MB: split into multiple chunks
+      const MAX_CHUNK_SIZE = 64 * 1024 * 1024; // 64 MB
+      const MIN_CHUNK_SIZE = 5 * 1024 * 1024;  // 5 MB
+      
+      let chunkSize: number;
+      let totalChunkCount: number;
+      
+      if (videoSize <= MIN_CHUNK_SIZE) {
+        // Small files: upload as whole
+        chunkSize = videoSize;
+        totalChunkCount = 1;
+      } else if (videoSize <= MAX_CHUNK_SIZE) {
+        // Medium files (5-64 MB): upload as single chunk
+        chunkSize = videoSize;
+        totalChunkCount = 1;
+      } else {
+        // Large files (>64 MB): split into multiple chunks
+        // Use 50MB chunks to stay safely under the limit
+        chunkSize = 50 * 1024 * 1024; // 50 MB chunks
+        totalChunkCount = Math.ceil(videoSize / chunkSize);
+      }
+      
       // Use production endpoint for PUBLIC videos, inbox for private/friends
       // After approval, PUBLIC videos are published directly, not as drafts
       const initEndpoint = privacyLevel === 'PUBLIC_TO_EVERYONE' 
@@ -626,6 +652,8 @@ export class TikTokAPI {
       
       console.log(`Using ${privacyLevel === 'PUBLIC_TO_EVERYONE' ? 'PRODUCTION' : 'INBOX'} endpoint for ${privacyLevel} video`);
       console.log(`Video size: ${(videoSize / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`Chunk size: ${(chunkSize / 1024 / 1024).toFixed(2)} MB`);
+      console.log(`Total chunks: ${totalChunkCount}`);
       console.log(`Access token length: ${accessToken.length}, starts with: ${accessToken.substring(0, 10)}...`);
       console.log(`Init endpoint: ${initEndpoint}`);
       
@@ -664,8 +692,8 @@ export class TikTokAPI {
             source_info: {
               source: 'FILE_UPLOAD',
               video_size: videoSize,
-              chunk_size: videoSize,
-              total_chunk_count: 1,
+              chunk_size: chunkSize,
+              total_chunk_count: totalChunkCount,
             }
           }),
           signal: initAbortController.signal,
@@ -785,89 +813,98 @@ export class TikTokAPI {
 
         console.log('Upload URL received:', upload_url);
 
-      // 2. Upload video
+      // 2. Upload video (single-chunk or multi-chunk)
       console.log('Uploading video file...');
         console.log(`Upload URL domain: ${new URL(upload_url).hostname}`);
+        console.log(`Upload strategy: ${totalChunkCount === 1 ? 'Single chunk' : `Multi-chunk (${totalChunkCount} chunks)`}`);
         
-        // Create abort controller for upload timeout (2 minutes for video upload)
-        // Large videos can take time, especially on slower connections
-        const uploadAbortController = new AbortController();
-        const uploadTimeoutMs = 120000; // 2 minutes
-        const uploadTimeout = setTimeout(() => {
-          console.error(`TikTok video upload timed out after ${uploadTimeoutMs / 1000} seconds`);
-          uploadAbortController.abort();
-        }, uploadTimeoutMs);
-        
-        console.log('Sending video bytes to TikTok upload URL...');
         const uploadStartTime = Date.now();
         
-        try {
-      const uploadResponse = await fetch(upload_url, {
-            method: 'PUT',
-        headers: {
-          'Content-Type': 'video/mp4',
-              'Content-Length': String(videoSize),
-              'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
-              'Accept-Encoding': 'identity', // Disable gzip to avoid Node.js fetch decompression issues
-        },
-            // Node's fetch BodyInit typing doesn't accept Buffer in some TS DOM lib setups.
-            // Convert to Uint8Array/ArrayBuffer to satisfy typings while preserving bytes.
-            body: new Uint8Array(videoData.video_file),
-            signal: uploadAbortController.signal,
-      });
-
-          clearTimeout(uploadTimeout);
-          const uploadElapsedTime = Date.now() - uploadStartTime;
-          console.log(`Video upload completed in ${(uploadElapsedTime / 1000).toFixed(2)} seconds`);
-      console.log('Upload response status:', uploadResponse.status);
+        // Upload chunks
+        for (let chunkIndex = 0; chunkIndex < totalChunkCount; chunkIndex++) {
+          const chunkStart = chunkIndex * chunkSize;
+          const chunkEnd = Math.min(chunkStart + chunkSize, videoSize);
+          const currentChunkSize = chunkEnd - chunkStart;
+          const chunkData = videoData.video_file.slice(chunkStart, chunkEnd);
           
-          // Parse response body with timeout using Promise.race
-          let uploadBody = '';
+          console.log(`Uploading chunk ${chunkIndex + 1}/${totalChunkCount}: bytes ${chunkStart}-${chunkEnd - 1} (${(currentChunkSize / 1024 / 1024).toFixed(2)} MB)`);
+          
+          // Create abort controller for upload timeout (3 minutes per chunk)
+          const uploadAbortController = new AbortController();
+          const uploadTimeoutMs = 180000; // 3 minutes per chunk
+          const uploadTimeout = setTimeout(() => {
+            console.error(`TikTok chunk upload timed out after ${uploadTimeoutMs / 1000} seconds`);
+            uploadAbortController.abort();
+          }, uploadTimeoutMs);
+          
           try {
-            uploadBody = await Promise.race([
-              uploadResponse.text(),
-              new Promise<string>((_, reject) => 
-                setTimeout(() => reject(new Error('Upload response body parsing timed out after 15 seconds')), 15000)
-              )
-            ]);
-            console.log('Upload response body:', uploadBody.substring(0, 500));
-          } catch (bodyError) {
-            console.error('Failed to read upload response body:', bodyError);
-            uploadBody = '';
+            const uploadResponse = await fetch(upload_url, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'video/mp4',
+                'Content-Length': String(currentChunkSize),
+                'Content-Range': `bytes ${chunkStart}-${chunkEnd - 1}/${videoSize}`,
+                'Accept-Encoding': 'identity',
+              },
+              body: new Uint8Array(chunkData),
+              signal: uploadAbortController.signal,
+            });
+
+            clearTimeout(uploadTimeout);
+            console.log(`Chunk ${chunkIndex + 1}/${totalChunkCount} upload response status: ${uploadResponse.status}`);
+            
+            // Parse response body with timeout
+            let uploadBody = '';
+            try {
+              uploadBody = await Promise.race([
+                uploadResponse.text(),
+                new Promise<string>((_, reject) => 
+                  setTimeout(() => reject(new Error('Upload response body parsing timed out after 15 seconds')), 15000)
+                )
+              ]);
+              if (uploadBody) {
+                console.log(`Chunk ${chunkIndex + 1} response body:`, uploadBody.substring(0, 200));
+              }
+            } catch (bodyError) {
+              console.error('Failed to read upload response body:', bodyError);
+              uploadBody = '';
+            }
+        
+            if (!uploadResponse.ok) {
+              console.error(`Chunk ${chunkIndex + 1} upload error response:`, uploadBody);
+              throw new Error(`Failed to upload chunk ${chunkIndex + 1}: ${uploadBody || `HTTP ${uploadResponse.status}`}`);
+            }
+            
+            console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunkCount} uploaded successfully`);
+          } catch (uploadError) {
+            clearTimeout(uploadTimeout);
+            if (uploadError instanceof Error && uploadError.name === 'AbortError') {
+              throw new Error(`TikTok chunk ${chunkIndex + 1} upload timed out after ${uploadTimeoutMs / 1000} seconds. The video may be too large or the connection is slow.`);
+            }
+            throw uploadError;
           }
-      
-      if (!uploadResponse.ok) {
-            console.error('Upload error response:', uploadBody);
-            throw new Error(`Failed to upload video: ${uploadBody || `HTTP ${uploadResponse.status}`}`);
-          }
+        }
+
+        const uploadElapsedTime = Date.now() - uploadStartTime;
+        console.log(`All chunks uploaded successfully in ${(uploadElapsedTime / 1000).toFixed(2)} seconds`);
 
           // Log success based on privacy level
           const uploadMode = privacyLevel === 'PUBLIC_TO_EVERYONE' ? 'public post' : 'inbox draft';
           console.log(`Video uploaded successfully (${uploadMode})`, {
             publish_id,
             upload_id,
-          video_id,
+            video_id,
             privacy_level: privacyLevel,
-            uploadResponseStatus: uploadResponse.status,
+            chunks_uploaded: totalChunkCount,
           });
           return {
             init: initData,
             publish_id,
             upload_id,
             video_id,
-            upload_response: {
-              status: uploadResponse.status,
-              body: uploadBody?.slice(0, 2000) || '',
-            },
+            chunks_uploaded: totalChunkCount,
             status: 'uploaded_to_tiktok'
           };
-        } catch (uploadError) {
-          clearTimeout(uploadTimeout);
-          if (uploadError instanceof Error && uploadError.name === 'AbortError') {
-            throw new Error(`TikTok video upload timed out after ${uploadTimeoutMs / 1000} seconds. The video may be too large or the connection is slow.`);
-          }
-          throw uploadError;
-        }
       } catch (initError) {
         clearTimeout(initTimeout);
         if (initError instanceof Error && initError.name === 'AbortError') {
