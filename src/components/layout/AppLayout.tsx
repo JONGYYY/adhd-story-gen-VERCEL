@@ -34,13 +34,11 @@ export function AppLayout({ children }: AppLayoutProps) {
         />
       )}
 
-      {/* Sidebar - Always fixed and sticky */}
-      <div
-        className={cn(
-          'lg:block transition-transform duration-300',
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        )}
-      >
+      {/* Sidebar - Desktop: always visible, Mobile: conditionally visible */}
+      <div className={cn(
+        'hidden lg:block',
+        mobileMenuOpen && 'block'
+      )}>
         <Sidebar onLinkClick={() => setMobileMenuOpen(false)} />
       </div>
 
