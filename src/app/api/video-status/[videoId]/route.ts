@@ -108,10 +108,9 @@ export async function GET(
       
       try {
         const railwayStatus = await getRailwayVideoStatus(params.videoId);
-        return new Response(JSON.stringify(railwayStatus), {
+        return NextResponse.json(railwayStatus, {
           status: 200,
           headers: {
-            'Content-Type': 'application/json',
             'Cache-Control': 'no-store',
             'Pragma': 'no-cache'
           },
@@ -119,12 +118,11 @@ export async function GET(
       } catch (railwayError) {
         console.error('Railway API error:', railwayError);
         // If Railway also fails, return not found
-        return new Response(JSON.stringify({
+        return NextResponse.json({
           error: 'Video status not found'
-        }), {
+        }, {
           status: 404,
           headers: {
-            'Content-Type': 'application/json',
             'Cache-Control': 'no-store',
             'Pragma': 'no-cache'
           },
@@ -141,10 +139,9 @@ export async function GET(
         duration: localStatus.duration || firestoreMetadata?.duration,
       };
       
-      return new Response(JSON.stringify(response), {
+      return NextResponse.json(response, {
         status: 200,
         headers: {
-          'Content-Type': 'application/json',
           'Cache-Control': 'no-store',
           'Pragma': 'no-cache'
         },
@@ -152,12 +149,11 @@ export async function GET(
     }
   } catch (error) {
     console.error('Failed to get video status:', error);
-    return new Response(JSON.stringify({
+    return NextResponse.json({
       error: 'Failed to get video status'
-    }), {
+    }, {
       status: 500,
       headers: {
-        'Content-Type': 'application/json',
         'Cache-Control': 'no-store',
         'Pragma': 'no-cache'
       },
