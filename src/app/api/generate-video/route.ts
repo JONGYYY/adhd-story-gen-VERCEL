@@ -60,8 +60,15 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
     });
 
     console.log('Railway API response status:', response.status, response.statusText);
-    console.log('Railway API URL that was called:', `${RAILWAY_API_URL}/generate-video`);
-    console.log('RAILWAY_API_URL env var:', RAILWAY_API_URL);
+
+    // For 202 Accepted, Railway CDN strips the response body
+    // Don't try to read it - just return the videoId we already have
+    // The frontend will poll /video-status to get the actual status
+    if (response.status === 202) {
+      console.log('✅ Railway accepted video generation request (202)');
+      console.log('Using videoId from our request:', videoId);
+      return videoId; // Use the videoId we generated, not from Railway
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -69,7 +76,7 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
       throw new Error(`Railway API error: ${response.status} - ${errorText}`);
     }
 
-    console.log('About to call response.json()...');
+    // For 200 OK responses, read the body
     const result = await response.json();
     console.log('Railway API response:', JSON.stringify(result, null, 2));
 
@@ -84,7 +91,7 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
     }
 
     console.log('Railway video generation started successfully with ID:', result.videoId);
-    return result.videoId; // Railway returns its own video ID
+    return result.videoId;
   } catch (error) {
     console.error('Error calling Railway API:', error);
     // If Railway fails, surface the error to the caller
