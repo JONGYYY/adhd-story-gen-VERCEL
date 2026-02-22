@@ -13,8 +13,13 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Railway API configuration (set in Railway env)
-// Use internal Railway networking to avoid CDN stripping response bodies
-const RAILWAY_INTERNAL_URL = 'http://web-worker.railway.internal:8080';
+// Railway provides RAILWAY_PRIVATE_DOMAIN env var for internal networking
+// Format: service-name.railway.internal (auto-set by Railway)
+const RAILWAY_PRIVATE_DOMAIN = process.env.RAILWAY_PRIVATE_DOMAIN;
+const RAILWAY_INTERNAL_URL = RAILWAY_PRIVATE_DOMAIN 
+  ? `http://${RAILWAY_PRIVATE_DOMAIN}:8080`
+  : null;
+
 const RAW_RAILWAY_API_URL = (process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media').trim();
 const RAILWAY_API_URL = RAW_RAILWAY_API_URL.replace(/\/$/, '');
 
@@ -51,12 +56,15 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
   };
 
   console.log('Sending request to Railway API:', JSON.stringify(railwayRequest, null, 2));
+  console.log('RAILWAY_PRIVATE_DOMAIN:', RAILWAY_PRIVATE_DOMAIN || 'NOT SET');
   
   // Try internal Railway network first (avoids CDN issues), fall back to public URL
-  const tryUrls = [
-    `${RAILWAY_INTERNAL_URL}/generate-video`,
-    `${RAILWAY_API_URL}/generate-video`
-  ];
+  const tryUrls = RAILWAY_INTERNAL_URL 
+    ? [
+        `${RAILWAY_INTERNAL_URL}/generate-video`,
+        `${RAILWAY_API_URL}/generate-video`
+      ]
+    : [`${RAILWAY_API_URL}/generate-video`];
   
   console.log('Will try URLs in order:', tryUrls);
 
