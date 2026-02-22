@@ -13,7 +13,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Railway API configuration (set in Railway env)
-const RAW_RAILWAY_API_URL = (process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://taleo.media').trim();
+// Use internal Railway networking to avoid CDN stripping response bodies
+const RAILWAY_INTERNAL_URL = 'http://web-worker.railway.internal:8080';
+const RAW_RAILWAY_API_URL = (process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media').trim();
 const RAILWAY_API_URL = RAW_RAILWAY_API_URL.replace(/\/$/, '');
 
 async function getDisplayNameFromSession(request: NextRequest): Promise<string | null> {
@@ -49,14 +51,25 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
   };
 
   console.log('Sending request to Railway API:', JSON.stringify(railwayRequest, null, 2));
-  console.log('Railway API URL:', `${RAILWAY_API_URL}/generate-video`);
+  
+  // Try internal Railway network first (avoids CDN issues), fall back to public URL
+  const tryUrls = [
+    `${RAILWAY_INTERNAL_URL}/generate-video`,
+    `${RAILWAY_API_URL}/generate-video`
+  ];
+  
+  console.log('Will try URLs in order:', tryUrls);
 
-  try {
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-    
-    const response = await fetch(`${RAILWAY_API_URL}/generate-video`, {
+  let lastError: Error | null = null;
+  
+  for (const url of tryUrls) {
+    console.log('Attempting:', url);
+    try {
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout per attempt
+      
+      const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -131,15 +144,24 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
 
     console.log('✅ Railway video generation started successfully with ID:', result.videoId);
     return result.videoId; // Railway returns its own video ID
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('❌ Railway API request timed out after 30 seconds');
-      throw new Error('Railway video generation service timed out. Please try again.');
+    
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`❌ Failed with ${url}:`, lastError.message);
+      
+      // If this is the last URL, throw the error
+      if (url === tryUrls[tryUrls.length - 1]) {
+        break;
+      }
+      
+      // Otherwise, try the next URL
+      console.log('Trying next URL...');
     }
-    console.error('Error calling Railway API:', error);
-    // If Railway fails, surface the error to the caller
-    throw error;
   }
+  
+  // All URLs failed
+  console.error('❌ All Railway API URLs failed');
+  throw lastError || new Error('Failed to connect to Railway API');
 }
 
 export async function POST(request: NextRequest) {
