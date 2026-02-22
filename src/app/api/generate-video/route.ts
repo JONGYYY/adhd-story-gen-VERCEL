@@ -49,17 +49,25 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
   };
 
   console.log('Sending request to Railway API:', JSON.stringify(railwayRequest, null, 2));
+  console.log('Railway API URL:', `${RAILWAY_API_URL}/generate-video`);
 
   try {
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
     const response = await fetch(`${RAILWAY_API_URL}/generate-video`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(railwayRequest),
+      signal: controller.signal,
     });
 
+    clearTimeout(timeoutId);
     console.log('Railway API response status:', response.status, response.statusText);
+    console.log('Railway API response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -67,7 +75,9 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
       throw new Error(`Railway API error: ${response.status} - ${errorText}`);
     }
 
+    console.log('About to read response body...');
     const responseText = await response.text();
+    console.log('Response body read successfully. Length:', responseText.length);
     console.log('Railway API raw response (first 500 chars):', responseText.substring(0, 500));
     
     let result;
@@ -93,6 +103,10 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
     console.log('✅ Railway video generation started successfully with ID:', result.videoId);
     return result.videoId; // Railway returns its own video ID
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('❌ Railway API request timed out after 30 seconds');
+      throw new Error('Railway video generation service timed out. Please try again.');
+    }
     console.error('Error calling Railway API:', error);
     // If Railway fails, surface the error to the caller
     throw error;
