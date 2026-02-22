@@ -56,20 +56,22 @@ async function getRailwayVideoStatus(videoId: string) {
   console.log('[Video Status API] Constructed videoUrl:', videoUrl);
 
   // Guard: if status is ready but file not yet accessible (only for Railway-hosted paths), keep generating
-  if (status === 'ready' && videoUrl && videoUrl.startsWith(RAILWAY_API_URL)) {
-    try {
-      const head = await fetch(videoUrl, { method: 'HEAD', cache: 'no-store' });
-      if (!head.ok) {
-        console.warn('Video file not yet available, delaying ready state');
-        status = 'generating';
-        progress = Math.max(progress, 95);
-      }
-    } catch (e) {
-      console.warn('HEAD check failed, delaying ready state');
-      status = 'generating';
-      progress = Math.max(progress, 95);
-    }
-  }
+  // SKIP THIS CHECK - it's causing videos to get stuck in 'generating' state
+  // The Railway worker confirms the file exists before setting status to 'completed'
+  // if (status === 'ready' && videoUrl && videoUrl.startsWith(RAILWAY_API_URL)) {
+  //   try {
+  //     const head = await fetch(videoUrl, { method: 'HEAD', cache: 'no-store' });
+  //     if (!head.ok) {
+  //       console.warn('Video file not yet available, delaying ready state');
+  //       status = 'generating';
+  //       progress = Math.max(progress, 95);
+  //     }
+  //   } catch (e) {
+  //     console.warn('HEAD check failed, delaying ready state');
+  //     status = 'generating';
+  //     progress = Math.max(progress, 95);
+  //   }
+  // }
 
   // Transform to frontend format
   return {
