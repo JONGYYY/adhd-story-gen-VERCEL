@@ -598,6 +598,96 @@ const VOICE_IDS = {
   rachel: '21m00Tcm4TlvDq8ikWAM'
 };
 
+/**
+ * Estimate TTS audio duration from text (in seconds)
+ * Based on research-backed TTS metrics:
+ * - Average TTS speed: ~140 WPM (words per minute) - conservative estimate
+ * - ~2.33 words per second
+ * - Average English word: 4.7 chars + 1 space = 5.7 chars/word
+ * - Therefore: ~13.3 characters per second
+ * - Or: 0.075 seconds per character
+ * 
+ * This conservative estimate accounts for natural pauses, punctuation, and breathing.
+ */
+function estimateTTSDuration(text) {
+  if (!text || text.length === 0) return 0;
+  
+  // Character-based estimation (more accurate for TTS than word counting)
+  // Research shows 13-15 characters per second for TTS
+  // We use 13.3 (conservative) to slightly overestimate and ensure we don't exceed maxDuration
+  const CHARS_PER_SECOND = 13.3;
+  
+  const charCount = text.trim().length;
+  const estimatedSeconds = charCount / CHARS_PER_SECOND;
+  
+  // Add small buffer for pauses at sentence boundaries (periods, commas, etc.)
+  const sentenceCount = (text.match(/[.!?]+/g) || []).length;
+  const pauseBuffer = sentenceCount * 0.3; // 300ms pause per sentence
+  
+  return estimatedSeconds + pauseBuffer;
+}
+
+/**
+ * Truncate text to fit within target duration (in seconds)
+ * Returns truncated text that will generate audio <= targetDuration
+ * Truncates at sentence boundaries when possible for natural endings
+ */
+function truncateTextForDuration(text, targetDuration) {
+  if (!text || targetDuration <= 0) return '';
+  
+  const fullDuration = estimateTTSDuration(text);
+  
+  // If text already fits, return as-is
+  if (fullDuration <= targetDuration) {
+    console.log(`[TTS Cost Saver] Text duration ${fullDuration.toFixed(1)}s fits within target ${targetDuration.toFixed(1)}s`);
+    return text;
+  }
+  
+  // Calculate target character count (conservative to ensure we don't exceed)
+  const CHARS_PER_SECOND = 13.3;
+  const targetChars = Math.floor(targetDuration * CHARS_PER_SECOND * 0.95); // 95% safety margin
+  
+  console.log(`[TTS Cost Saver] Original: ${text.length} chars (est. ${fullDuration.toFixed(1)}s)`);
+  console.log(`[TTS Cost Saver] Target: ${targetChars} chars for ${targetDuration.toFixed(1)}s duration`);
+  
+  if (text.length <= targetChars) {
+    return text;
+  }
+  
+  // Try to truncate at sentence boundary first (prefer natural endings)
+  const truncated = text.substring(0, targetChars);
+  const lastPeriod = truncated.lastIndexOf('.');
+  const lastExclamation = truncated.lastIndexOf('!');
+  const lastQuestion = truncated.lastIndexOf('?');
+  const lastSentenceEnd = Math.max(lastPeriod, lastExclamation, lastQuestion);
+  
+  let result;
+  // If we found a sentence boundary in the last 20% of target length, use it
+  if (lastSentenceEnd > targetChars * 0.8) {
+    result = truncated.substring(0, lastSentenceEnd + 1).trim();
+    console.log(`[TTS Cost Saver] ✂️ Truncated at sentence boundary`);
+  } else {
+    // Otherwise, truncate at word boundary
+    const lastSpace = truncated.lastIndexOf(' ');
+    if (lastSpace > targetChars * 0.9) {
+      result = truncated.substring(0, lastSpace).trim() + '...';
+      console.log(`[TTS Cost Saver] ✂️ Truncated at word boundary`);
+    } else {
+      result = truncated.trim() + '...';
+      console.log(`[TTS Cost Saver] ✂️ Hard truncated (no good boundary found)`);
+    }
+  }
+  
+  const savedChars = text.length - result.length;
+  const savedDuration = fullDuration - estimateTTSDuration(result);
+  const costSavingPercent = ((savedChars / text.length) * 100).toFixed(1);
+  
+  console.log(`[TTS Cost Saver] 💰 Final: ${result.length} chars (est. ${estimateTTSDuration(result).toFixed(1)}s)`);
+  console.log(`[TTS Cost Saver] 💰 SAVED: ${savedChars} chars / ${savedDuration.toFixed(1)}s (${costSavingPercent}% cost reduction)`);
+  
+  return result;
+}
+
 async function synthesizeVoiceEleven(text, voiceAlias) {
   if (!ELEVENLABS_API_KEY || !voiceAlias || !VOICE_IDS[voiceAlias]) {
     console.warn('TTS disabled or voice not found. Skipping.');
@@ -1240,7 +1330,31 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const openingText = title || '';
   // FIXED: Use full story text, don't split at [BREAK] since that functionality was removed
   // Remove any [BREAK] tags if present, but use the entire story
-  const storyText = (story || '').replace(/\[BREAK\]/g, ' ').trim();
+  let storyText = (story || '').replace(/\[BREAK\]/g, ' ').trim();
+  
+  // COST OPTIMIZATION: For cliffhanger videos, truncate text BEFORE sending to TTS
+  // This saves ElevenLabs API costs (charged per character)
+  // Instead of generating full audio then trimming, we only generate what we need
+  if (isCliffhanger && maxDuration) {
+    // Estimate opening/title duration
+    const estimatedOpeningDuration = estimateTTSDuration(openingText);
+    console.log(`[TTS Cost Saver] Opening text estimated duration: ${estimatedOpeningDuration.toFixed(1)}s`);
+    
+    // Calculate available time for story (reserve 1s buffer for transitions)
+    const availableStoryDuration = Math.max(5, maxDuration - estimatedOpeningDuration - 1);
+    console.log(`[TTS Cost Saver] Max video duration: ${maxDuration}s`);
+    console.log(`[TTS Cost Saver] Available for story: ${availableStoryDuration.toFixed(1)}s`);
+    
+    // Truncate story text to fit within available duration
+    const originalStoryText = storyText;
+    storyText = truncateTextForDuration(storyText, availableStoryDuration);
+    
+    if (storyText.length < originalStoryText.length) {
+      console.log(`[TTS Cost Saver] ✅ Pre-truncated story text to save API costs`);
+      console.log(`[TTS Cost Saver] This prevents generating ${originalStoryText.length - storyText.length} chars of unused audio`);
+    }
+  }
+  
   const openingBuf = await synthesizeVoiceEleven(openingText, voiceAlias).catch(() => null);
   const storyBuf = await synthesizeVoiceEleven(storyText, voiceAlias).catch(() => null);
 
