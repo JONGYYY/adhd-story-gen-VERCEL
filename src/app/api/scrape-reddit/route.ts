@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, RATE_LIMITS } from '@/lib/security/rate-limit';
 import { sanitizeString } from '@/lib/security/validation';
 
@@ -137,11 +137,10 @@ export async function POST(request: NextRequest) {
 
     // SECURITY: Validate URL
     if (!url || typeof url !== 'string') {
-      return new Response(JSON.stringify({ 
+      return NextResponse.json({ 
         error: 'Reddit URL is required' 
-      }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
+      }, { 
+        status: 400
       });
     }
 
@@ -151,11 +150,10 @@ export async function POST(request: NextRequest) {
     // Validate it's a Reddit URL
     const redditUrlPattern = /^https?:\/\/(www\.)?(reddit\.com|old\.reddit\.com)\/r\/[^\/]+\/comments\/[^\/]+/i;
     if (!redditUrlPattern.test(sanitizedUrl)) {
-      return new Response(JSON.stringify({ 
+      return NextResponse.json({ 
         error: 'Invalid Reddit URL. Must be a Reddit post URL like: https://reddit.com/r/subreddit/comments/...' 
-      }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
+      }, { 
+        status: 400
       });
     }
 
@@ -460,7 +458,7 @@ export async function POST(request: NextRequest) {
               
               if (title && story) {
                 console.log('[reddit-scraper] ✅ Successfully parsed from RSS feed');
-                return new Response(JSON.stringify({
+                return NextResponse.json({
                   success: true,
                   title,
                   story: story.replace(/\r\n/g, '\n').replace(/\n\n\n+/g, '\n\n').trim(),
@@ -468,9 +466,6 @@ export async function POST(request: NextRequest) {
                   author,
                   url: sanitizedUrl,
                   source: 'rss',
-                }), {
-                  status: 200,
-                  headers: { 'Content-Type': 'application/json' }
                 });
               }
             }
@@ -527,14 +522,13 @@ export async function POST(request: NextRequest) {
         
         errorMessage += '\n\nTechnical: ' + lastError;
         
-        return new Response(JSON.stringify({ 
+        return NextResponse.json({ 
           error: errorMessage,
           hasOAuth: hasOAuthCredentials,
           lastError,
           url: sanitizedUrl,
-        }), { 
-          status: 502,
-          headers: { 'Content-Type': 'application/json' }
+        }, { 
+          status: 502
         });
       }
 
@@ -542,11 +536,10 @@ export async function POST(request: NextRequest) {
       // But keeping it for safety
       if (!response.ok) {
         console.error('[reddit-scraper] Unexpected error - response not ok:', response.status, response.statusText);
-        return new Response(JSON.stringify({ 
+        return NextResponse.json({ 
           error: 'Failed to fetch Reddit post. Please try copying the story manually.'
-        }), { 
-          status: 502,
-          headers: { 'Content-Type': 'application/json' }
+        }, { 
+          status: 502
         });
       }
 
@@ -559,11 +552,10 @@ export async function POST(request: NextRequest) {
 
       if (!postData) {
         console.error('[reddit-scraper] Invalid Reddit JSON structure:', JSON.stringify(data).substring(0, 200));
-        return new Response(JSON.stringify({ 
+        return NextResponse.json({ 
           error: 'Failed to parse Reddit post data. Invalid JSON structure.' 
-        }), { 
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
+        }, { 
+          status: 500
         });
       }
 
@@ -574,11 +566,10 @@ export async function POST(request: NextRequest) {
 
       // Validate we got actual content
       if (!title || !story) {
-        return new Response(JSON.stringify({ 
+        return NextResponse.json({ 
           error: 'This Reddit post has no text content. It might be a link post, image, or video.' 
-        }), { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
+        }, { 
+          status: 400
         });
       }
 
@@ -595,16 +586,13 @@ export async function POST(request: NextRequest) {
         author
       });
 
-      return new Response(JSON.stringify({
+      return NextResponse.json({
         success: true,
         title,
         story: cleanStory,
         subreddit,
         author,
         url: sanitizedUrl,
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
       });
 
     } catch (fetchError) {
@@ -612,11 +600,10 @@ export async function POST(request: NextRequest) {
       
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         console.error('[reddit-scraper] Request timed out after 15 seconds');
-        return new Response(JSON.stringify({ 
+        return NextResponse.json({ 
           error: 'Reddit request timed out. Please try again.' 
-        }), { 
-          status: 504,
-          headers: { 'Content-Type': 'application/json' }
+        }, { 
+          status: 504
         });
       }
 
@@ -625,12 +612,11 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[reddit-scraper] Error:', error);
-    return new Response(JSON.stringify({
+    return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to scrape Reddit post'
-    }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
+    }, { 
+      status: 500
     });
   }
 }
