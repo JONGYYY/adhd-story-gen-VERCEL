@@ -4,48 +4,97 @@ import { sanitizeString } from '@/lib/security/validation';
 
 export const dynamic = 'force-dynamic';
 
+// Token cache to avoid hitting Reddit's OAuth endpoint repeatedly
+let cachedToken: { token: string; expires: number } | null = null;
+
 /**
  * Get Reddit OAuth access token using client credentials
  * Uses refresh token grant to get a short-lived access token
+ * Implements caching to reduce API calls
  */
 async function getRedditAccessToken(): Promise<string | null> {
   const clientId = process.env.REDDIT_CLIENT_ID;
   const clientSecret = process.env.REDDIT_CLIENT_SECRET;
   const refreshToken = process.env.REDDIT_REFRESH_TOKEN;
+  const userAgent = process.env.REDDIT_USER_AGENT;
 
   if (!clientId || !clientSecret || !refreshToken) {
     console.log('[reddit-scraper] Reddit OAuth credentials not configured, will use unauthenticated scraping');
     return null;
   }
 
+  // Check cache first (with 5-minute buffer before expiry)
+  if (cachedToken && cachedToken.expires > Date.now() + 5 * 60 * 1000) {
+    console.log('[reddit-scraper] Using cached OAuth token (expires in', Math.round((cachedToken.expires - Date.now()) / 60000), 'minutes)');
+    return cachedToken.token;
+  }
+
   try {
-    console.log('[reddit-scraper] Getting Reddit OAuth access token...');
-    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    console.log('[reddit-scraper] Getting fresh Reddit OAuth access token...');
+    
+    // CRITICAL: Reddit requires proper encoding of client_id and client_secret
+    // Don't include any whitespace or newlines in credentials
+    const cleanClientId = clientId.trim();
+    const cleanClientSecret = clientSecret.trim();
+    const cleanRefreshToken = refreshToken.trim();
+    
+    const auth = Buffer.from(`${cleanClientId}:${cleanClientSecret}`).toString('base64');
+    
+    // CRITICAL: Reddit's OAuth endpoint is very strict about User-Agent
+    // It must be unique and follow the format: platform:app_id:version (by /u/username)
+    const finalUserAgent = userAgent || 'web:taleo-media:v1.0.0 (by /u/taleo-app)';
+    
+    console.log('[reddit-scraper] Using User-Agent:', finalUserAgent);
+    console.log('[reddit-scraper] Client ID length:', cleanClientId.length);
+    console.log('[reddit-scraper] Client ID first 5 chars:', cleanClientId.substring(0, 5));
     
     const response = await fetch('https://www.reddit.com/api/v1/access_token', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': process.env.REDDIT_USER_AGENT || 'StoryScrapper/1.0',
+        'User-Agent': finalUserAgent,
       },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
-        refresh_token: refreshToken,
+        refresh_token: cleanRefreshToken,
       }).toString(),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[reddit-scraper] Failed to get Reddit access token:', response.status, errorText);
+      console.error('[reddit-scraper] ❌ OAuth token request failed');
+      console.error('[reddit-scraper] Status:', response.status, response.statusText);
+      console.error('[reddit-scraper] Response:', errorText);
+      console.error('[reddit-scraper] Headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
+      
+      // Try to parse error for more details
+      try {
+        const errorJson = JSON.parse(errorText);
+        console.error('[reddit-scraper] Error details:', JSON.stringify(errorJson, null, 2));
+      } catch {
+        // Not JSON, already logged as text
+      }
+      
       return null;
     }
 
     const data = await response.json();
-    console.log('[reddit-scraper] ✅ Reddit OAuth access token obtained (expires in', data.expires_in || 3600, 'seconds)');
+    const expiresIn = data.expires_in || 3600;
+    
+    // Cache the token (expires in 1 hour typically)
+    cachedToken = {
+      token: data.access_token,
+      expires: Date.now() + (expiresIn * 1000),
+    };
+    
+    console.log('[reddit-scraper] ✅ Reddit OAuth access token obtained (expires in', expiresIn, 'seconds, cached)');
     return data.access_token;
   } catch (error) {
-    console.error('[reddit-scraper] Error getting Reddit access token:', error);
+    console.error('[reddit-scraper] ❌ Exception while getting Reddit access token:', error);
+    if (error instanceof Error) {
+      console.error('[reddit-scraper] Error stack:', error.stack);
+    }
     return null;
   }
 }
@@ -218,27 +267,157 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Strategy 4: Try with minimal headers as last resort
+      // Strategy 4: Try with different browser headers (Chrome on Mac)
       if (!response) {
-        console.log('[reddit-scraper] Strategy 4: Trying with minimal headers');
+        console.log('[reddit-scraper] Strategy 4: Trying with Chrome/Mac headers');
         try {
           response = await fetch(jsonUrl, {
             headers: {
-              'User-Agent': 'curl/7.68.0',
+              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': '*/*',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Accept-Encoding': 'gzip, deflate, br',
+              'Referer': 'https://www.reddit.com/',
+              'Origin': 'https://www.reddit.com',
+              'Sec-Fetch-Dest': 'empty',
+              'Sec-Fetch-Mode': 'cors',
+              'Sec-Fetch-Site': 'same-origin',
             },
             signal: controller.signal,
           });
 
           if (response.ok) {
-            console.log('[reddit-scraper] Strategy 4 (minimal headers) succeeded');
+            console.log('[reddit-scraper] ✅ Strategy 4 (Chrome/Mac) succeeded');
           } else {
-            lastError = `Minimal headers returned ${response.status}`;
+            lastError = `Chrome/Mac headers returned ${response.status}`;
             response = null;
           }
         } catch (e) {
-          lastError = e instanceof Error ? e.message : 'Minimal headers fetch failed';
-          console.log('[reddit-scraper] Strategy 4 (minimal headers) failed:', lastError);
+          lastError = e instanceof Error ? e.message : 'Chrome/Mac headers failed';
+          console.log('[reddit-scraper] Strategy 4 (Chrome/Mac) failed:', lastError);
           response = null;
+        }
+      }
+
+      // Strategy 5: Try i.reddit.com (compact Reddit interface)
+      if (!response) {
+        const compactUrl = jsonUrl.replace(/(?:www\.|old\.|oauth\.)?reddit\.com/, 'i.reddit.com');
+        console.log('[reddit-scraper] Strategy 5: Trying i.reddit.com:', compactUrl);
+        
+        try {
+          response = await fetch(compactUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
+              'Accept': 'application/json, text/plain, */*',
+            },
+            signal: controller.signal,
+          });
+
+          if (response.ok) {
+            console.log('[reddit-scraper] ✅ Strategy 5 (i.reddit.com) succeeded');
+          } else {
+            lastError = `i.reddit.com returned ${response.status}`;
+            response = null;
+          }
+        } catch (e) {
+          lastError = e instanceof Error ? e.message : 'i.reddit.com fetch failed';
+          console.log('[reddit-scraper] Strategy 5 (i.reddit.com) failed:', lastError);
+          response = null;
+        }
+      }
+
+      // Strategy 6: Try with absolutely minimal headers (wget-style)
+      if (!response) {
+        console.log('[reddit-scraper] Strategy 6: Trying with minimal wget-style headers');
+        try {
+          response = await fetch(jsonUrl, {
+            headers: {
+              'User-Agent': 'Wget/1.21.3',
+              'Accept': '*/*',
+            },
+            signal: controller.signal,
+          });
+
+          if (response.ok) {
+            console.log('[reddit-scraper] ✅ Strategy 6 (wget-style) succeeded');
+          } else {
+            lastError = `Wget-style headers returned ${response.status}`;
+            response = null;
+          }
+        } catch (e) {
+          lastError = e instanceof Error ? e.message : 'Wget-style fetch failed';
+          console.log('[reddit-scraper] Strategy 6 (wget-style) failed:', lastError);
+          response = null;
+        }
+      }
+
+      // Strategy 7: Try Reddit RSS feed as ultimate fallback
+      if (!response) {
+        const rssUrl = sanitizedUrl.split('?')[0] + '.rss';
+        console.log('[reddit-scraper] Strategy 7 (LAST RESORT): Trying Reddit RSS feed:', rssUrl);
+        
+        try {
+          const rssResponse = await fetch(rssUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+              'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+            },
+            signal: controller.signal,
+          });
+
+          if (rssResponse.ok) {
+            console.log('[reddit-scraper] ✅ Strategy 7 (RSS feed) succeeded');
+            const rssText = await rssResponse.text();
+            
+            // Parse RSS XML (basic parsing)
+            const titleMatch = rssText.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/);
+            const contentMatch = rssText.match(/<content:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/content:encoded>/);
+            const authorMatch = rssText.match(/<author><name><!\[CDATA\[(.*?)\]\]><\/name>/);
+            
+            if (titleMatch && contentMatch) {
+              const title = titleMatch[1];
+              // Extract text content from HTML
+              const htmlContent = contentMatch[1];
+              const textMatch = htmlContent.match(/<div class="md">([\s\S]*?)<\/div>/);
+              const story = textMatch ? textMatch[1]
+                .replace(/<[^>]+>/g, '') // Remove HTML tags
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&#x27;/g, "'")
+                .trim() : '';
+              
+              const author = authorMatch ? authorMatch[1] : 'Anonymous';
+              const subredditMatch = sanitizedUrl.match(/reddit\.com\/r\/([^\/]+)/);
+              const subreddit = subredditMatch ? `r/${subredditMatch[1]}` : 'r/stories';
+              
+              if (title && story) {
+                console.log('[reddit-scraper] ✅ Successfully parsed from RSS feed');
+                return new Response(JSON.stringify({
+                  success: true,
+                  title,
+                  story: story.replace(/\r\n/g, '\n').replace(/\n\n\n+/g, '\n\n').trim(),
+                  subreddit,
+                  author,
+                  url: sanitizedUrl,
+                  source: 'rss',
+                }), {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' }
+                });
+              }
+            }
+            
+            lastError = 'RSS feed parsed but missing title or content';
+            console.log('[reddit-scraper] Strategy 7 (RSS) failed:', lastError);
+          } else {
+            lastError = `RSS feed returned ${rssResponse.status}`;
+            console.log('[reddit-scraper] Strategy 7 (RSS) failed:', lastError);
+          }
+        } catch (e) {
+          lastError = e instanceof Error ? e.message : 'RSS feed fetch failed';
+          console.log('[reddit-scraper] Strategy 7 (RSS) failed:', lastError);
         }
       }
 
@@ -246,16 +425,47 @@ export async function POST(request: NextRequest) {
 
       // If all strategies failed
       if (!response) {
-        console.error('[reddit-scraper] All strategies failed. Last error:', lastError);
+        console.error('[reddit-scraper] ❌ ALL 7 STRATEGIES FAILED');
+        console.error('[reddit-scraper] Last error:', lastError);
+        console.error('[reddit-scraper] URL attempted:', sanitizedUrl);
         
         // Check if OAuth was attempted
         const hasOAuthCredentials = !!(process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET && process.env.REDDIT_REFRESH_TOKEN);
-        const errorMessage = hasOAuthCredentials
-          ? 'Reddit API is blocking all requests (OAuth + fallbacks). Please try:\n1. Wait 5-10 minutes for rate limit to reset\n2. Use a different Reddit post\n3. Copy and paste the story content manually'
-          : 'Reddit is blocking automated requests. Please configure Reddit OAuth credentials in environment variables or wait and try again.';
+        
+        // Provide detailed troubleshooting based on what failed
+        let errorMessage = 'Failed to scrape Reddit after trying 7 different methods.\n\n';
+        
+        if (hasOAuthCredentials) {
+          errorMessage += '🔴 OAuth Status: Configured but failed\n';
+          errorMessage += 'This suggests your Reddit refresh token may be expired or invalid.\n\n';
+          errorMessage += 'SOLUTIONS:\n';
+          errorMessage += '1. Generate a new Reddit refresh token:\n';
+          errorMessage += '   - Go to https://www.reddit.com/prefs/apps\n';
+          errorMessage += '   - Re-authorize your app\n';
+          errorMessage += '   - Update REDDIT_REFRESH_TOKEN in Railway\n\n';
+          errorMessage += '2. Wait 10-15 minutes (rate limit cooldown)\n';
+          errorMessage += '3. Use a different Reddit post URL\n';
+          errorMessage += '4. Copy story content manually from Reddit';
+        } else {
+          errorMessage += '🟡 OAuth Status: Not configured\n';
+          errorMessage += 'Without OAuth, scraping is less reliable and rate-limited.\n\n';
+          errorMessage += 'SOLUTIONS:\n';
+          errorMessage += '1. Set up Reddit OAuth (recommended):\n';
+          errorMessage += '   - Create app at https://www.reddit.com/prefs/apps\n';
+          errorMessage += '   - Add credentials to Railway environment\n';
+          errorMessage += '   - Restart deployment\n\n';
+          errorMessage += '2. Wait 10-15 minutes (rate limit cooldown)\n';
+          errorMessage += '3. Use a different Reddit post URL\n';
+          errorMessage += '4. Copy story content manually';
+        }
+        
+        errorMessage += '\n\nTechnical: ' + lastError;
         
         return new Response(JSON.stringify({ 
-          error: errorMessage
+          error: errorMessage,
+          hasOAuth: hasOAuthCredentials,
+          lastError,
+          url: sanitizedUrl,
         }), { 
           status: 502,
           headers: { 'Content-Type': 'application/json' }
