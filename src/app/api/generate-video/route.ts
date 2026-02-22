@@ -59,12 +59,13 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
   console.log('RAILWAY_PRIVATE_DOMAIN:', RAILWAY_PRIVATE_DOMAIN || 'NOT SET');
   
   // Try internal Railway network first (avoids CDN issues), fall back to public URL
+  // Use /api/generate-video path (same as batch generator which works)
   const tryUrls = RAILWAY_INTERNAL_URL 
     ? [
-        `${RAILWAY_INTERNAL_URL}/generate-video`,
-        `${RAILWAY_API_URL}/generate-video`
+        `${RAILWAY_INTERNAL_URL}/api/generate-video`,
+        `${RAILWAY_API_URL}/api/generate-video`
       ]
-    : [`${RAILWAY_API_URL}/generate-video`];
+    : [`${RAILWAY_API_URL}/api/generate-video`];
   
   console.log('Will try URLs in order:', tryUrls);
 
@@ -96,47 +97,13 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
       throw new Error(`Railway API error: ${response.status} - ${errorText}`);
     }
 
-    console.log('About to read response body...');
+    console.log('About to parse response JSON...');
     let result;
     try {
-      // Node.js fetch with Railway has issues with response.json()
-      // Manually consume the stream instead
-      const chunks: Uint8Array[] = [];
-      const reader = response.body?.getReader();
-      
-      if (!reader) {
-        throw new Error('Response body is null');
-      }
-      
-      const readTimeout = setTimeout(() => {
-        reader.cancel('Timeout after 10 seconds');
-      }, 10000);
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) chunks.push(value);
-      }
-      
-      clearTimeout(readTimeout);
-      
-      // Combine chunks and decode
-      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-      const combined = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        combined.set(chunk, offset);
-        offset += chunk.length;
-      }
-      
-      const text = new TextDecoder().decode(combined);
-      console.log('✅ Response body read successfully. Length:', text.length);
-      console.log('Response text:', text);
-      
-      result = JSON.parse(text);
+      result = await response.json();
       console.log('✅ Railway API response:', JSON.stringify(result, null, 2));
     } catch (parseError) {
-      console.error('❌ Failed to read/parse Railway API response:', parseError);
+      console.error('❌ Failed to parse Railway API response:', parseError);
       throw new Error(`Railway API response parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
     }
 
