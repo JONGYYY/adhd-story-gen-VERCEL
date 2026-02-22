@@ -75,18 +75,13 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
       throw new Error(`Railway API error: ${response.status} - ${errorText}`);
     }
 
-    console.log('About to read response body...');
-    const responseText = await response.text();
-    console.log('Response body read successfully. Length:', responseText.length);
-    console.log('Railway API raw response (first 500 chars):', responseText.substring(0, 500));
-    
+    console.log('About to read response JSON...');
     let result;
     try {
-      result = JSON.parse(responseText);
-      console.log('Railway API parsed response:', JSON.stringify(result, null, 2));
+      result = await response.json();
+      console.log('✅ Railway API response:', JSON.stringify(result, null, 2));
     } catch (parseError) {
       console.error('❌ Failed to parse Railway API response as JSON:', parseError);
-      console.error('Full raw response:', responseText);
       throw new Error('Railway API returned invalid JSON response');
     }
 
