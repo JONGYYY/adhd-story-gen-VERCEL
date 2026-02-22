@@ -60,6 +60,8 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
     });
 
     console.log('Railway API response status:', response.status, response.statusText);
+    console.log('Railway API URL that was called:', `${RAILWAY_API_URL}/generate-video`);
+    console.log('RAILWAY_API_URL env var:', RAILWAY_API_URL);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -67,6 +69,7 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
       throw new Error(`Railway API error: ${response.status} - ${errorText}`);
     }
 
+    console.log('About to call response.json()...');
     const result = await response.json();
     console.log('Railway API response:', JSON.stringify(result, null, 2));
 
