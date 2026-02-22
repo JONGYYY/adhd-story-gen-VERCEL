@@ -838,10 +838,10 @@ export class TikTokAPI {
           }, uploadTimeoutMs);
           
           try {
-            const uploadResponse = await fetch(upload_url, {
+      const uploadResponse = await fetch(upload_url, {
               method: 'PUT',
-              headers: {
-                'Content-Type': 'video/mp4',
+        headers: {
+          'Content-Type': 'video/mp4',
                 'Content-Length': String(currentChunkSize),
                 'Content-Range': `bytes ${chunkStart}-${chunkEnd - 1}/${videoSize}`,
                 'Accept-Encoding': 'identity',
@@ -869,8 +869,8 @@ export class TikTokAPI {
               console.error('Failed to read upload response body:', bodyError);
               uploadBody = '';
             }
-        
-            if (!uploadResponse.ok) {
+      
+      if (!uploadResponse.ok) {
               console.error(`Chunk ${chunkIndex + 1} upload error response:`, uploadBody);
               throw new Error(`Failed to upload chunk ${chunkIndex + 1}: ${uploadBody || `HTTP ${uploadResponse.status}`}`);
             }
@@ -897,11 +897,11 @@ export class TikTokAPI {
             privacy_level: privacyLevel,
             chunks_uploaded: totalChunkCount,
           });
-          return {
+      return {
             init: initData,
             publish_id,
             upload_id,
-            video_id,
+        video_id,
             chunks_uploaded: totalChunkCount,
             status: 'uploaded_to_tiktok'
           };

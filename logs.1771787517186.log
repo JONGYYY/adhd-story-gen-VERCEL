@@ -1,0 +1,596 @@
+2026-02-22T19:07:05.216209891Z [inf]  Starting Container
+2026-02-22T19:07:05.542606672Z [err]  npm warn config production Use `--omit=dev` instead.
+2026-02-22T19:07:05.542612971Z [inf]     ▲ Next.js 14.1.3
+2026-02-22T19:07:05.542618684Z [inf]     - Local:        http://localhost:8080
+2026-02-22T19:07:05.542624335Z [inf]  
+2026-02-22T19:07:05.542630494Z [inf]   ✓ Ready in 353ms
+2026-02-22T19:07:35.488030296Z [inf]  Session creation request received
+2026-02-22T19:07:35.488034454Z [inf]    maxAge: 432000000,
+2026-02-22T19:07:35.488039676Z [inf]  Request body keys: [ 'idToken' ]
+2026-02-22T19:07:35.488045993Z [inf]  ID token received, length: 1164
+2026-02-22T19:07:35.488047990Z [inf]    httpOnly: true,
+2026-02-22T19:07:35.488056085Z [inf]  Creating session cookie...
+2026-02-22T19:07:35.488057729Z [inf]    secure: true,
+2026-02-22T19:07:35.488061895Z [inf]  Initializing Firebase Admin...
+2026-02-22T19:07:35.488067565Z [inf]    path: '/',
+2026-02-22T19:07:35.488068507Z [inf]  Existing Firebase apps: 0
+2026-02-22T19:07:35.488074448Z [inf]  Environment variables check:
+2026-02-22T19:07:35.488077963Z [inf]    sameSite: 'lax',
+2026-02-22T19:07:35.488080556Z [inf]  - FIREBASE_ADMIN_PROJECT_ID: Set
+2026-02-22T19:07:35.488087396Z [inf]    domain: '.taleo.media'
+2026-02-22T19:07:35.488087988Z [inf]  - FIREBASE_ADMIN_CLIENT_EMAIL: Set
+2026-02-22T19:07:35.488107928Z [inf]  - FIREBASE_ADMIN_PRIVATE_KEY: Set
+2026-02-22T19:07:35.488109236Z [inf]  }
+2026-02-22T19:07:35.488118123Z [inf]  Creating Firebase Admin app...
+2026-02-22T19:07:35.488119608Z [inf]  Session cookie set in response
+2026-02-22T19:07:35.488125785Z [inf]  Firebase Admin app created successfully
+2026-02-22T19:07:35.488131264Z [inf]  Firebase Admin auth initialized
+2026-02-22T19:07:35.488136330Z [inf]  Firebase Admin Firestore initialized
+2026-02-22T19:07:35.488142978Z [inf]  Session cookie created successfully, length: 1115
+2026-02-22T19:07:35.488147295Z [inf]  Resolved cookie domain: .taleo.media
+2026-02-22T19:07:35.488151841Z [inf]  Cookie options: {
+2026-02-22T19:07:35.488156001Z [inf]    name: 'session',
+2026-02-22T19:07:44.941363057Z [inf]  [Middleware] Root path accessed at 2026-02-22T19:07:44.938Z
+2026-02-22T19:07:44.941372962Z [inf]  [Middleware] Root path - isLoggedIn: true session exists: true
+2026-02-22T19:07:44.941384120Z [inf]  [Middleware] Root path middleware completed in 1 ms
+2026-02-22T19:07:48.240921905Z [inf]  Received video generation request with options: {
+2026-02-22T19:07:48.240929531Z [inf]    "subreddit": "r/null",
+2026-02-22T19:07:48.240935600Z [inf]    "isCliffhanger": true,
+2026-02-22T19:07:48.240940587Z [inf]    "background": {
+2026-02-22T19:07:48.240945261Z [inf]      "category": "food",
+2026-02-22T19:07:48.240949880Z [inf]      "speedMultiplier": 1.3
+2026-02-22T19:07:48.240954470Z [inf]    },
+2026-02-22T19:07:48.240959363Z [inf]    "voice": {
+2026-02-22T19:07:48.240964848Z [inf]      "id": "adam",
+2026-02-22T19:07:48.240969473Z [inf]      "gender": "male"
+2026-02-22T19:07:48.240973904Z [inf]    },
+2026-02-22T19:07:48.240978187Z [inf]    "captionStyle": {
+2026-02-22T19:07:48.240982765Z [inf]      "font": "Arial-Bold",
+2026-02-22T19:07:48.240987726Z [inf]      "size": 72,
+2026-02-22T19:07:48.240992871Z [inf]      "color": "white",
+2026-02-22T19:07:48.240997312Z [inf]      "outlineColor": "black",
+2026-02-22T19:07:48.241002050Z [inf]      "outlineWidth": 4,
+2026-02-22T19:07:48.241006800Z [inf]      "shadowColor": "black",
+2026-02-22T19:07:48.241012112Z [inf]      "shadowOffset": 2,
+2026-02-22T19:07:48.241016776Z [inf]      "position": "center"
+2026-02-22T19:07:48.241021119Z [inf]    },
+2026-02-22T19:07:48.241025243Z [inf]    "uiOverlay": {
+2026-02-22T19:07:48.241029205Z [inf]      "showSubreddit": true,
+2026-02-22T19:07:48.241033753Z [inf]      "showRedditUI": true,
+2026-02-22T19:07:48.241039043Z [inf]      "showBanner": true
+2026-02-22T19:07:48.241043708Z [inf]    },
+2026-02-22T19:07:48.241048043Z [inf]    "customStory": {
+2026-02-22T19:07:48.241051999Z [inf]      "title": "You want special treatment? I would love to!",
+2026-02-22T19:07:48.241057145Z [inf]      "story": "Buckle up, this is a long one!\n\nOnce upon the before-time in 2015, I worked my way through nursing school as a waitress in a restaurant. This restaurant did not advertise, they prided themselves on word-of-mouth for their popularity - this is important!\n\nI had been there for several months at this point, and had proved myself reliable and knowledgeable enough to help train new waiters, not technically a \"trainer\" but could be relied upon to support new workers once the trainers set them loose. We had one older guy who had just been released, he was a little awkward, little shy, and worried about mistakes - absolutely expected - and he was great to work with.\n\nOn the night of our tale he was in the section next to mine, easy to keep an eye on and easy to hop in and prop him up when he hit the weeds. This was his first night with his own complete section, weeds would abound, I was ready. What he wasn't ready for was his first demanding round table of about 6 people, 20-somethings with attitude.\n\nHe came to me worried and confused \"they want xyz but I don't think that's on our menu, right? She says we have the ingredients and just make it, that the other location makes it all the time.\" YES I could have taught him to stand his ground, but nerves and first night with your own section isn't the time for this to go over well, so I told him ask the back line and see if they were willing, if not I would talk to the table. Cooks were fine with it (basically a wrap if I remember correctly) so no problem. From our end.\n\nThis was apparently the cue for the Leader of the table to demand something EVERY TIME he came to the table. As soon as he brought the last requested item, she needed something else. I thought it was possible and had been keeping an eye on him. Seeing his panicked face I gave him a nod and started checking in on his other tables, slotting them into my own table cycles - reasons I'm paired with him! This carried on for their entire meal, incredibly needy and demanding his full attention with zero apology or kindness. I made sure to catch him in the back to prepare for possibly getting no tip but to calm the panic, and to remind him I would not be touching the tips from his other tables.\n\nHonestly this poor guy looked like he was about to quit on the spot, this Leader was rude and impatient and gave him no space to breathe. I was his emotional support animal at this point, but knowing he was at least twice my age made it even worse for him.\n\nThe table had come in close to the end of the night and ended up staying past our section's closing, so they were the last table on our side of the restaurant. (Perks of closing with a new waiter - getting cut early!) That's when he came to me asking how to do an employee discount, and they wanted to use more than one on a single ticket, was that okay?\n\nI was confused, wait, employee??",
+2026-02-22T19:07:48.241519712Z [inf]      "subreddit": "r/stories"
+2026-02-22T19:07:48.241528800Z [inf]    }
+2026-02-22T19:07:48.241534165Z [inf]  }
+2026-02-22T19:07:48.588325486Z [inf]  Using custom story: {
+2026-02-22T19:07:48.588330072Z [inf]    "title": "You want special treatment? I would love to!",
+2026-02-22T19:07:48.588334679Z [inf]    "story": "Buckle up, this is a long one!\n\nOnce upon the before-time in 2015, I worked my way through nursing school as a waitress in a restaurant. This restaurant did not advertise, they prided themselves on word-of-mouth for their popularity - this is important!\n\nI had been there for several months at this point, and had proved myself reliable and knowledgeable enough to help train new waiters, not technically a \"trainer\" but could be relied upon to support new workers once the trainers set them loose. We had one older guy who had just been released, he was a little awkward, little shy, and worried about mistakes - absolutely expected - and he was great to work with.\n\nOn the night of our tale he was in the section next to mine, easy to keep an eye on and easy to hop in and prop him up when he hit the weeds. This was his first night with his own complete section, weeds would abound, I was ready. What he wasn't ready for was his first demanding round table of about 6 people, 20-somethings with attitude.\n\nHe came to me worried and confused \"they want xyz but I don't think that's on our menu, right? She says we have the ingredients and just make it, that the other location makes it all the time.\" YES I could have taught him to stand his ground, but nerves and first night with your own section isn't the time for this to go over well, so I told him ask the back line and see if they were willing, if not I would talk to the table. Cooks were fine with it (basically a wrap if I remember correctly) so no problem. From our end.\n\nThis was apparently the cue for the Leader of the table to demand something EVERY TIME he came to the table. As soon as he brought the last requested item, she needed something else. I thought it was possible and had been keeping an eye on him. Seeing his panicked face I gave him a nod and started checking in on his other tables, slotting them into my own table cycles - reasons I'm paired with him! This carried on for their entire meal, incredibly needy and demanding his full attention with zero apology or kindness. I made sure to catch him in the back to prepare for possibly getting no tip but to calm the panic, and to remind him I would not be touching the tips from his other tables.\n\nHonestly this poor guy looked like he was about to quit on the spot, this Leader was rude and impatient and gave him no space to breathe. I was his emotional support animal at this point, but knowing he was at least twice my age made it even worse for him.\n\nThe table had come in close to the end of the night and ended up staying past our section's closing, so they were the last table on our side of the restaurant. (Perks of closing with a new waiter - getting cut early!) That's when he came to me asking how to do an employee discount, and they wanted to use more than one on a single ticket, was that okay?\n\nI was confused, wait, employee??",
+2026-02-22T19:07:48.590606166Z [inf]  }
+2026-02-22T19:07:48.590615436Z [inf]  Story data before validation: {
+2026-02-22T19:07:48.590620988Z [inf]    "title": "You want special treatment? I would love to!",
+2026-02-22T19:07:48.590626177Z [inf]    "story": "Buckle up, this is a long one!\n\nOnce upon the before-time in 2015, I worked my way through nursing school as a waitress in a restaurant. This restaurant did not advertise, they prided themselves on word-of-mouth for their popularity - this is important!\n\nI had been there for several months at this point, and had proved myself reliable and knowledgeable enough to help train new waiters, not technically a \"trainer\" but could be relied upon to support new workers once the trainers set them loose. We had one older guy who had just been released, he was a little awkward, little shy, and worried about mistakes - absolutely expected - and he was great to work with.\n\nOn the night of our tale he was in the section next to mine, easy to keep an eye on and easy to hop in and prop him up when he hit the weeds. This was his first night with his own complete section, weeds would abound, I was ready. What he wasn't ready for was his first demanding round table of about 6 people, 20-somethings with attitude.\n\nHe came to me worried and confused \"they want xyz but I don't think that's on our menu, right? She says we have the ingredients and just make it, that the other location makes it all the time.\" YES I could have taught him to stand his ground, but nerves and first night with your own section isn't the time for this to go over well, so I told him ask the back line and see if they were willing, if not I would talk to the table. Cooks were fine with it (basically a wrap if I remember correctly) so no problem. From our end.\n\nThis was apparently the cue for the Leader of the table to demand something EVERY TIME he came to the table. As soon as he brought the last requested item, she needed something else. I thought it was possible and had been keeping an eye on him. Seeing his panicked face I gave him a nod and started checking in on his other tables, slotting them into my own table cycles - reasons I'm paired with him! This carried on for their entire meal, incredibly needy and demanding his full attention with zero apology or kindness. I made sure to catch him in the back to prepare for possibly getting no tip but to calm the panic, and to remind him I would not be touching the tips from his other tables.\n\nHonestly this poor guy looked like he was about to quit on the spot, this Leader was rude and impatient and gave him no space to breathe. I was his emotional support animal at this point, but knowing he was at least twice my age made it even worse for him.\n\nThe table had come in close to the end of the night and ended up staying past our section's closing, so they were the last table on our side of the restaurant. (Perks of closing with a new waiter - getting cut early!) That's when he came to me asking how to do an employee discount, and they wanted to use more than one on a single ticket, was that okay?\n\nI was confused, wait, employee??",
+2026-02-22T19:07:48.590640860Z [inf]    "subreddit": "r/stories"
+2026-02-22T19:07:48.591748085Z [inf]    "subreddit": "r/stories",
+2026-02-22T19:07:48.591754007Z [inf]    "author": "MonkeyAI"
+2026-02-22T19:07:48.591758370Z [inf]  }
+2026-02-22T19:07:48.591762418Z [inf]  Sending request to Railway API: {
+2026-02-22T19:07:48.591766661Z [inf]    "subreddit": "r/stories",
+2026-02-22T19:07:48.591771247Z [inf]    "isCliffhanger": true,
+2026-02-22T19:07:48.591775951Z [inf]    "voice": {
+2026-02-22T19:07:48.591780191Z [inf]      "id": "adam",
+2026-02-22T19:07:48.591784576Z [inf]      "gender": "male"
+2026-02-22T19:07:48.591788742Z [inf]    },
+2026-02-22T19:07:48.591793046Z [inf]    "background": {
+2026-02-22T19:07:48.591797135Z [inf]      "category": "food",
+2026-02-22T19:07:48.591801108Z [inf]      "speedMultiplier": 1.3
+2026-02-22T19:07:48.591805080Z [inf]    },
+2026-02-22T19:07:48.591808988Z [inf]    "customStory": {
+2026-02-22T19:07:48.591813698Z [inf]      "title": "You want special treatment? I would love to!",
+2026-02-22T19:07:48.591818797Z [inf]      "story": "Buckle up, this is a long one!\n\nOnce upon the before-time in 2015, I worked my way through nursing school as a waitress in a restaurant. This restaurant did not advertise, they prided themselves on word-of-mouth for their popularity - this is important!\n\nI had been there for several months at this point, and had proved myself reliable and knowledgeable enough to help train new waiters, not technically a \"trainer\" but could be relied upon to support new workers once the trainers set them loose. We had one older guy who had just been released, he was a little awkward, little shy, and worried about mistakes - absolutely expected - and he was great to work with.\n\nOn the night of our tale he was in the section next to mine, easy to keep an eye on and easy to hop in and prop him up when he hit the weeds. This was his first night with his own complete section, weeds would abound, I was ready. What he wasn't ready for was his first demanding round table of about 6 people, 20-somethings with attitude.\n\nHe came to me worried and confused \"they want xyz but I don't think that's on our menu, right? She says we have the ingredients and just make it, that the other location makes it all the time.\" YES I could have taught him to stand his ground, but nerves and first night with your own section isn't the time for this to go over well, so I told him ask the back line and see if they were willing, if not I would talk to the table. Cooks were fine with it (basically a wrap if I remember correctly) so no problem. From our end.\n\nThis was apparently the cue for the Leader of the table to demand something EVERY TIME he came to the table. As soon as he brought the last requested item, she needed something else. I thought it was possible and had been keeping an eye on him. Seeing his panicked face I gave him a nod and started checking in on his other tables, slotting them into my own table cycles - reasons I'm paired with him! This carried on for their entire meal, incredibly needy and demanding his full attention with zero apology or kindness. I made sure to catch him in the back to prepare for possibly getting no tip but to calm the panic, and to remind him I would not be touching the tips from his other tables.\n\nHonestly this poor guy looked like he was about to quit on the spot, this Leader was rude and impatient and gave him no space to breathe. I was his emotional support animal at this point, but knowing he was at least twice my age made it even worse for him.\n\nThe table had come in close to the end of the night and ended up staying past our section's closing, so they were the last table on our side of the restaurant. (Perks of closing with a new waiter - getting cut early!) That's when he came to me asking how to do an employee discount, and they wanted to use more than one on a single ticket, was that okay?\n\nI was confused, wait, employee??",
+2026-02-22T19:07:48.592781309Z [inf]      "subreddit": "r/stories",
+2026-02-22T19:07:48.592789818Z [inf]      "author": "MonkeyAI"
+2026-02-22T19:07:48.592794346Z [inf]    }
+2026-02-22T19:07:48.592798326Z [inf]  }
+2026-02-22T19:07:48.827817159Z [inf]  Railway API response status: 202 Accepted
+2026-02-22T19:08:08.832177911Z [err]    _storedError: undefined,
+2026-02-22T19:08:08.832187840Z [err]    _disturbed: false,
+2026-02-22T19:08:08.832190924Z [err]    _state: 'readable',
+2026-02-22T19:08:08.832194958Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:08:08.832204665Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:08:08.832205049Z [err]    _reader: undefined,
+2026-02-22T19:08:08.832253697Z [inf]  TikTok OAuth Config: {
+2026-02-22T19:08:08.832259717Z [inf]    clientKey: 'awan5bhk...',
+2026-02-22T19:08:08.832266957Z [inf]    clientSecret: 'SET',
+2026-02-22T19:08:08.832272177Z [inf]    redirectUri: 'https://www.taleo.media/api/auth/tiktok/callback',
+2026-02-22T19:08:08.832278185Z [inf]    baseUrl: 'https://www.tiktok.com/v2/auth/authorize/',
+2026-02-22T19:08:08.832284282Z [inf]    testMode: false
+2026-02-22T19:08:08.832290408Z [inf]  }
+2026-02-22T19:08:08.832296442Z [err]  [Campaign Scheduler] Cleanup failed (non-critical): 9 FAILED_PRECONDITION: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/redditstories-531a8/firestore/indexes?create_composite=ClVwcm9qZWN0cy9yZWRkaXRzdG9yaWVzLTUzMWE4L2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy9jYW1wYWlnbnMvaW5kZXhlcy9fEAEaFAoQY3VycmVudGx5UnVubmluZxABGhQKEGxhc3RSdW5TdGFydGVkQXQQARoMCghfX25hbWVfXxAB
+2026-02-22T19:08:08.832302934Z [err]  [Campaign Scheduler] Continuing without cleanup...
+2026-02-22T19:08:08.832310651Z [inf]  [getCampaignsDueToRun] Querying active campaigns...
+2026-02-22T19:08:08.832317477Z [inf]  [getCampaignsDueToRun] Found 0 active campaigns
+2026-02-22T19:08:08.832330736Z [inf]  [getCampaignsDueToRun] 0 campaigns are due to run
+2026-02-22T19:08:08.832337076Z [inf]  [Campaign Scheduler] Found 0 campaigns due to run
+2026-02-22T19:08:08.832344877Z [err]  [Campaign Scheduler] Fatal Error: TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:08:08.833800022Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:08:08.833807429Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:08:08.833808630Z [err]    }
+2026-02-22T19:08:08.833815144Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:2643)
+2026-02-22T19:08:08.833816309Z [err]      _pullAgain: false,
+2026-02-22T19:08:08.833820931Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:08:08.833824205Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:08:08.833828630Z [err]      _pulling: false,
+2026-02-22T19:08:08.833832385Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:08:08.833833553Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:08:08.833837674Z [err]      _byobRequest: null,
+2026-02-22T19:08:08.833844611Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:08:08.833845169Z [err]      _queueTotalSize: 0,
+2026-02-22T19:08:08.833851567Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:08:08.833854815Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:08:08.833859080Z [err]      _closeRequested: false,
+2026-02-22T19:08:08.833863675Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:08:08.833868716Z [err]      _started: false,
+2026-02-22T19:08:08.833874675Z [err]      _strategyHWM: 0,
+2026-02-22T19:08:08.833879573Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:08:08.833885035Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:08:08.833889468Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:08:08.833894556Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:08:08.835236794Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:08:08.835244614Z [err]  [Campaign Scheduler] Error stack: TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:08:08.835253216Z [err]    _state: 'readable',
+2026-02-22T19:08:08.835254437Z [err]    }
+2026-02-22T19:08:08.835261462Z [err]    _reader: undefined,
+2026-02-22T19:08:08.835266460Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:08:08.835270997Z [err]      _pullAgain: false,
+2026-02-22T19:08:08.835271601Z [err]    _storedError: undefined,
+2026-02-22T19:08:08.835275639Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:08:08.835281740Z [err]    _disturbed: false,
+2026-02-22T19:08:08.835282475Z [err]      _pulling: false,
+2026-02-22T19:08:08.835283755Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:08:08.835291097Z [err]      _byobRequest: null,
+2026-02-22T19:08:08.835291486Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:08:08.835298660Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:08:08.835298988Z [err]      _queueTotalSize: 0,
+2026-02-22T19:08:08.835305528Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:08:08.835310949Z [err]      _closeRequested: false,
+2026-02-22T19:08:08.835315930Z [err]      _started: false,
+2026-02-22T19:08:08.835320887Z [err]      _strategyHWM: 0,
+2026-02-22T19:08:08.835326218Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:08:08.835332461Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:08:08.835338159Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:08:08.835344927Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:08:08.837190073Z [err]      "  _state: 'readable',\n" +
+2026-02-22T19:08:08.837194850Z [err]      '    _byobRequest: null,\n' +
+2026-02-22T19:08:08.837199254Z [err]      '  _reader: undefined,\n' +
+2026-02-22T19:08:08.837199765Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:08:08.837207191Z [err]      '    _queueTotalSize: 0,\n' +
+2026-02-22T19:08:08.837207707Z [err]      '  _storedError: undefined,\n' +
+2026-02-22T19:08:08.837210793Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:08:08.837215498Z [err]      '  _disturbed: false,\n' +
+2026-02-22T19:08:08.837221082Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:08:08.837221590Z [err]      '  _readableStreamController: e [ReadableByteStreamController] {\n' +
+2026-02-22T19:08:08.837228679Z [err]      '    _controlledReadableByteStream: [Circular *1],\n' +
+2026-02-22T19:08:08.837230671Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:08:08.837235162Z [err]      '    _pullAgain: false,\n' +
+2026-02-22T19:08:08.837240450Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:2643)
+2026-02-22T19:08:08.837244253Z [err]      '    _pulling: false,\n' +
+2026-02-22T19:08:08.837249077Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:08:08.837256599Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:08:08.837263167Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:08:08.837269919Z [err]  [Campaign Scheduler] Error details: {
+2026-02-22T19:08:08.837276302Z [err]    name: 'TypeError',
+2026-02-22T19:08:08.837283541Z [err]    message: 'undefined: Expected undefined ("<ref *1> e [ReadableStream] {\n' +
+2026-02-22T19:08:08.839087011Z [err]      '}") to be an instance of ReadableStream.'
+2026-02-22T19:08:08.839091667Z [err]      _pullAgain: false,
+2026-02-22T19:08:08.839096344Z [err]  }
+2026-02-22T19:08:08.839101504Z [err]      '    _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },\n' +
+2026-02-22T19:08:08.839103600Z [err]      _pulling: false,
+2026-02-22T19:08:08.839104354Z [err]   ⨯ TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:08:08.839111446Z [err]    _state: 'readable',
+2026-02-22T19:08:08.839113807Z [err]      '    _closeRequested: false,\n' +
+2026-02-22T19:08:08.839114287Z [err]      _byobRequest: null,
+2026-02-22T19:08:08.839118568Z [err]    _reader: undefined,
+2026-02-22T19:08:08.839124350Z [err]      _queueTotalSize: 0,
+2026-02-22T19:08:08.839125385Z [err]    _storedError: undefined,
+2026-02-22T19:08:08.839125940Z [err]      '    _started: false,\n' +
+2026-02-22T19:08:08.839133855Z [err]      '    _strategyHWM: 0,\n' +
+2026-02-22T19:08:08.839134743Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:08:08.839135535Z [err]    _disturbed: false,
+2026-02-22T19:08:08.839141530Z [err]      '    _pullAlgorithm: [Function (anonymous)],\n' +
+2026-02-22T19:08:08.839142927Z [err]      _closeRequested: false,
+2026-02-22T19:08:08.839143126Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:08:08.839153266Z [err]      _started: false,
+2026-02-22T19:08:08.839153457Z [err]      '    _cancelAlgorithm: [Function (anonymous)],\n' +
+2026-02-22T19:08:08.839154505Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:08:08.839161665Z [err]      '    _autoAllocateChunkSize: undefined,\n' +
+2026-02-22T19:08:08.839166110Z [err]      '    _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }\n' +
+2026-02-22T19:08:08.839171785Z [err]      '  }\n' +
+2026-02-22T19:08:08.840892345Z [err]      _strategyHWM: 0,
+2026-02-22T19:08:08.840892617Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:13408)
+2026-02-22T19:08:08.840901805Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:08:08.840903718Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:08:08.840908338Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:08:08.840911694Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:08:08.840915565Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:08:08.840918883Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:08:08.840921566Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:08:08.840927525Z [err]    }
+2026-02-22T19:08:08.840932684Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:08:08.840937725Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:08:08.840942640Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:08:08.840948060Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:08:08.840952608Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:08:08.840957220Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:08:08.840961904Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:09:08.912064399Z [err]      _closeRequested: false,
+2026-02-22T19:09:08.912074163Z [err]      _started: false,
+2026-02-22T19:09:08.912082910Z [err]    _storedError: undefined,
+2026-02-22T19:09:08.912112010Z [err]    _disturbed: false,
+2026-02-22T19:09:08.912116831Z [err]  [Campaign Scheduler] Cleanup failed (non-critical): 9 FAILED_PRECONDITION: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/redditstories-531a8/firestore/indexes?create_composite=ClVwcm9qZWN0cy9yZWRkaXRzdG9yaWVzLTUzMWE4L2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy9jYW1wYWlnbnMvaW5kZXhlcy9fEAEaFAoQY3VycmVudGx5UnVubmluZxABGhQKEGxhc3RSdW5TdGFydGVkQXQQARoMCghfX25hbWVfXxAB
+2026-02-22T19:09:08.912122150Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:09:08.912125489Z [err]  [Campaign Scheduler] Continuing without cleanup...
+2026-02-22T19:09:08.912131813Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:09:08.912134003Z [inf]  [getCampaignsDueToRun] Querying active campaigns...
+2026-02-22T19:09:08.912140707Z [err]      _pullAgain: false,
+2026-02-22T19:09:08.912145192Z [inf]  [getCampaignsDueToRun] Found 0 active campaigns
+2026-02-22T19:09:08.912149826Z [err]      _pulling: false,
+2026-02-22T19:09:08.912153179Z [inf]  [getCampaignsDueToRun] 0 campaigns are due to run
+2026-02-22T19:09:08.912159920Z [err]      _byobRequest: null,
+2026-02-22T19:09:08.912161043Z [inf]  [Campaign Scheduler] Found 0 campaigns due to run
+2026-02-22T19:09:08.912166023Z [err]      _queueTotalSize: 0,
+2026-02-22T19:09:08.912169251Z [err]  [Campaign Scheduler] Fatal Error: TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:09:08.912171963Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:09:08.912177974Z [err]    _state: 'readable',
+2026-02-22T19:09:08.912185838Z [err]    _reader: undefined,
+2026-02-22T19:09:08.913508905Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:09:08.913518721Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:09:08.913519131Z [err]      _strategyHWM: 0,
+2026-02-22T19:09:08.913526220Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:2643)
+2026-02-22T19:09:08.913526493Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:09:08.913532958Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:09:08.913533100Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:09:08.913539686Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:09:08.913543231Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:09:08.913549303Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:09:08.913550138Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:09:08.913557076Z [err]  [Campaign Scheduler] Error stack: TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:09:08.913559283Z [err]    }
+2026-02-22T19:09:08.913562859Z [err]    _state: 'readable',
+2026-02-22T19:09:08.913566476Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:09:08.913569766Z [err]    _reader: undefined,
+2026-02-22T19:09:08.913573024Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:09:08.913578033Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:09:08.913583110Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:09:08.913589816Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:09:08.915147982Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:09:08.915157758Z [err]    _storedError: undefined,
+2026-02-22T19:09:08.915157995Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:09:08.915165877Z [err]    _disturbed: false,
+2026-02-22T19:09:08.915168141Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:09:08.915172137Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:09:08.915177838Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:09:08.915178061Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:09:08.915183566Z [err]      _pullAgain: false,
+2026-02-22T19:09:08.915188094Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:09:08.915190001Z [err]      _pulling: false,
+2026-02-22T19:09:08.915194855Z [err]      _byobRequest: null,
+2026-02-22T19:09:08.915199274Z [err]      _queueTotalSize: 0,
+2026-02-22T19:09:08.915203999Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:09:08.915208904Z [err]      _closeRequested: false,
+2026-02-22T19:09:08.915213454Z [err]      _started: false,
+2026-02-22T19:09:08.915217656Z [err]      _strategyHWM: 0,
+2026-02-22T19:09:08.915221751Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:09:08.915226208Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:09:08.915232617Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:09:08.915238360Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:09:08.915243722Z [err]    }
+2026-02-22T19:09:08.915249331Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:09:08.915254822Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:09:08.916650957Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:2643)
+2026-02-22T19:09:08.916653799Z [err]      '    _pullAgain: false,\n' +
+2026-02-22T19:09:08.916655061Z [err]      '    _strategyHWM: 0,\n' +
+2026-02-22T19:09:08.916658374Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:09:08.916665027Z [err]      '    _pullAlgorithm: [Function (anonymous)],\n' +
+2026-02-22T19:09:08.916665665Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:09:08.916665915Z [err]      '    _pulling: false,\n' +
+2026-02-22T19:09:08.916670630Z [err]    message: 'undefined: Expected undefined ("<ref *1> e [ReadableStream] {\n' +
+2026-02-22T19:09:08.916675369Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:09:08.916675754Z [err]      '    _byobRequest: null,\n' +
+2026-02-22T19:09:08.916682493Z [err]  [Campaign Scheduler] Error details: {
+2026-02-22T19:09:08.916685626Z [err]      '    _queueTotalSize: 0,\n' +
+2026-02-22T19:09:08.916686130Z [err]      "  _state: 'readable',\n" +
+2026-02-22T19:09:08.916690065Z [err]    name: 'TypeError',
+2026-02-22T19:09:08.916694112Z [err]      '    _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },\n' +
+2026-02-22T19:09:08.916696883Z [err]      '  _reader: undefined,\n' +
+2026-02-22T19:09:08.916700523Z [err]      '    _closeRequested: false,\n' +
+2026-02-22T19:09:08.916705695Z [err]      '    _started: false,\n' +
+2026-02-22T19:09:08.916712126Z [err]      '  _storedError: undefined,\n' +
+2026-02-22T19:09:08.916719113Z [err]      '  _disturbed: false,\n' +
+2026-02-22T19:09:08.916725836Z [err]      '  _readableStreamController: e [ReadableByteStreamController] {\n' +
+2026-02-22T19:09:08.916732012Z [err]      '    _controlledReadableByteStream: [Circular *1],\n' +
+2026-02-22T19:09:08.918611246Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:09:08.918613836Z [err]      '    _cancelAlgorithm: [Function (anonymous)],\n' +
+2026-02-22T19:09:08.918624224Z [err]      '    _autoAllocateChunkSize: undefined,\n' +
+2026-02-22T19:09:08.918624373Z [err]      _closeRequested: false,
+2026-02-22T19:09:08.918631476Z [err]      _started: false,
+2026-02-22T19:09:08.918633231Z [err]      '    _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }\n' +
+2026-02-22T19:09:08.918638445Z [err]      _strategyHWM: 0,
+2026-02-22T19:09:08.918641699Z [err]      '  }\n' +
+2026-02-22T19:09:08.918644666Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:09:08.918649173Z [err]      '}") to be an instance of ReadableStream.'
+2026-02-22T19:09:08.918653313Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:09:08.918658594Z [err]  }
+2026-02-22T19:09:08.918661157Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:09:08.918667313Z [err]   ⨯ TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:09:08.918667455Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:09:08.918675033Z [err]    _state: 'readable',
+2026-02-22T19:09:08.918681323Z [err]    _reader: undefined,
+2026-02-22T19:09:08.918686933Z [err]    _storedError: undefined,
+2026-02-22T19:09:08.918692506Z [err]    _disturbed: false,
+2026-02-22T19:09:08.918698138Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:09:08.918703777Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:09:08.918715678Z [err]      _pullAgain: false,
+2026-02-22T19:09:08.918721353Z [err]      _pulling: false,
+2026-02-22T19:09:08.918727328Z [err]      _byobRequest: null,
+2026-02-22T19:09:08.918734030Z [err]      _queueTotalSize: 0,
+2026-02-22T19:09:08.920304283Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:09:08.920311264Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:09:08.920311743Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:09:08.920317625Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:09:08.920319267Z [err]    }
+2026-02-22T19:09:08.920319781Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:09:08.920324713Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:09:08.920330424Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:09:08.920332099Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:09:08.920336130Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:13408)
+2026-02-22T19:09:08.920340936Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:09:08.920347269Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:10:09.178451228Z [err]  [Campaign Scheduler] Cleanup failed (non-critical): 9 FAILED_PRECONDITION: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/redditstories-531a8/firestore/indexes?create_composite=ClVwcm9qZWN0cy9yZWRkaXRzdG9yaWVzLTUzMWE4L2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy9jYW1wYWlnbnMvaW5kZXhlcy9fEAEaFAoQY3VycmVudGx5UnVubmluZxABGhQKEGxhc3RSdW5TdGFydGVkQXQQARoMCghfX25hbWVfXxAB
+2026-02-22T19:10:09.178457479Z [err]  [Campaign Scheduler] Continuing without cleanup...
+2026-02-22T19:10:09.178465260Z [inf]  [getCampaignsDueToRun] Querying active campaigns...
+2026-02-22T19:10:09.178471637Z [inf]  [getCampaignsDueToRun] Found 0 active campaigns
+2026-02-22T19:10:09.178477648Z [inf]  [getCampaignsDueToRun] 0 campaigns are due to run
+2026-02-22T19:10:09.178484065Z [inf]  [Campaign Scheduler] Found 0 campaigns due to run
+2026-02-22T19:10:09.178490399Z [err]  [Campaign Scheduler] Fatal Error: TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:10:09.178497552Z [err]    _state: 'readable',
+2026-02-22T19:10:09.178503889Z [err]    _reader: undefined,
+2026-02-22T19:10:09.178510001Z [err]    _storedError: undefined,
+2026-02-22T19:10:09.178516092Z [err]    _disturbed: false,
+2026-02-22T19:10:09.178521497Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:10:09.178528985Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:10:09.178535137Z [err]      _pullAgain: false,
+2026-02-22T19:10:09.178540858Z [err]      _pulling: false,
+2026-02-22T19:10:09.178546362Z [err]      _byobRequest: null,
+2026-02-22T19:10:09.178552242Z [err]      _queueTotalSize: 0,
+2026-02-22T19:10:09.178558448Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:10:09.178564308Z [err]      _closeRequested: false,
+2026-02-22T19:10:09.178570109Z [err]      _started: false,
+2026-02-22T19:10:09.180060549Z [err]    _reader: undefined,
+2026-02-22T19:10:09.180066212Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:10:09.180075970Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:10:09.180076857Z [err]      _strategyHWM: 0,
+2026-02-22T19:10:09.180084294Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:10:09.180086679Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:10:09.180110120Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:10:09.180111657Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:10:09.180118745Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:10:09.180121712Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:10:09.180127322Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:2643)
+2026-02-22T19:10:09.180130764Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:10:09.180135277Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:10:09.180140636Z [err]    }
+2026-02-22T19:10:09.180141158Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:10:09.180147011Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:10:09.180150581Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:10:09.180153368Z [err]  [Campaign Scheduler] Error stack: TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:10:09.180159410Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:10:09.180159474Z [err]    _state: 'readable',
+2026-02-22T19:10:09.182126035Z [err]    _storedError: undefined,
+2026-02-22T19:10:09.182133015Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:10:09.182136357Z [err]    _disturbed: false,
+2026-02-22T19:10:09.182141557Z [err]    }
+2026-02-22T19:10:09.182145548Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:10:09.182147320Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:10:09.182154892Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:10:09.182154970Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:10:09.182158143Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:10:09.182162314Z [err]      _pullAgain: false,
+2026-02-22T19:10:09.182166118Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:10:09.182169065Z [err]      _pulling: false,
+2026-02-22T19:10:09.182174448Z [err]      _byobRequest: null,
+2026-02-22T19:10:09.182179837Z [err]      _queueTotalSize: 0,
+2026-02-22T19:10:09.182182386Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:10:09.182185985Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:10:09.182191006Z [err]      _closeRequested: false,
+2026-02-22T19:10:09.182195997Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:10:09.182197810Z [err]      _started: false,
+2026-02-22T19:10:09.182203303Z [err]      _strategyHWM: 0,
+2026-02-22T19:10:09.182207850Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:10:09.182212452Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:10:09.182216900Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:10:09.182221700Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:10:09.184028396Z [err]      '    _strategyHWM: 0,\n' +
+2026-02-22T19:10:09.184037426Z [err]      '    _pullAlgorithm: [Function (anonymous)],\n' +
+2026-02-22T19:10:09.184050231Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:2643)
+2026-02-22T19:10:09.184059452Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:10:09.184067105Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:10:09.184072422Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:10:09.184077222Z [err]  [Campaign Scheduler] Error details: {
+2026-02-22T19:10:09.184082336Z [err]    name: 'TypeError',
+2026-02-22T19:10:09.184086851Z [err]    message: 'undefined: Expected undefined ("<ref *1> e [ReadableStream] {\n' +
+2026-02-22T19:10:09.184106943Z [err]      "  _state: 'readable',\n" +
+2026-02-22T19:10:09.184114649Z [err]      '  _reader: undefined,\n' +
+2026-02-22T19:10:09.184120879Z [err]      '  _storedError: undefined,\n' +
+2026-02-22T19:10:09.184125320Z [err]      '  _disturbed: false,\n' +
+2026-02-22T19:10:09.184129844Z [err]      '  _readableStreamController: e [ReadableByteStreamController] {\n' +
+2026-02-22T19:10:09.184134526Z [err]      '    _controlledReadableByteStream: [Circular *1],\n' +
+2026-02-22T19:10:09.184139292Z [err]      '    _pullAgain: false,\n' +
+2026-02-22T19:10:09.184144053Z [err]      '    _pulling: false,\n' +
+2026-02-22T19:10:09.184148710Z [err]      '    _byobRequest: null,\n' +
+2026-02-22T19:10:09.184154367Z [err]      '    _queueTotalSize: 0,\n' +
+2026-02-22T19:10:09.184160046Z [err]      '    _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },\n' +
+2026-02-22T19:10:09.184165669Z [err]      '    _closeRequested: false,\n' +
+2026-02-22T19:10:09.184171850Z [err]      '    _started: false,\n' +
+2026-02-22T19:10:09.185853448Z [err]      '    _cancelAlgorithm: [Function (anonymous)],\n' +
+2026-02-22T19:10:09.185860256Z [err]      '    _autoAllocateChunkSize: undefined,\n' +
+2026-02-22T19:10:09.185864907Z [err]      '    _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }\n' +
+2026-02-22T19:10:09.185869388Z [err]      '  }\n' +
+2026-02-22T19:10:09.185873572Z [err]      '}") to be an instance of ReadableStream.'
+2026-02-22T19:10:09.185877881Z [err]  }
+2026-02-22T19:10:09.185883454Z [err]   ⨯ TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:10:09.185887469Z [err]    _state: 'readable',
+2026-02-22T19:10:09.185892800Z [err]    _reader: undefined,
+2026-02-22T19:10:09.185896729Z [err]    _storedError: undefined,
+2026-02-22T19:10:09.185900693Z [err]    _disturbed: false,
+2026-02-22T19:10:09.185905108Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:10:09.185909228Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:10:09.185913472Z [err]      _pullAgain: false,
+2026-02-22T19:10:09.185917579Z [err]      _pulling: false,
+2026-02-22T19:10:09.185922615Z [err]      _byobRequest: null,
+2026-02-22T19:10:09.185926769Z [err]      _queueTotalSize: 0,
+2026-02-22T19:10:09.185931983Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:10:09.185936052Z [err]      _closeRequested: false,
+2026-02-22T19:10:09.185939983Z [err]      _started: false,
+2026-02-22T19:10:09.185944805Z [err]      _strategyHWM: 0,
+2026-02-22T19:10:09.185948712Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:10:09.185955628Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:10:09.185959622Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:10:09.185963418Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:10:09.188034305Z [err]    }
+2026-02-22T19:10:09.188038340Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:10:09.188044270Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:10:09.188050048Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:10:09.188054262Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:10:09.188058276Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:10:09.188062238Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:10:09.188066596Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:10:09.188070992Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:10:09.188075281Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:13408)
+2026-02-22T19:10:09.188079272Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:10:09.188083341Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:11:09.284180500Z [err]  [Campaign Scheduler] Cleanup failed (non-critical): 9 FAILED_PRECONDITION: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/redditstories-531a8/firestore/indexes?create_composite=ClVwcm9qZWN0cy9yZWRkaXRzdG9yaWVzLTUzMWE4L2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy9jYW1wYWlnbnMvaW5kZXhlcy9fEAEaFAoQY3VycmVudGx5UnVubmluZxABGhQKEGxhc3RSdW5TdGFydGVkQXQQARoMCghfX25hbWVfXxAB
+2026-02-22T19:11:09.284186041Z [err]  [Campaign Scheduler] Continuing without cleanup...
+2026-02-22T19:11:09.284191075Z [inf]  [getCampaignsDueToRun] Querying active campaigns...
+2026-02-22T19:11:09.284195740Z [inf]  [getCampaignsDueToRun] Found 0 active campaigns
+2026-02-22T19:11:09.284200360Z [inf]  [getCampaignsDueToRun] 0 campaigns are due to run
+2026-02-22T19:11:09.284204868Z [inf]  [Campaign Scheduler] Found 0 campaigns due to run
+2026-02-22T19:11:09.284209657Z [err]  [Campaign Scheduler] Fatal Error: TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:11:09.284215074Z [err]    _state: 'readable',
+2026-02-22T19:11:09.284221419Z [err]    _reader: undefined,
+2026-02-22T19:11:09.284225686Z [err]    _storedError: undefined,
+2026-02-22T19:11:09.284231448Z [err]    _disturbed: false,
+2026-02-22T19:11:09.284235901Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:11:09.284240370Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:11:09.284245653Z [err]      _pullAgain: false,
+2026-02-22T19:11:09.284250624Z [err]      _pulling: false,
+2026-02-22T19:11:09.284255604Z [err]      _byobRequest: null,
+2026-02-22T19:11:09.284260572Z [err]      _queueTotalSize: 0,
+2026-02-22T19:11:09.284265836Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:11:09.284270905Z [err]      _closeRequested: false,
+2026-02-22T19:11:09.284275785Z [err]      _started: false,
+2026-02-22T19:11:09.285472951Z [err]      _strategyHWM: 0,
+2026-02-22T19:11:09.285482440Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:11:09.285488923Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:11:09.285494583Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:11:09.285500014Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:11:09.285506399Z [err]    }
+2026-02-22T19:11:09.285514224Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:11:09.285518875Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:11:09.285524358Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:11:09.285529964Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:11:09.285535269Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:11:09.285540476Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:11:09.285546432Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:11:09.285552695Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:2643)
+2026-02-22T19:11:09.285557607Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:11:09.285562171Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:11:09.285567087Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:11:09.285572417Z [err]  [Campaign Scheduler] Error stack: TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:11:09.285577216Z [err]    _state: 'readable',
+2026-02-22T19:11:09.285582358Z [err]    _reader: undefined,
+2026-02-22T19:11:09.287052087Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:11:09.287060867Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:11:09.287067806Z [err]    }
+2026-02-22T19:11:09.287069507Z [err]    _storedError: undefined,
+2026-02-22T19:11:09.287074526Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:11:09.287079512Z [err]    _disturbed: false,
+2026-02-22T19:11:09.287084601Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:11:09.287086792Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:11:09.287094867Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:11:09.287094941Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:11:09.287102699Z [err]      _pullAgain: false,
+2026-02-22T19:11:09.287105568Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:11:09.287109341Z [err]      _pulling: false,
+2026-02-22T19:11:09.287114986Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:11:09.287117153Z [err]      _byobRequest: null,
+2026-02-22T19:11:09.287122927Z [err]      _queueTotalSize: 0,
+2026-02-22T19:11:09.287124583Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:11:09.287128802Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:11:09.287131822Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:11:09.287135149Z [err]      _closeRequested: false,
+2026-02-22T19:11:09.287139184Z [err]      _started: false,
+2026-02-22T19:11:09.287143601Z [err]      _strategyHWM: 0,
+2026-02-22T19:11:09.287149111Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:11:09.287153387Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:11:09.290823337Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:2643)
+2026-02-22T19:11:09.290834247Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:11:09.290841304Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:11:09.290848191Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)
+2026-02-22T19:11:09.290854846Z [err]  [Campaign Scheduler] Error details: {
+2026-02-22T19:11:09.290862019Z [err]    name: 'TypeError',
+2026-02-22T19:11:09.290868851Z [err]    message: 'undefined: Expected undefined ("<ref *1> e [ReadableStream] {\n' +
+2026-02-22T19:11:09.290875689Z [err]      "  _state: 'readable',\n" +
+2026-02-22T19:11:09.290881832Z [err]      '  _reader: undefined,\n' +
+2026-02-22T19:11:09.290888471Z [err]      '  _storedError: undefined,\n' +
+2026-02-22T19:11:09.290894522Z [err]      '  _disturbed: false,\n' +
+2026-02-22T19:11:09.290900388Z [err]      '  _readableStreamController: e [ReadableByteStreamController] {\n' +
+2026-02-22T19:11:09.290912162Z [err]      '    _controlledReadableByteStream: [Circular *1],\n' +
+2026-02-22T19:11:09.290928267Z [err]      '    _pullAgain: false,\n' +
+2026-02-22T19:11:09.290935260Z [err]      '    _pulling: false,\n' +
+2026-02-22T19:11:09.290940721Z [err]      '    _byobRequest: null,\n' +
+2026-02-22T19:11:09.290945175Z [err]      '    _queueTotalSize: 0,\n' +
+2026-02-22T19:11:09.290951308Z [err]      '    _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },\n' +
+2026-02-22T19:11:09.290957465Z [err]      '    _closeRequested: false,\n' +
+2026-02-22T19:11:09.290963747Z [err]      '    _started: false,\n' +
+2026-02-22T19:11:09.290969559Z [err]      '    _strategyHWM: 0,\n' +
+2026-02-22T19:11:09.290975045Z [err]      '    _pullAlgorithm: [Function (anonymous)],\n' +
+2026-02-22T19:11:09.292917131Z [err]      '    _cancelAlgorithm: [Function (anonymous)],\n' +
+2026-02-22T19:11:09.292926341Z [err]      '    _autoAllocateChunkSize: undefined,\n' +
+2026-02-22T19:11:09.292935084Z [err]      '    _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }\n' +
+2026-02-22T19:11:09.292936797Z [err]      _pendingPullIntos: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] }
+2026-02-22T19:11:09.292943374Z [err]      '  }\n' +
+2026-02-22T19:11:09.292948349Z [err]      _pulling: false,
+2026-02-22T19:11:09.292954723Z [err]      '}") to be an instance of ReadableStream.'
+2026-02-22T19:11:09.292959145Z [err]      _byobRequest: null,
+2026-02-22T19:11:09.292963882Z [err]  }
+2026-02-22T19:11:09.292967577Z [err]      _queueTotalSize: 0,
+2026-02-22T19:11:09.292972952Z [err]   ⨯ TypeError: undefined: Expected undefined ("<ref *1> e [ReadableStream] {
+2026-02-22T19:11:09.292974039Z [err]      _queue: e { _cursor: 0, _size: 0, _front: [Object], _back: [Object] },
+2026-02-22T19:11:09.292982196Z [err]      _closeRequested: false,
+2026-02-22T19:11:09.292983216Z [err]    _state: 'readable',
+2026-02-22T19:11:09.292992014Z [err]      _started: false,
+2026-02-22T19:11:09.292992203Z [err]    _reader: undefined,
+2026-02-22T19:11:09.293000465Z [err]      _strategyHWM: 0,
+2026-02-22T19:11:09.293002980Z [err]    _storedError: undefined,
+2026-02-22T19:11:09.293006506Z [err]      _pullAlgorithm: [Function (anonymous)],
+2026-02-22T19:11:09.293013123Z [err]    _disturbed: false,
+2026-02-22T19:11:09.293014194Z [err]      _cancelAlgorithm: [Function (anonymous)],
+2026-02-22T19:11:09.293021344Z [err]      _autoAllocateChunkSize: undefined,
+2026-02-22T19:11:09.293023626Z [err]    _readableStreamController: e [ReadableByteStreamController] {
+2026-02-22T19:11:09.293029793Z [err]      _controlledReadableByteStream: [Circular *1],
+2026-02-22T19:11:09.293036073Z [err]      _pullAgain: false,
+2026-02-22T19:11:09.294154940Z [err]    }
+2026-02-22T19:11:09.294161618Z [err]  }") to be an instance of ReadableStream.
+2026-02-22T19:11:09.294166668Z [err]      at webidl.errors.exception (node:internal/deps/undici/undici:3610:14)
+2026-02-22T19:11:09.294171439Z [err]      at Object.ReadableStream (node:internal/deps/undici/undici:3816:31)
+2026-02-22T19:11:09.294177726Z [err]      at webidl.converters.BodyInit (node:internal/deps/undici/undici:9409:34)
+2026-02-22T19:11:09.294182159Z [err]      at new Response (node:internal/deps/undici/undici:9118:36)
+2026-02-22T19:11:09.294186276Z [err]      at new u (/app/.next/server/chunks/2791.js:12:6636)
+2026-02-22T19:11:09.294192752Z [err]      at u.json (/app/.next/server/chunks/2791.js:12:7171)
+2026-02-22T19:11:09.294197448Z [err]      at z (/app/.next/server/app/api/campaigns/run-scheduled/route.js:177:13408)
+2026-02-22T19:11:09.294201458Z [err]      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2026-02-22T19:11:09.294205487Z [err]      at async /app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:42484
+2026-02-22T19:11:09.294210436Z [err]      at async eI.execute (/app/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:32486)

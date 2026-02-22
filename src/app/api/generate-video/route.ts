@@ -67,8 +67,18 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
       throw new Error(`Railway API error: ${response.status} - ${errorText}`);
     }
 
-    const result = await response.json();
-    console.log('Railway API response:', JSON.stringify(result, null, 2));
+    const responseText = await response.text();
+    console.log('Railway API raw response (first 500 chars):', responseText.substring(0, 500));
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+      console.log('Railway API parsed response:', JSON.stringify(result, null, 2));
+    } catch (parseError) {
+      console.error('❌ Failed to parse Railway API response as JSON:', parseError);
+      console.error('Full raw response:', responseText);
+      throw new Error('Railway API returned invalid JSON response');
+    }
 
     if (!result.success) {
       console.error('Railway API returned unsuccessful response:', result);
@@ -80,7 +90,7 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
       throw new Error('Railway API response missing videoId');
     }
 
-    console.log('Railway video generation started successfully with ID:', result.videoId);
+    console.log('✅ Railway video generation started successfully with ID:', result.videoId);
     return result.videoId; // Railway returns its own video ID
   } catch (error) {
     console.error('Error calling Railway API:', error);
