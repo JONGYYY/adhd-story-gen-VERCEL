@@ -66,7 +66,14 @@ async function getRedditAccessToken(): Promise<string | null> {
       console.error('[reddit-scraper] ❌ OAuth token request failed');
       console.error('[reddit-scraper] Status:', response.status, response.statusText);
       console.error('[reddit-scraper] Response:', errorText);
-      console.error('[reddit-scraper] Headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
+      
+      // 400 Bad Request typically means expired refresh token
+      if (response.status === 400) {
+        console.error('[reddit-scraper] 🔴 LIKELY CAUSE: Your Reddit refresh token has EXPIRED');
+        console.error('[reddit-scraper] This token lasts ~1 year from when it was generated');
+        console.error('[reddit-scraper] ACTION REQUIRED: Regenerate token at https://www.reddit.com/prefs/apps');
+        console.error('[reddit-scraper] Will fall back to unauthenticated scraping (less reliable)');
+      }
       
       // Try to parse error for more details
       try {
@@ -74,6 +81,12 @@ async function getRedditAccessToken(): Promise<string | null> {
         console.error('[reddit-scraper] Error details:', JSON.stringify(errorJson, null, 2));
       } catch {
         // Not JSON, already logged as text
+      }
+      
+      // Clear cached token if OAuth fails
+      if (cachedToken) {
+        console.log('[reddit-scraper] Clearing cached OAuth token due to failure');
+        cachedToken = null;
       }
       
       return null;
@@ -105,10 +118,19 @@ async function getRedditAccessToken(): Promise<string | null> {
  * falls back to public JSON API (10 req/min)
  */
 export async function POST(request: NextRequest) {
+  const isServerSideCall = request.headers.get('x-server-side-call') === 'true';
+  
+  console.log('[reddit-scraper] Request source:', isServerSideCall ? 'SERVER-SIDE (campaign/batch)' : 'CLIENT-SIDE (browser)');
+  
   try {
-    // SECURITY: Rate limiting - Using READ limits (100/15min) as scraping is not resource-intensive
-    const rateLimitResponse = await rateLimit(request, RATE_LIMITS.READ);
-    if (rateLimitResponse) return rateLimitResponse;
+    // SECURITY: Rate limiting - Skip for server-side calls (campaigns), apply for client-side
+    // Rate limiting is only needed for client-side requests to prevent abuse
+    if (!isServerSideCall) {
+      const rateLimitResponse = await rateLimit(request, RATE_LIMITS.READ);
+      if (rateLimitResponse) return rateLimitResponse;
+    } else {
+      console.log('[reddit-scraper] Skipping rate limit check for server-side call');
+    }
 
     const body = await request.json();
     const { url } = body;
@@ -201,101 +223,145 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Strategy 2: Try old.reddit.com (less aggressive bot detection)
+      // Strategy 2: Try old.reddit.com with retry logic (less aggressive bot detection)
       if (!response) {
         const oldRedditUrl = jsonUrl.replace(/(?:www\.)?reddit\.com/, 'old.reddit.com');
         console.log('[reddit-scraper] Strategy 2: Trying old.reddit.com:', oldRedditUrl);
         
-        try {
-          response = await fetch(oldRedditUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-              'Accept': 'application/json, text/html, */*',
-              'Accept-Language': 'en-US,en;q=0.9',
-              'Accept-Encoding': 'gzip, deflate, br',
-              'Cache-Control': 'no-cache',
-              'Pragma': 'no-cache',
-              'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-              'Sec-Ch-Ua-Mobile': '?0',
-              'Sec-Ch-Ua-Platform': '"Windows"',
-              'Sec-Fetch-Dest': 'document',
-              'Sec-Fetch-Mode': 'navigate',
-              'Sec-Fetch-Site': 'none',
-              'Sec-Fetch-User': '?1',
-              'Upgrade-Insecure-Requests': '1',
-            },
-            signal: controller.signal,
-          });
+        // Retry up to 2 times for transient errors (429, 502, 503)
+        for (let attempt = 0; attempt <= 2 && !response; attempt++) {
+          try {
+            if (attempt > 0) {
+              const delay = 1000 * Math.pow(2, attempt); // 2s, 4s
+              console.log(`[reddit-scraper] Strategy 2 retry ${attempt}/2 after ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            
+            const attemptResponse = await fetch(oldRedditUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/html, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache',
+                'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Platform': '"Windows"',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Upgrade-Insecure-Requests': '1',
+              },
+              signal: controller.signal,
+            });
 
-          if (response.ok) {
-            console.log('[reddit-scraper] Strategy 2 (old.reddit.com) succeeded');
-          } else {
-            lastError = `old.reddit.com returned ${response.status}`;
-            response = null;
+            if (attemptResponse.ok) {
+              console.log('[reddit-scraper] ✅ Strategy 2 (old.reddit.com) succeeded');
+              response = attemptResponse;
+              break;
+            } else if ([429, 502, 503].includes(attemptResponse.status) && attempt < 2) {
+              lastError = `old.reddit.com returned ${attemptResponse.status}, will retry`;
+              console.log('[reddit-scraper]', lastError);
+              // Continue to next retry
+            } else {
+              lastError = `old.reddit.com returned ${attemptResponse.status}`;
+              console.log('[reddit-scraper] Strategy 2 failed:', lastError);
+              break; // Non-retryable error or max retries reached
+            }
+          } catch (e) {
+            lastError = e instanceof Error ? e.message : 'old.reddit.com fetch failed';
+            console.log('[reddit-scraper] Strategy 2 (old.reddit.com) attempt failed:', lastError);
+            // Continue to next retry if not at max
           }
-        } catch (e) {
-          lastError = e instanceof Error ? e.message : 'old.reddit.com fetch failed';
-          console.log('[reddit-scraper] Strategy 2 (old.reddit.com) failed:', lastError);
-          response = null;
         }
       }
 
-      // Strategy 3: Try www.reddit.com with mobile user agent
+      // Strategy 3: Try www.reddit.com with mobile user agent (with retry)
       if (!response) {
         console.log('[reddit-scraper] Strategy 3: Trying www.reddit.com with mobile user agent');
-        try {
-          response = await fetch(jsonUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-              'Accept': 'application/json',
-              'Accept-Language': 'en-US,en;q=0.9',
-              'Referer': 'https://www.reddit.com/',
-            },
-            signal: controller.signal,
-          });
+        
+        for (let attempt = 0; attempt <= 2 && !response; attempt++) {
+          try {
+            if (attempt > 0) {
+              const delay = 1000 * Math.pow(2, attempt);
+              console.log(`[reddit-scraper] Strategy 3 retry ${attempt}/2 after ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            
+            const attemptResponse = await fetch(jsonUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://www.reddit.com/',
+              },
+              signal: controller.signal,
+            });
 
-          if (response.ok) {
-            console.log('[reddit-scraper] Strategy 3 (mobile user agent) succeeded');
-          } else {
-            lastError = `www.reddit.com returned ${response.status}`;
-            response = null;
+            if (attemptResponse.ok) {
+              console.log('[reddit-scraper] ✅ Strategy 3 (mobile user agent) succeeded');
+              response = attemptResponse;
+              break;
+            } else if ([429, 502, 503].includes(attemptResponse.status) && attempt < 2) {
+              lastError = `www.reddit.com returned ${attemptResponse.status}, will retry`;
+              console.log('[reddit-scraper]', lastError);
+            } else {
+              lastError = `www.reddit.com returned ${attemptResponse.status}`;
+              console.log('[reddit-scraper] Strategy 3 failed:', lastError);
+              break;
+            }
+          } catch (e) {
+            lastError = e instanceof Error ? e.message : 'www.reddit.com fetch failed';
+            console.log('[reddit-scraper] Strategy 3 attempt failed:', lastError);
           }
-        } catch (e) {
-          lastError = e instanceof Error ? e.message : 'www.reddit.com fetch failed';
-          console.log('[reddit-scraper] Strategy 3 (mobile user agent) failed:', lastError);
-          response = null;
         }
       }
 
-      // Strategy 4: Try with different browser headers (Chrome on Mac)
+      // Strategy 4: Try with different browser headers (Chrome on Mac, with retry)
       if (!response) {
         console.log('[reddit-scraper] Strategy 4: Trying with Chrome/Mac headers');
-        try {
-          response = await fetch(jsonUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              'Accept': '*/*',
-              'Accept-Language': 'en-US,en;q=0.9',
-              'Accept-Encoding': 'gzip, deflate, br',
-              'Referer': 'https://www.reddit.com/',
-              'Origin': 'https://www.reddit.com',
-              'Sec-Fetch-Dest': 'empty',
-              'Sec-Fetch-Mode': 'cors',
-              'Sec-Fetch-Site': 'same-origin',
-            },
-            signal: controller.signal,
-          });
+        
+        for (let attempt = 0; attempt <= 2 && !response; attempt++) {
+          try {
+            if (attempt > 0) {
+              const delay = 1000 * Math.pow(2, attempt);
+              console.log(`[reddit-scraper] Strategy 4 retry ${attempt}/2 after ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            
+            const attemptResponse = await fetch(jsonUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www.reddit.com/',
+                'Origin': 'https://www.reddit.com',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+              },
+              signal: controller.signal,
+            });
 
-          if (response.ok) {
-            console.log('[reddit-scraper] ✅ Strategy 4 (Chrome/Mac) succeeded');
-          } else {
-            lastError = `Chrome/Mac headers returned ${response.status}`;
-            response = null;
+            if (attemptResponse.ok) {
+              console.log('[reddit-scraper] ✅ Strategy 4 (Chrome/Mac) succeeded');
+              response = attemptResponse;
+              break;
+            } else if ([429, 502, 503].includes(attemptResponse.status) && attempt < 2) {
+              lastError = `Chrome/Mac headers returned ${attemptResponse.status}, will retry`;
+              console.log('[reddit-scraper]', lastError);
+            } else {
+              lastError = `Chrome/Mac headers returned ${attemptResponse.status}`;
+              console.log('[reddit-scraper] Strategy 4 failed:', lastError);
+              break;
+            }
+          } catch (e) {
+            lastError = e instanceof Error ? e.message : 'Chrome/Mac headers failed';
+            console.log('[reddit-scraper] Strategy 4 attempt failed:', lastError);
           }
-        } catch (e) {
-          lastError = e instanceof Error ? e.message : 'Chrome/Mac headers failed';
-          console.log('[reddit-scraper] Strategy 4 (Chrome/Mac) failed:', lastError);
-          response = null;
         }
       }
 

@@ -65,11 +65,19 @@ export async function generateBatch(
   // Get the Next.js app URL for API routes like scrape-reddit
   // In production, this should be the main domain (taleo.media)
   // Railway backend handles video generation, but scraping is in Next.js
-  const appUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}` 
-    : 'https://taleo.media';
+  // FIXED: Proper environment variable priority and URL construction
+  let appUrl = 'https://taleo.media'; // Default fallback
+  
+  if (process.env.NEXTAUTH_URL) {
+    appUrl = process.env.NEXTAUTH_URL;
+  } else if (process.env.VERCEL_URL) {
+    // VERCEL_URL doesn't include protocol, need to add it
+    appUrl = `https://${process.env.VERCEL_URL}`;
+  }
   
   console.log('[Batch Generator] App URL for scraping:', appUrl);
+  console.log('[Batch Generator] NEXTAUTH_URL:', process.env.NEXTAUTH_URL ? 'SET' : 'NOT SET');
+  console.log('[Batch Generator] VERCEL_URL:', process.env.VERCEL_URL ? 'SET' : 'NOT SET');
 
   for (let i = 0; i < config.videosPerBatch; i++) {
     console.log(`[Batch Generator] === Starting video ${i + 1}/${config.videosPerBatch} ===`);
@@ -83,18 +91,24 @@ export async function generateBatch(
         try {
           const scrapeResponse = await fetch(`${appUrl}/api/scrape-reddit`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-server-side-call': 'true', // Bypass rate limiting for server-side calls
+            },
             body: JSON.stringify({ url: config.redditUrl })
           });
           
           if (!scrapeResponse.ok) {
             const errorText = await scrapeResponse.text();
+            console.error('[Batch Generator] Scrape failed with status', scrapeResponse.status);
+            console.error('[Batch Generator] Error response:', errorText);
             throw new Error(`Failed to scrape Reddit URL: ${scrapeResponse.status} ${errorText}`);
           }
           
           const scrapeData = await scrapeResponse.json();
           
           if (!scrapeData.success) {
+            console.error('[Batch Generator] Scrape returned success=false:', scrapeData.error);
             throw new Error(scrapeData.error || 'Failed to scrape Reddit URL');
           }
           
@@ -105,9 +119,14 @@ export async function generateBatch(
             author: scrapeData.author
           };
           
-          console.log(`[Batch Generator] Successfully scraped story: "${scrapeData.title}"`);
+          console.log(`[Batch Generator] ✅ Successfully scraped story: "${scrapeData.title}"`);
         } catch (scrapeError) {
-          console.error('[Batch Generator] Reddit scraping failed:', scrapeError);
+          console.error('[Batch Generator] ❌ Reddit scraping failed:', scrapeError);
+          console.error('[Batch Generator] Error details:', {
+            name: scrapeError instanceof Error ? scrapeError.name : 'Unknown',
+            message: scrapeError instanceof Error ? scrapeError.message : String(scrapeError),
+            stack: scrapeError instanceof Error ? scrapeError.stack : undefined
+          });
           throw new Error(`Reddit scraping failed: ${scrapeError instanceof Error ? scrapeError.message : 'Unknown error'}`);
         }
       }
@@ -240,9 +259,15 @@ export async function generateBatchWithPolling(
   const errors: Array<{ index: number; error: string }> = [];
   
   // Get the Next.js app URL for API routes like scrape-reddit
-  const appUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}` 
-    : 'https://taleo.media';
+  // FIXED: Proper environment variable priority and URL construction
+  let appUrl = 'https://taleo.media'; // Default fallback
+  
+  if (process.env.NEXTAUTH_URL) {
+    appUrl = process.env.NEXTAUTH_URL;
+  } else if (process.env.VERCEL_URL) {
+    // VERCEL_URL doesn't include protocol, need to add it
+    appUrl = `https://${process.env.VERCEL_URL}`;
+  }
 
   for (let i = 0; i < config.videosPerBatch; i++) {
     try {
@@ -255,18 +280,24 @@ export async function generateBatchWithPolling(
         try {
           const scrapeResponse = await fetch(`${appUrl}/api/scrape-reddit`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-server-side-call': 'true', // Bypass rate limiting for server-side calls
+            },
             body: JSON.stringify({ url: config.redditUrl })
           });
           
           if (!scrapeResponse.ok) {
             const errorText = await scrapeResponse.text();
+            console.error('[Batch Generator] Scrape failed with status', scrapeResponse.status);
+            console.error('[Batch Generator] Error response:', errorText);
             throw new Error(`Failed to scrape Reddit URL: ${scrapeResponse.status} ${errorText}`);
           }
           
           const scrapeData = await scrapeResponse.json();
           
           if (!scrapeData.success) {
+            console.error('[Batch Generator] Scrape returned success=false:', scrapeData.error);
             throw new Error(scrapeData.error || 'Failed to scrape Reddit URL');
           }
           
@@ -277,9 +308,14 @@ export async function generateBatchWithPolling(
             author: scrapeData.author
           };
           
-          console.log(`[Batch Generator] Successfully scraped story: "${scrapeData.title}"`);
+          console.log(`[Batch Generator] ✅ Successfully scraped story: "${scrapeData.title}"`);
         } catch (scrapeError) {
-          console.error('[Batch Generator] Reddit scraping failed:', scrapeError);
+          console.error('[Batch Generator] ❌ Reddit scraping failed:', scrapeError);
+          console.error('[Batch Generator] Error details:', {
+            name: scrapeError instanceof Error ? scrapeError.name : 'Unknown',
+            message: scrapeError instanceof Error ? scrapeError.message : String(scrapeError),
+            stack: scrapeError instanceof Error ? scrapeError.stack : undefined
+          });
           throw new Error(`Reddit scraping failed: ${scrapeError instanceof Error ? scrapeError.message : 'Unknown error'}`);
         }
       }
