@@ -36,6 +36,7 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
   }
 
   const railwayRequest = {
+    videoId: videoId, // Pass our videoId so Railway uses the same ID
     subreddit: story.subreddit,
     isCliffhanger: options.isCliffhanger,
     voice: options.voice,
