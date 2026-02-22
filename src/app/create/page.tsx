@@ -435,7 +435,7 @@ export default function Create() {
           setIsGenerating(false);
           setProgress(0);
         }
-      }, 1000);
+      }, 2000); // Poll every 2 seconds instead of 1 to reduce server load
 
     } catch (error) {
       console.error('Failed to generate video:', error);
