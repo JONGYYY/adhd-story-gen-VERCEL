@@ -56,7 +56,8 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
-    const response = await fetch(`${RAILWAY_API_URL}/generate-video`, {
+    // Use /api/generate-video path to match batch generator (which works)
+    const response = await fetch(`${RAILWAY_API_URL}/api/generate-video`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -78,11 +79,21 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
     console.log('About to read response JSON...');
     let result;
     try {
-      result = await response.json();
+      // Create a timeout promise for response.json()
+      const jsonTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('response.json() timed out after 10 seconds')), 10000)
+      );
+      
+      // Race between json parsing and timeout
+      result = await Promise.race([
+        response.json(),
+        jsonTimeout
+      ]) as any;
+      
       console.log('✅ Railway API response:', JSON.stringify(result, null, 2));
     } catch (parseError) {
       console.error('❌ Failed to parse Railway API response as JSON:', parseError);
-      throw new Error('Railway API returned invalid JSON response');
+      throw new Error(`Railway API response parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
     }
 
     if (!result.success) {
