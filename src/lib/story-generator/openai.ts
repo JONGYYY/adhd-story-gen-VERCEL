@@ -103,8 +103,23 @@ ${needsStartingQuestion ? '- This subreddit REQUIRES a "StartingQuestion:" field
 
 Double-check your output includes all required fields before responding.`;
 
+    // COST OPTIMIZATION: Use cheaper GPT-3.5-turbo for simple subreddits
+    // GPT-3.5 is 20x cheaper ($0.002/1K vs $0.06/1K) and sufficient for straightforward stories
+    const SIMPLE_SUBREDDITS = [
+      'r/confession',
+      'r/tifu',
+      'r/TIFU', // Handle both cases
+      'r/shortscarystories',
+      'r/ShortScaryStories' // Handle both cases
+    ];
+    
+    const useSimpleModel = SIMPLE_SUBREDDITS.includes(subreddit);
+    const model = useSimpleModel ? 'gpt-3.5-turbo' : 'gpt-4';
+    
+    console.log(`[Story Generation] Using ${model} for ${subreddit} ${useSimpleModel ? '(cost-optimized)' : '(premium)'}`);
+
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: model,
       messages: [
         {
           role: 'system',
