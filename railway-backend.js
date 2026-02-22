@@ -2099,6 +2099,7 @@ async function generateVideoSimple(options, videoId, userId) {
     }
     
     // Update in-memory status (backward compatibility)
+    console.log(`[status-set] Setting completed status for videoId: ${videoId}`);
     videoStatus.set(videoId, { 
       status: 'completed', 
       progress: 100, 
@@ -2106,6 +2107,8 @@ async function generateVideoSimple(options, videoId, userId) {
       videoUrl: finalVideoUrl,
       title: storyTitle
     });
+    console.log(`[status-set] Map size after set: ${videoStatus.size}`);
+    console.log(`[status-set] Verify status was set:`, videoStatus.get(videoId));
     
     // Update Firestore with completed status and video URL
     if (userId) {
@@ -2402,11 +2405,17 @@ async function videoStatusHandler(req, res) {
     }
     
     // Fallback to in-memory status (backward compatibility for active processing)
+    console.log(`[status-check] Checking in-memory Map for videoId: ${videoId}`);
+    console.log(`[status-check] Map size: ${videoStatus.size}`);
+    console.log(`[status-check] Map has videoId: ${videoStatus.has(videoId)}`);
     const status = videoStatus.get(videoId);
+    console.log(`[status-check] Retrieved status:`, status);
     if (!status) {
+      console.error(`[status-check] ❌ Status not found for videoId: ${videoId}`);
       return res.status(404).json({ success: false, error: 'Video status not found' });
     }
 
+    console.log(`[status-check] ✅ Returning status for videoId: ${videoId}:`, status);
     res.json(status);
   } catch (error) {
     console.error('Video status error:', error); // Added log
