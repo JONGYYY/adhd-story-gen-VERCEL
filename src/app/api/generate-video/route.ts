@@ -56,8 +56,7 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
-    // Use /api/generate-video path to match batch generator (which works)
-    const response = await fetch(`${RAILWAY_API_URL}/api/generate-video`, {
+    const response = await fetch(`${RAILWAY_API_URL}/generate-video`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
