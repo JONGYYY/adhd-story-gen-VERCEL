@@ -13,14 +13,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Railway API configuration (set in Railway env)
-// Railway provides RAILWAY_PRIVATE_DOMAIN env var for internal networking
-// Format: service-name.railway.internal (auto-set by Railway)
-const RAILWAY_PRIVATE_DOMAIN = process.env.RAILWAY_PRIVATE_DOMAIN;
-const RAILWAY_INTERNAL_URL = RAILWAY_PRIVATE_DOMAIN 
-  ? `http://${RAILWAY_PRIVATE_DOMAIN}:8080`
-  : null;
-
-const RAW_RAILWAY_API_URL = (process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media').trim();
+const RAW_RAILWAY_API_URL = (process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://taleo.media').trim();
 const RAILWAY_API_URL = RAW_RAILWAY_API_URL.replace(/\/$/, '');
 
 async function getDisplayNameFromSession(request: NextRequest): Promise<string | null> {
@@ -56,40 +49,17 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
   };
 
   console.log('Sending request to Railway API:', JSON.stringify(railwayRequest, null, 2));
-  console.log('RAILWAY_PRIVATE_DOMAIN:', RAILWAY_PRIVATE_DOMAIN || 'NOT SET');
-  
-  // Try internal Railway network first (avoids CDN issues), fall back to public URL
-  // Use /api/generate-video path (same as batch generator which works)
-  const tryUrls = RAILWAY_INTERNAL_URL 
-    ? [
-        `${RAILWAY_INTERNAL_URL}/api/generate-video`,
-        `${RAILWAY_API_URL}/api/generate-video`
-      ]
-    : [`${RAILWAY_API_URL}/api/generate-video`];
-  
-  console.log('Will try URLs in order:', tryUrls);
 
-  let lastError: Error | null = null;
-  
-  for (const url of tryUrls) {
-    console.log('Attempting:', url);
-    try {
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout per attempt
-      
-      const response = await fetch(url, {
+  try {
+    const response = await fetch(`${RAILWAY_API_URL}/generate-video`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(railwayRequest),
-      signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
     console.log('Railway API response status:', response.status, response.statusText);
-    console.log('Railway API response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -97,15 +67,8 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
       throw new Error(`Railway API error: ${response.status} - ${errorText}`);
     }
 
-    console.log('About to parse response JSON...');
-    let result;
-    try {
-      result = await response.json();
-      console.log('✅ Railway API response:', JSON.stringify(result, null, 2));
-    } catch (parseError) {
-      console.error('❌ Failed to parse Railway API response:', parseError);
-      throw new Error(`Railway API response parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
-    }
+    const result = await response.json();
+    console.log('Railway API response:', JSON.stringify(result, null, 2));
 
     if (!result.success) {
       console.error('Railway API returned unsuccessful response:', result);
@@ -117,26 +80,13 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
       throw new Error('Railway API response missing videoId');
     }
 
-    console.log('✅ Railway video generation started successfully with ID:', result.videoId);
+    console.log('Railway video generation started successfully with ID:', result.videoId);
     return result.videoId; // Railway returns its own video ID
-    
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`❌ Failed with ${url}:`, lastError.message);
-      
-      // If this is the last URL, throw the error
-      if (url === tryUrls[tryUrls.length - 1]) {
-        break;
-      }
-      
-      // Otherwise, try the next URL
-      console.log('Trying next URL...');
-    }
+  } catch (error) {
+    console.error('Error calling Railway API:', error);
+    // If Railway fails, surface the error to the caller
+    throw error;
   }
-  
-  // All URLs failed
-  console.error('❌ All Railway API URLs failed');
-  throw lastError || new Error('Failed to connect to Railway API');
 }
 
 export async function POST(request: NextRequest) {
