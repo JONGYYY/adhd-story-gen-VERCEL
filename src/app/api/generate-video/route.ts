@@ -75,23 +75,47 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
       throw new Error(`Railway API error: ${response.status} - ${errorText}`);
     }
 
-    console.log('About to read response JSON...');
+    console.log('About to read response body...');
     let result;
     try {
-      // Create a timeout promise for response.json()
-      const jsonTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('response.json() timed out after 10 seconds')), 10000)
-      );
+      // Node.js fetch with Railway has issues with response.json()
+      // Manually consume the stream instead
+      const chunks: Uint8Array[] = [];
+      const reader = response.body?.getReader();
       
-      // Race between json parsing and timeout
-      result = await Promise.race([
-        response.json(),
-        jsonTimeout
-      ]) as any;
+      if (!reader) {
+        throw new Error('Response body is null');
+      }
       
+      const readTimeout = setTimeout(() => {
+        reader.cancel('Timeout after 10 seconds');
+      }, 10000);
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) chunks.push(value);
+      }
+      
+      clearTimeout(readTimeout);
+      
+      // Combine chunks and decode
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const combined = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.length;
+      }
+      
+      const text = new TextDecoder().decode(combined);
+      console.log('✅ Response body read successfully. Length:', text.length);
+      console.log('Response text:', text);
+      
+      result = JSON.parse(text);
       console.log('✅ Railway API response:', JSON.stringify(result, null, 2));
     } catch (parseError) {
-      console.error('❌ Failed to parse Railway API response as JSON:', parseError);
+      console.error('❌ Failed to read/parse Railway API response:', parseError);
       throw new Error(`Railway API response parsing failed: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
     }
 
