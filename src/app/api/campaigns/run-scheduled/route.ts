@@ -114,27 +114,38 @@ export async function POST(request: NextRequest) {
     }
 
     // CLEANUP: Clear stuck "currentlyRunning" flags from runs that started >15 minutes ago
-    // This is a safety net - if it fails (e.g., missing Firestore index), scheduler continues
+    // Use simpler query to avoid Firestore index requirement
     try {
       const db = await getAdminFirestore();
       const fifteenMinutesAgo = Date.now() - (15 * 60 * 1000);
-      const stuckCampaigns = await db
+      
+      // Query only by currentlyRunning (no composite index needed)
+      const runningCampaigns = await db
         .collection('campaigns')
         .where('currentlyRunning', '==', true)
-        .where('lastRunStartedAt', '<', fifteenMinutesAgo)
         .get();
       
-      if (!stuckCampaigns.empty) {
-        console.log(`[Campaign Scheduler] Found ${stuckCampaigns.docs.length} campaigns with stuck running flag, clearing...`);
+      if (!runningCampaigns.empty) {
         const batch = db.batch();
-        stuckCampaigns.docs.forEach(doc => {
-          batch.update(doc.ref, { 
-            currentlyRunning: false,
-            lastRunStartedAt: null 
-          });
+        let clearedCount = 0;
+        
+        runningCampaigns.docs.forEach(doc => {
+          const data = doc.data();
+          // Filter in memory: only clear if stuck for >15 minutes
+          if (data.lastRunStartedAt && data.lastRunStartedAt < fifteenMinutesAgo) {
+            batch.update(doc.ref, { 
+              currentlyRunning: false,
+              lastRunStartedAt: null 
+            });
+            clearedCount++;
+            console.log(`[Campaign Scheduler] Clearing stuck flag for campaign "${data.name}" (${doc.id}) - stuck for ${Math.round((Date.now() - data.lastRunStartedAt) / 60000)} minutes`);
+          }
         });
-        await batch.commit();
-        console.log(`[Campaign Scheduler] Cleared ${stuckCampaigns.docs.length} stuck flags`);
+        
+        if (clearedCount > 0) {
+          await batch.commit();
+          console.log(`[Campaign Scheduler] Cleared ${clearedCount} stuck campaign flags`);
+        }
       }
     } catch (cleanupError) {
       console.warn('[Campaign Scheduler] Cleanup failed (non-critical):', cleanupError instanceof Error ? cleanupError.message : cleanupError);
@@ -643,14 +654,20 @@ export async function POST(request: NextRequest) {
       name: error instanceof Error ? error.name : 'Unknown',
       message: error instanceof Error ? error.message : String(error),
     });
-    return NextResponse.json(
-      { 
-        error: 'Scheduler error',
-        message: error instanceof Error ? error.message : String(error),
-        details: process.env.NODE_ENV === 'development' ? error : undefined
-      },
-      { status: 500 }
-    );
+    
+    // Construct safe error response (avoid ReadableStream serialization error)
+    const errorResponse: Record<string, any> = {
+      error: 'Scheduler error',
+      message: error instanceof Error ? error.message : String(error),
+    };
+    
+    // Only include safe error details in development
+    if (process.env.NODE_ENV === 'development' && error instanceof Error) {
+      errorResponse.stack = error.stack;
+      errorResponse.name = error.name;
+    }
+    
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }
 
