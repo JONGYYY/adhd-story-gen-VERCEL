@@ -21,27 +21,36 @@ export async function GET(request: NextRequest) {
     // Verify authentication
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const decoded = await verifySessionCookie(sessionCookie);
     if (!decoded) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Get user's campaigns
     const campaigns = await getUserCampaigns(decoded.uid);
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: true,
       campaigns,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Failed to fetch campaigns:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch campaigns' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to fetch campaigns' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -53,12 +62,18 @@ export async function POST(request: NextRequest) {
     // Verify authentication
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const decoded = await verifySessionCookie(sessionCookie);
     if (!decoded) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const userId = decoded.uid;
@@ -66,10 +81,12 @@ export async function POST(request: NextRequest) {
     // Verify Pro access
     const autoPilotCheck = await canUseAutoPilot(userId);
     if (!autoPilotCheck.allowed) {
-      return NextResponse.json(
-        { error: autoPilotCheck.reason || 'Auto-pilot not available' },
-        { status: 403 }
-      );
+      return new Response(JSON.stringify({ 
+        error: autoPilotCheck.reason || 'Auto-pilot not available' 
+      }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Parse request body
@@ -77,36 +94,56 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!body.name || !body.name.trim()) {
-      return NextResponse.json({ error: 'Campaign name is required' }, { status: 400 });
+      return new Response(JSON.stringify({ error: 'Campaign name is required' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (!body.sources || body.sources.length === 0) {
-      return NextResponse.json({ error: 'At least one story source is required' }, { status: 400 });
+      return new Response(JSON.stringify({ error: 'At least one story source is required' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Only require subreddits if not using Reddit URLs
     if (!body.useRedditUrls && (!body.subreddits || body.subreddits.length === 0)) {
-      return NextResponse.json({ error: 'At least one subreddit is required' }, { status: 400 });
+      return new Response(JSON.stringify({ error: 'At least one subreddit is required' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Require Reddit URLs if using Reddit URL mode
     if (body.useRedditUrls && (!body.redditUrls || body.redditUrls.length === 0)) {
-      return NextResponse.json({ error: 'At least one Reddit URL is required' }, { status: 400 });
+      return new Response(JSON.stringify({ error: 'At least one Reddit URL is required' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (!body.backgrounds || body.backgrounds.length === 0) {
-      return NextResponse.json({ error: 'At least one background is required' }, { status: 400 });
+      return new Response(JSON.stringify({ error: 'At least one background is required' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (!body.voices || body.voices.length === 0) {
-      return NextResponse.json({ error: 'At least one voice is required' }, { status: 400 });
+      return new Response(JSON.stringify({ error: 'At least one voice is required' }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (body.videosPerBatch < 1 || body.videosPerBatch > 20) {
-      return NextResponse.json(
-        { error: 'Videos per batch must be between 1 and 20' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'Videos per batch must be between 1 and 20' 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Calculate first run time
@@ -189,17 +226,20 @@ export async function POST(request: NextRequest) {
 
     const campaignId = await createCampaign(campaignData);
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: true,
       campaignId,
       nextRunAt,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Failed to create campaign:', error);
-    return NextResponse.json(
-      { error: 'Failed to create campaign' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to create campaign' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
