@@ -89,7 +89,7 @@ export class YouTubeAPI {
       });
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout (cron-job.org has 30s total)
 
       try {
         const response = await fetch(tokenEndpoint, {
@@ -127,8 +127,8 @@ export class YouTubeAPI {
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
-          console.error('Token refresh timed out after 30 seconds');
-          throw new Error('Token refresh timed out. Please try again.');
+          console.error('Token refresh timed out after 15 seconds');
+          throw new Error('Token refresh timed out. YouTube API may be slow.');
         }
         throw fetchError;
       }

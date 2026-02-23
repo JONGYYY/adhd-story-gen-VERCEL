@@ -178,9 +178,9 @@ export class TikTokAPI {
       // Add timeout to prevent hanging
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.error('Token refresh timed out after 30 seconds');
+        console.error('Token refresh timed out after 15 seconds');
         controller.abort();
-      }, 30000); // 30 second timeout
+      }, 15000); // 15 second timeout (cron-job.org has 30s total)
 
       let response;
       try {

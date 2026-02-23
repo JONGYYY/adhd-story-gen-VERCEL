@@ -31,7 +31,8 @@ import {
   Eye,
   ThumbsUp,
   MessageSquare,
-  Share2
+  Share2,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -83,6 +84,7 @@ export default function Analytics() {
   const [customTimeFrame, setCustomTimeFrame] = useState<TimeFrameOption>('1month');
   const [comparisonStartDate, setComparisonStartDate] = useState<string>('');
   const [comparisonEndDate, setComparisonEndDate] = useState<string>('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -163,6 +165,7 @@ export default function Analytics() {
 
   const fetchYoutubeStats = async () => {
     try {
+      setYoutubeLoading(true);
       const response = await fetch('/api/social-media/youtube/analytics');
       const data = await response.json();
       
@@ -170,13 +173,19 @@ export default function Analytics() {
         setYoutubeStats(data.channel);
       } else if (data.reconnectRequired) {
         console.error('YouTube reconnection required:', data.error);
-        // Could show a toast/alert here
       }
     } catch (error) {
       console.error('Failed to fetch YouTube stats:', error);
     } finally {
       setYoutubeLoading(false);
     }
+  };
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchYoutubeStats();
+    await fetchYoutubeVideos();
+    setIsRefreshing(false);
   };
 
   // Platform-specific stats
@@ -862,6 +871,18 @@ export default function Analytics() {
                     YouTube {youtubeStats.channelTitle ? `(${youtubeStats.channelTitle})` : ''}
                     <ExternalLink className="w-4 h-4" />
                   </Link>
+                </Button>
+              )}
+              
+              {/* Manual Refresh Button - YouTube only */}
+              {selectedPlatform === 'youtube' && (
+                <Button
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing || youtubeLoading}
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0"
+                >
+                  <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
+                  {isRefreshing ? 'Refreshing...' : 'Refresh'}
                 </Button>
               )}
               

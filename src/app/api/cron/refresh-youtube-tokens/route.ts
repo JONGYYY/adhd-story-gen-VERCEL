@@ -92,14 +92,26 @@ export async function POST(request: NextRequest) {
       error?: string;
     }> = [];
 
+    // CRITICAL: cron-job.org has 30-second timeout for entire endpoint
+    // Process users but bail early if approaching timeout
+    const CRON_TIMEOUT_MS = 25000; // Leave 5s buffer before cron-job.org kills us
+    
     // Process each user's credentials
     for (const doc of youtubeCredsSnapshot.docs) {
+      // Check if we're approaching cron timeout
+      const elapsed = Date.now() - startTime;
+      if (elapsed > CRON_TIMEOUT_MS) {
+        console.warn(`⚠️  Approaching cron timeout (${elapsed}ms elapsed), stopping early`);
+        console.log(`Processed ${tokensChecked}/${youtubeCredsSnapshot.size} users before timeout`);
+        break;
+      }
+      
       const credentials = doc.data();
       // Extract userId from document ID (format: "userId_youtube")
       const userId = doc.id.split('_')[0];
       
       tokensChecked++;
-      console.log(`\n[User ${userId}] Checking token...`);
+      console.log(`\n[User ${userId}] Checking token... (${elapsed}ms elapsed)`);
 
       try {
         // Check if token needs refresh
@@ -141,10 +153,16 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Refresh the token
+        // Refresh the token with per-user timeout
         console.log(`[User ${userId}] ⟳ Refreshing token (expires in ${hoursUntilExpiry.toFixed(2)}h)...`);
         
-        const newTokens = await youtubeApi.refreshAccessToken(credentials.refreshToken);
+        // Wrap in timeout to prevent one slow user from blocking others
+        const refreshPromise = youtubeApi.refreshAccessToken(credentials.refreshToken);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('User token refresh timed out')), 15000);
+        });
+        
+        const newTokens = await Promise.race([refreshPromise, timeoutPromise]) as any;
         
         // Update credentials in Firestore
         await doc.ref.update({
@@ -171,6 +189,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: errorMessage,
         });
+        // Continue to next user even if this one failed
       }
     }
 
