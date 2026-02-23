@@ -1151,6 +1151,10 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const tmpDir = path.join(__dirname, 'tmp');
   await fsp.mkdir(tmpDir, { recursive: true });
 
+  // Cache for S3 background listings (60 second TTL)
+  const s3ListCache = new Map();
+  const S3_CACHE_TTL = 60000; // 60 seconds
+
   // Resolve background from S3 (preferred) with category-specific behavior:
   // - minecraft/subway: pick ONE random video (no 6s chopping)
   // - worker/food: build a montage of ceil(totalDur/6) clips of up to 6 seconds each
@@ -1179,6 +1183,15 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     };
 
     const listMp4Keys = async (prefix) => {
+      // Check cache first
+      const cached = s3ListCache.get(prefix);
+      if (cached && Date.now() - cached.timestamp < S3_CACHE_TTL) {
+        console.log(`[bg-cache] Using cached S3 list for ${prefix} (${cached.keys.length} files)`);
+        return cached.keys;
+      }
+
+      console.log(`[bg-cache] Fetching S3 list for ${prefix}...`);
+      const startTime = Date.now();
       let token = undefined;
       const keys = [];
       for (;;) {
@@ -1190,6 +1203,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
         if (!resp.IsTruncated) break;
         token = resp.NextContinuationToken;
       }
+      const elapsed = Date.now() - startTime;
+      console.log(`[bg-cache] Fetched ${keys.length} files in ${elapsed}ms`);
+      
+      // Cache the result
+      s3ListCache.set(prefix, { keys, timestamp: Date.now() });
       return keys;
     };
 
@@ -2049,7 +2067,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
 
 // Simple video generation function
 async function generateVideoSimple(options, videoId, userId) {
-  console.log(`Generating video for ID: ${videoId} with options:`, options); // Added log
+  const genStartTime = Date.now();
+  console.log(`[TIMING] Video generation started for ID: ${videoId}`);
+  console.log(`Generating video for ID: ${videoId} with options:`, options);
   videoStatus.set(videoId, { status: 'processing', progress: 0, message: 'Video generation started.' });
 
   await new Promise((r) => setTimeout(r, 300));
@@ -2060,6 +2080,9 @@ async function generateVideoSimple(options, videoId, userId) {
   videoStatus.set(videoId, { status: 'processing', progress: 75, message: 'Finalizing...' });
 
   try {
+    const ffmpegStartTime = Date.now();
+    console.log(`[TIMING] Starting FFmpeg build for ID: ${videoId}`);
+    
     // FFmpeg fallback path (no Remotion)
     const videoUrl = await buildVideoWithFfmpeg({
       title: options?.customStory?.title || '',
@@ -2073,6 +2096,9 @@ async function generateVideoSimple(options, videoId, userId) {
       maxDuration: options?.maxDuration
     }, videoId);
     
+    const ffmpegElapsed = Date.now() - ffmpegStartTime;
+    console.log(`[TIMING] FFmpeg build completed in ${ffmpegElapsed}ms for ID: ${videoId}`);
+    
     // Get title from videoStatus (preserve it from initial set)
     const currentStatus = videoStatus.get(videoId);
     const storyTitle = currentStatus?.title || options?.customStory?.title || 'Untitled Story';
@@ -2080,6 +2106,9 @@ async function generateVideoSimple(options, videoId, userId) {
     // Upload to R2 if configured
     let finalVideoUrl = videoUrl; // Default to local ephemeral URL
     if (userId && r2Config.enabled) {
+      const r2StartTime = Date.now();
+      console.log(`[TIMING] Starting R2 upload for ID: ${videoId}`);
+      
       videoStatus.set(videoId, { 
         status: 'processing', 
         progress: 90, 
@@ -2089,6 +2118,9 @@ async function generateVideoSimple(options, videoId, userId) {
       
       const videoPath = path.join(__dirname, 'public', 'videos', `${videoId}.mp4`);
       const r2Url = await uploadVideoToR2(videoPath, videoId, userId);
+      
+      const r2Elapsed = Date.now() - r2StartTime;
+      console.log(`[TIMING] R2 upload completed in ${r2Elapsed}ms for ID: ${videoId}`);
       
       if (r2Url) {
         finalVideoUrl = r2Url;
@@ -2116,6 +2148,8 @@ async function generateVideoSimple(options, videoId, userId) {
       });
     }
     
+    const totalElapsed = Date.now() - genStartTime;
+    console.log(`[TIMING] ✅ Total generation time: ${totalElapsed}ms (${(totalElapsed/1000).toFixed(1)}s) for ID: ${videoId}`);
     console.log(`Video generation completed for ID: ${videoId}`);
   } catch (err) {
     console.error('Video build failed (FFmpeg fallback):', err);
