@@ -652,78 +652,6 @@ async function synthesizeVoiceEleven(text, voiceAlias) {
   return buf;
 }
 
-/**
- * Truncate story text to fit within target video duration, accounting for speed multiplier
- * This saves ElevenLabs costs by avoiding synthesis of text that will be trimmed anyway
- * 
- * @param {string} text - The full story text
- * @param {number} maxDurationSeconds - Target video duration in seconds
- * @param {number} speedMultiplier - Audio speed (e.g., 1.3 for 1.3x speed)
- * @param {number} openingDurationEstimate - Estimated opening/title duration in seconds (default: 2.5s)
- * @returns {string} - Truncated text that fits the duration
- */
-function truncateTextForDuration(text, maxDurationSeconds, speedMultiplier = 1.0, openingDurationEstimate = 2.5) {
-  if (!text || !maxDurationSeconds) {
-    return text;
-  }
-
-  // Base TTS speaking rate: ~160 words per minute at normal speed
-  // This is conservative for TTS which typically speaks at 150-180 wpm
-  const BASE_WPM = 160;
-  
-  // Effective speaking rate increases with speed multiplier
-  // At 1.3x speed, TTS can fit 30% more words in same time
-  const effectiveWPM = BASE_WPM * speedMultiplier;
-  
-  // Calculate available duration for story (subtract opening)
-  const storyDurationSeconds = Math.max(maxDurationSeconds - openingDurationEstimate, 0);
-  const storyDurationMinutes = storyDurationSeconds / 60;
-  
-  // Calculate how many words can fit
-  const maxWords = Math.floor(storyDurationMinutes * effectiveWPM);
-  
-  // Average English word is ~5 characters + 1 space = 6 characters per word
-  // Add 10% buffer to account for variance in word length
-  const estimatedMaxChars = Math.floor(maxWords * 6 * 0.9);
-  
-  console.log(`[TTS-Truncate] maxDuration: ${maxDurationSeconds}s, speed: ${speedMultiplier}x, effectiveWPM: ${effectiveWPM.toFixed(1)}`);
-  console.log(`[TTS-Truncate] Story duration: ${storyDurationSeconds.toFixed(1)}s, maxWords: ${maxWords}, maxChars: ~${estimatedMaxChars}`);
-  
-  // If text is already short enough, return as-is
-  if (text.length <= estimatedMaxChars) {
-    console.log(`[TTS-Truncate] Text length ${text.length} chars is within limit, no truncation needed`);
-    return text;
-  }
-  
-  // Truncate to character limit
-  let truncated = text.substring(0, estimatedMaxChars);
-  
-  // Try to truncate at sentence boundary (. ! ?) for natural ending
-  const sentenceEndings = ['. ', '! ', '? '];
-  let bestSentenceEnd = -1;
-  
-  for (const ending of sentenceEndings) {
-    const lastIndex = truncated.lastIndexOf(ending);
-    if (lastIndex > estimatedMaxChars * 0.7) { // Only use if within last 30% of text
-      bestSentenceEnd = Math.max(bestSentenceEnd, lastIndex + ending.length);
-    }
-  }
-  
-  if (bestSentenceEnd > 0) {
-    truncated = truncated.substring(0, bestSentenceEnd).trim();
-    console.log(`[TTS-Truncate] Truncated at sentence boundary: ${text.length} → ${truncated.length} chars (saved ${text.length - truncated.length} chars)`);
-  } else {
-    // Fallback: truncate at word boundary
-    const lastSpace = truncated.lastIndexOf(' ');
-    if (lastSpace > estimatedMaxChars * 0.8) {
-      truncated = truncated.substring(0, lastSpace).trim();
-    }
-    console.log(`[TTS-Truncate] Truncated at word boundary: ${text.length} → ${truncated.length} chars (saved ${text.length - truncated.length} chars)`);
-  }
-  
-  return truncated;
-}
-
 // Helpers to get audio duration with ffprobe and build word timestamps
 async function getAudioDurationFromFile(audioPath) {
   return new Promise((resolve, reject) => {
@@ -1308,28 +1236,11 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     return { bgPath: montage, bgInfo: { mode: 'montage', prefix: usedPrefix, count: keys.length, totalDurSec, montage } };
   }
 
-  // Calculate speed multiplier BEFORE TTS synthesis so we can truncate text appropriately
-  // Priority: 1) User-selected speed from UI, 2) VIDEO_SPEED_MULTIPLIER env var, 3) Default 1.3x
-  const envSpeedRaw = parseFloat(process.env.VIDEO_SPEED_MULTIPLIER || '1.3');
-  const envSpeed = (isFinite(envSpeedRaw) && envSpeedRaw >= 0.5 && envSpeedRaw <= 2.0) ? envSpeedRaw : 1.3;
-  const userSpeed = requestedSpeed !== undefined && isFinite(requestedSpeed) && requestedSpeed >= 0.5 && requestedSpeed <= 2.0
-    ? requestedSpeed
-    : undefined;
-  const calculatedSpeedMultiplier = userSpeed !== undefined ? userSpeed : envSpeed;
-
   // Synthesize TTS for title and story segments
   const openingText = title || '';
   // FIXED: Use full story text, don't split at [BREAK] since that functionality was removed
   // Remove any [BREAK] tags if present, but use the entire story
-  let storyText = (story || '').replace(/\[BREAK\]/g, ' ').trim();
-  
-  // COST OPTIMIZATION: Truncate story text BEFORE TTS synthesis if maxDuration is specified
-  // This saves ElevenLabs costs by avoiding synthesis of text that would be trimmed anyway
-  if (maxDuration && storyText) {
-    const targetDuration = isCliffhanger && maxDuration ? maxDuration : (isCliffhanger ? (65 + (Math.random() * 5)) : maxDuration);
-    storyText = truncateTextForDuration(storyText, targetDuration, calculatedSpeedMultiplier);
-  }
-  
+  const storyText = (story || '').replace(/\[BREAK\]/g, ' ').trim();
   const openingBuf = await synthesizeVoiceEleven(openingText, voiceAlias).catch(() => null);
   const storyBuf = await synthesizeVoiceEleven(storyText, voiceAlias).catch(() => null);
 
@@ -1339,8 +1250,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   if (openingBuf) await fsp.writeFile(openingAudio, openingBuf);
   if (storyBuf) await fsp.writeFile(storyAudio, storyBuf);
 
-  // FALLBACK: For cliffhanger videos, trim audio if it still exceeds maxDuration
-  // (Text truncation should prevent this, but this is a safety measure if TTS duration estimates were off)
+  // For cliffhanger videos: trim story audio to user-specified maxDuration (default: 65-70s)
+  // This is duration-based cutting, replacing the old [BREAK] tag approach
   if (isCliffhanger && storyBuf) {
     const fullStoryDuration = await getAudioDurationFromFile(storyAudio).catch(() => 0);
     // Use maxDuration if provided, otherwise default to 65-70 seconds
@@ -1844,9 +1755,18 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     }
   }
 
-  // Speed multiplier was already calculated earlier (line 1311) for text truncation
-  // Use the previously calculated value
-  const speedMultiplier = calculatedSpeedMultiplier;
+  // OPTIONAL: Apply speed multiplier to video and audio
+  // Priority: 1) User-selected speed from UI, 2) VIDEO_SPEED_MULTIPLIER env var, 3) Default 1.3x
+  // Valid range: 0.5 to 2.0 (lower = slower, higher = faster)
+  const envSpeedRaw = parseFloat(process.env.VIDEO_SPEED_MULTIPLIER || '1.3');
+  const envSpeed = (isFinite(envSpeedRaw) && envSpeedRaw >= 0.5 && envSpeedRaw <= 2.0) ? envSpeedRaw : 1.3;
+  
+  // Use requested speed from frontend if provided, otherwise fall back to env var
+  const userSpeed = requestedSpeed !== undefined && isFinite(requestedSpeed) && requestedSpeed >= 0.5 && requestedSpeed <= 2.0
+    ? requestedSpeed
+    : undefined;
+  
+  const speedMultiplier = userSpeed !== undefined ? userSpeed : envSpeed;
   console.log(`[speed] Using speed: ${speedMultiplier}x (source: ${userSpeed !== undefined ? 'user-selected' : 'env-var/default'})`);
   
   const applySpeed = speedMultiplier !== 1.0;
@@ -2270,13 +2190,7 @@ async function generateVideoHandler(req, res) {
 			// Allow generation to continue for backward compatibility, but warn
 		}
 		
-		const { customStory, voice, background, isCliffhanger, maxDuration, videoSpeed } = req.body;
-		
-		// Handle videoSpeed from campaigns (top-level) or UI (nested in background)
-		// Priority: top-level videoSpeed > background.speedMultiplier
-		if (videoSpeed !== undefined && background) {
-			background.speedMultiplier = videoSpeed;
-		}
+		const { customStory, voice, background, isCliffhanger, maxDuration } = req.body;
 		
 		const videoId = uuidv4();
 
