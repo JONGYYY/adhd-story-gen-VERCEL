@@ -14,12 +14,18 @@ export async function POST(request: NextRequest) {
     // Verify authentication
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const decoded = await verifySessionCookie(sessionCookie);
     if (!decoded) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const userId = decoded.uid;
@@ -33,10 +39,13 @@ export async function POST(request: NextRequest) {
       .get();
 
     if (snapshot.empty) {
-      return NextResponse.json({
+      return new Response(JSON.stringify({
         success: true,
         message: 'No campaigns found',
         cleared: 0,
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
       });
     }
 
@@ -59,17 +68,20 @@ export async function POST(request: NextRequest) {
       console.log(`[Cleanup] Cleared ${clearedCount} stuck campaigns for user ${userId}`);
     }
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: true,
       message: `Cleared ${clearedCount} stuck campaign(s)`,
       cleared: clearedCount,
       total: snapshot.docs.length,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('[Cleanup] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to cleanup campaigns' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to cleanup campaigns' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }

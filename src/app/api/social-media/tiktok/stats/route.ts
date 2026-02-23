@@ -10,10 +10,10 @@ export async function GET(request: NextRequest) {
     // Verify user is authenticated
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const decodedClaims = await verifySessionCookie(sessionCookie);
@@ -29,18 +29,18 @@ export async function GET(request: NextRequest) {
       .get();
 
     if (!credentialsDoc.exists) {
-      return NextResponse.json(
-        { error: 'TikTok not connected' },
-        { status: 404 }
-      );
+      return new Response(JSON.stringify({ error: 'TikTok not connected' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const credentials = credentialsDoc.data();
     if (!credentials?.accessToken) {
-      return NextResponse.json(
-        { error: 'TikTok access token not found' },
-        { status: 404 }
-      );
+      return new Response(JSON.stringify({ error: 'TikTok access token not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Fetch user stats from TikTok
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: true,
       stats: {
         follower_count: stats.follower_count || 0,
@@ -66,15 +66,19 @@ export async function GET(request: NextRequest) {
         likes_count: stats.likes_count || 0,
         video_count: stats.video_count || 0,
       }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error: any) {
     console.error('Error fetching TikTok stats:', error);
-    // Extract error message safely (error might contain Response/ReadableStream)
     const errorMessage = error?.message || error?.toString?.() || 'Failed to fetch TikTok stats';
-    return NextResponse.json(
-      { error: typeof errorMessage === 'string' ? errorMessage : 'Failed to fetch TikTok stats' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ 
+      error: typeof errorMessage === 'string' ? errorMessage : 'Failed to fetch TikTok stats' 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
