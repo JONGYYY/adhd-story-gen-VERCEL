@@ -6,13 +6,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Railway API configuration
-// Prefer internal Railway networking if available (faster, more reliable)
-const RAILWAY_INTERNAL_URL = process.env.RAILWAY_INTERNAL_URL; // e.g., http://railway-backend.railway.internal:8080
-const RAW_RAILWAY_API_URL = (RAILWAY_INTERNAL_URL || process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://taleo.media').trim();
+const RAW_RAILWAY_API_URL = (process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://taleo.media').trim();
 const RAILWAY_API_URL = RAW_RAILWAY_API_URL.replace(/\/$/, '');
 
 console.log('[video-status] RAILWAY_API_URL:', RAILWAY_API_URL);
-console.log('[video-status] Using internal networking:', !!RAILWAY_INTERNAL_URL);
 
 function toFrontendStatus(railwayStatus: string): 'generating' | 'ready' | 'failed' {
   if (railwayStatus === 'processing') return 'generating';
