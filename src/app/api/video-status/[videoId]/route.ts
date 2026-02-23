@@ -52,10 +52,14 @@ async function getRailwayVideoStatus(videoId: string) {
     
     // Parse JSON inside try block while response is in scope
     result = await response.json();
+    console.log('[DEBUG] JSON parsed successfully, result type:', typeof result);
+    console.log('[DEBUG] result keys:', result ? Object.keys(result) : 'null');
   } catch (fetchError) {
     console.error(`[DEBUG] Railway fetch error:`, fetchError);
     throw fetchError;
   }
+  
+  console.log('[DEBUG] After try-catch, result:', result);
   console.log('Railway video status:', JSON.stringify(result, null, 2));
   console.log('[Video Status API] RAILWAY_API_URL:', RAILWAY_API_URL);
   console.log('[Video Status API] result.videoUrl:', result.videoUrl);
