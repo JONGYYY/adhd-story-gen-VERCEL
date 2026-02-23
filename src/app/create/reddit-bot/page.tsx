@@ -85,7 +85,9 @@ export default function RedditBotCreate() {
         const videoId = data.videoId;
         const pollProgress = async () => {
           try {
-            const statusResponse = await fetch(`/api/video-status/${videoId}`);
+            // WORKAROUND: Poll Worker directly to bypass UI service proxy hang
+            const RAILWAY_API = process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media';
+            const statusResponse = await fetch(`${RAILWAY_API}/video-status/${videoId}`);
             const statusData = await statusResponse.json();
             
             setProgress(statusData.progress || 0);

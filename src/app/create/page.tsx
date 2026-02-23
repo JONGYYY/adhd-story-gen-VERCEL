@@ -380,7 +380,11 @@ export default function Create() {
           
           let statusResponse;
           try {
-            statusResponse = await fetch(`/api/video-status/${data.videoId}`, {
+            // WORKAROUND: Poll Worker directly to bypass UI service proxy response.json() hang issue
+            // The UI service's fetch to Worker gets 200 OK but response.json() hangs indefinitely (Railway proxy streaming bug)
+            // Direct browser → Worker communication works perfectly
+            const RAILWAY_API = process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media';
+            statusResponse = await fetch(`${RAILWAY_API}/video-status/${data.videoId}`, {
               method: 'GET',
               cache: 'no-cache',
               credentials: 'include', // Send session cookie for user validation

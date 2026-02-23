@@ -33,7 +33,9 @@ export default function VideoPage() {
   useEffect(() => {
     const checkStatus = async () => {
       try {
-        const response = await fetch(`/api/video-status/${videoId}`);
+        // WORKAROUND: Poll Worker directly to bypass UI service proxy response.json() hang issue
+        const RAILWAY_API = process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media';
+        const response = await fetch(`${RAILWAY_API}/video-status/${videoId}`);
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(errorText || 'Failed to fetch video status');
@@ -43,7 +45,7 @@ export default function VideoPage() {
         const uiStatus = (data.status === 'completed') ? 'ready' : (data.status === 'processing' ? 'generating' : data.status);
         let videoUrl = data.videoUrl as string | undefined;
         if (videoUrl && !videoUrl.startsWith('http')) {
-          const API_BASE = process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://api.taleo.media';
+          const API_BASE = RAILWAY_API;
           videoUrl = `${API_BASE}${videoUrl}`;
         }
         console.log('[Video Page] API response data:', { status: data.status, title: data.title, hasVideoUrl: !!data.videoUrl, duration: data.duration });
