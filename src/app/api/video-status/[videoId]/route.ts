@@ -189,10 +189,10 @@ export async function GET(
       if (localStatus.videoUrl) response.videoUrl = localStatus.videoUrl;
       if (localStatus.error) response.error = localStatus.error;
       if (localStatus.title || firestoreMetadata?.title) {
-        response.title = localStatus.title || firestoreMetadata.title;
+        response.title = localStatus.title || firestoreMetadata?.title;
       }
       if (localStatus.duration || firestoreMetadata?.duration) {
-        response.duration = localStatus.duration || firestoreMetadata.duration;
+        response.duration = localStatus.duration || firestoreMetadata?.duration;
       }
       if (localStatus.message) response.message = localStatus.message;
       
