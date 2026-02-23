@@ -22,12 +22,18 @@ export async function POST(
     // Verify authentication
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
     const decodedClaims = await verifySessionCookie(sessionCookie);
     if (!decodedClaims) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
     const userId = decodedClaims.uid;
@@ -36,20 +42,29 @@ export async function POST(
     const campaign = await getCampaign(params.id);
     
     if (!campaign) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      return new Response(JSON.stringify({ error: 'Campaign not found' }), { 
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
     // Verify ownership
     if (campaign.userId !== userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
     // Check if campaign is actually paused
     if (campaign.status !== 'paused') {
-      return NextResponse.json({ 
+      return new Response(JSON.stringify({ 
         error: 'Campaign is not paused',
         currentStatus: campaign.status 
-      }, { status: 400 });
+      }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
     // Calculate next run time
@@ -75,19 +90,22 @@ export async function POST(
     console.log(`[Campaign Resume] Campaign ${params.id} resumed by user ${userId}`);
     console.log(`[Campaign Resume] Next run scheduled for: ${new Date(nextRunAt).toISOString()}`);
     
-    return NextResponse.json({ 
+    return new Response(JSON.stringify({ 
       success: true,
       nextRunAt,
       message: 'Campaign resumed successfully'
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('[Campaign Resume] Error:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to resume campaign',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ 
+      error: 'Failed to resume campaign',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
