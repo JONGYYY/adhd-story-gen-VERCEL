@@ -1911,8 +1911,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
       const videoMap = applySpeed ? '[v_speed]' : '0:v';
       if (applySpeed) {
         fallbackArgs.push('-filter_complex', fallbackFilter, '-map', videoMap);
-      } else {
-        fallbackArgs.push('-map', '0:v');
+    } else {
+      fallbackArgs.push('-map', '0:v');
       }
     }
 
@@ -2219,7 +2219,7 @@ async function generateVideoHandler(req, res) {
 
 		// Start video generation in the background (FFmpeg-only; Remotion disabled for production stability)
 		(async () => {
-				try {
+			try {
 					await generateVideoSimple({ customStory, voice, background, isCliffhanger, maxDuration }, videoId, userId);
 			} catch (e) {
 				console.error('FFmpeg generation failed:', e);

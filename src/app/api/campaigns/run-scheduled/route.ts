@@ -157,13 +157,19 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Campaign Scheduler] Found ${campaigns.length} campaigns due to run`);
 
-    // Return early if no campaigns (force rebuild to pick up NextResponse.json fix)
+    // Return early if no campaigns (use Response with manual JSON to avoid NextResponse bug)
     if (campaigns.length === 0) {
       console.log('[Campaign Scheduler] No campaigns to run, returning success');
-      return NextResponse.json({
+      const responseBody = JSON.stringify({
         success: true,
         campaignsRun: 0,
         message: 'No campaigns due to run',
+      });
+      return new Response(responseBody, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
     }
 
@@ -644,10 +650,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    // Use manual JSON serialization to avoid NextResponse bug
+    const successBody = JSON.stringify({
       success: true,
       campaignsRun: campaigns.length,
       results,
+    });
+    return new Response(successBody, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
   } catch (error) {
     console.error('[Campaign Scheduler] Fatal Error:', error);
@@ -657,7 +670,7 @@ export async function POST(request: NextRequest) {
       message: error instanceof Error ? error.message : String(error),
     });
     
-    // Construct safe error response (avoid ReadableStream serialization error)
+    // Use manual JSON serialization to avoid NextResponse bug
     const errorResponse: Record<string, any> = {
       error: 'Scheduler error',
       message: error instanceof Error ? error.message : String(error),
@@ -669,7 +682,13 @@ export async function POST(request: NextRequest) {
       errorResponse.name = error.name;
     }
     
-    return NextResponse.json(errorResponse, { status: 500 });
+    const errorBody = JSON.stringify(errorResponse);
+    return new Response(errorBody, {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   }
 }
 
