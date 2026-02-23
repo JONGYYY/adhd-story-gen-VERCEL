@@ -128,11 +128,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // CLEANUP: Clear stuck "currentlyRunning" flags from runs that started >15 minutes ago
+    // CLEANUP: Clear stuck "currentlyRunning" flags from runs that started >5 minutes ago
     // Use simpler query to avoid Firestore index requirement
+    console.log('[Campaign Scheduler] 🧹 Running cleanup for stuck campaigns...');
     try {
       const db = await getAdminFirestore();
-      const fifteenMinutesAgo = Date.now() - (15 * 60 * 1000);
+      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+      console.log(`[Campaign Scheduler] Cleanup threshold: ${new Date(fiveMinutesAgo).toISOString()} (5 min ago)`);
       
       // Query only by currentlyRunning (no composite index needed)
       const runningCampaigns = await db
@@ -140,30 +142,50 @@ export async function POST(request: NextRequest) {
         .where('currentlyRunning', '==', true)
         .get();
       
+      console.log(`[Campaign Scheduler] Found ${runningCampaigns.size} campaigns with currentlyRunning=true`);
+      
       if (!runningCampaigns.empty) {
         const batch = db.batch();
         let clearedCount = 0;
         
         runningCampaigns.docs.forEach(doc => {
           const data = doc.data();
-          // Filter in memory: only clear if stuck for >15 minutes
-          if (data.lastRunStartedAt && data.lastRunStartedAt < fifteenMinutesAgo) {
+          
+          // Handle both number and Firestore Timestamp
+          let lastRunStartedAt = data.lastRunStartedAt;
+          if (lastRunStartedAt && typeof lastRunStartedAt === 'object' && 'toMillis' in lastRunStartedAt) {
+            lastRunStartedAt = lastRunStartedAt.toMillis();
+          }
+          lastRunStartedAt = lastRunStartedAt || 0;
+          
+          const minutesAgo = Math.round((Date.now() - lastRunStartedAt) / 60000);
+          console.log(`[Campaign Scheduler] Campaign "${data.name}" (${doc.id}): currentlyRunning=${data.currentlyRunning}, lastRunStartedAt=${new Date(lastRunStartedAt).toISOString()}, age=${minutesAgo}min, threshold=5min`);
+          
+          // Filter in memory: only clear if stuck for >5 minutes
+          if (lastRunStartedAt && lastRunStartedAt < fiveMinutesAgo) {
             batch.update(doc.ref, { 
               currentlyRunning: false,
               lastRunStartedAt: null 
             });
             clearedCount++;
-            console.log(`[Campaign Scheduler] Clearing stuck flag for campaign "${data.name}" (${doc.id}) - stuck for ${Math.round((Date.now() - data.lastRunStartedAt) / 60000)} minutes`);
+            console.log(`[Campaign Scheduler] ✅ Clearing stuck flag for campaign "${data.name}" (${doc.id}) - stuck for ${minutesAgo} minutes`);
+          } else {
+            console.log(`[Campaign Scheduler] ⏭️ Skipping cleanup for "${data.name}" - not stuck long enough (${minutesAgo}min < 5min)`);
           }
         });
         
         if (clearedCount > 0) {
           await batch.commit();
-          console.log(`[Campaign Scheduler] Cleared ${clearedCount} stuck campaign flags`);
+          console.log(`[Campaign Scheduler] ✅ Cleared ${clearedCount} stuck campaign flags`);
+        } else {
+          console.log('[Campaign Scheduler] No campaigns needed cleanup');
         }
+      } else {
+        console.log('[Campaign Scheduler] No campaigns currently marked as running');
       }
     } catch (cleanupError) {
-      console.warn('[Campaign Scheduler] Cleanup failed (non-critical):', cleanupError instanceof Error ? cleanupError.message : cleanupError);
+      console.error('[Campaign Scheduler] ❌ Cleanup failed (non-critical):', cleanupError instanceof Error ? cleanupError.message : cleanupError);
+      console.error('[Campaign Scheduler] Stack:', cleanupError instanceof Error ? cleanupError.stack : 'N/A');
       console.warn('[Campaign Scheduler] Continuing without cleanup...');
     }
 
@@ -199,20 +221,21 @@ export async function POST(request: NextRequest) {
 
     // Process each campaign
     for (const campaign of campaigns) {
+      // CRITICAL: Check if campaign is already running (prevent concurrent runs)
+      if (campaign.currentlyRunning) {
+        console.log(`[Campaign Scheduler] Skipping campaign "${campaign.name}" (${campaign.id}) - already running`);
+        continue;
+      }
+      
+      console.log(`[Campaign Scheduler] Running campaign: ${campaign.name} (${campaign.id})`);
+      
+      // Mark campaign as running
+      await updateCampaign(campaign.id, {
+        currentlyRunning: true,
+        lastRunStartedAt: Date.now(),
+      });
+      
       try {
-        // CRITICAL: Check if campaign is already running (prevent concurrent runs)
-        if (campaign.currentlyRunning) {
-          console.log(`[Campaign Scheduler] Skipping campaign "${campaign.name}" (${campaign.id}) - already running`);
-          continue;
-        }
-        
-        console.log(`[Campaign Scheduler] Running campaign: ${campaign.name} (${campaign.id})`);
-        
-        // Mark campaign as running
-        await updateCampaign(campaign.id, {
-          currentlyRunning: true,
-          lastRunStartedAt: Date.now(),
-        });
 
         let redditUrl: string | undefined;
         
@@ -662,6 +685,23 @@ export async function POST(request: NextRequest) {
           success: false,
           error: errorMessage,
         });
+      } finally {
+        // CRITICAL SAFETY NET: Ensure currentlyRunning is ALWAYS cleared
+        // This guarantees cleanup even if catch block fails or process crashes mid-execution
+        try {
+          const db = await getAdminFirestore();
+          const campaignDoc = await db.collection('campaigns').doc(campaign.id).get();
+          const currentData = campaignDoc.data();
+          
+          if (currentData?.currentlyRunning) {
+            console.log(`[Campaign Scheduler] 🛡️ FINALLY block: Force clearing currentlyRunning flag for "${campaign.name}" (${campaign.id})`);
+            await updateCampaign(campaign.id, {
+              currentlyRunning: false,
+            });
+          }
+        } catch (finallyError) {
+          console.error(`[Campaign Scheduler] ❌ FINALLY block failed for ${campaign.id}:`, finallyError);
+        }
       }
     }
 
