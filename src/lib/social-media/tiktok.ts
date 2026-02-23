@@ -183,6 +183,7 @@ export class TikTokAPI {
       }, 15000); // 15 second timeout (cron-job.org has 30s total)
 
       let response;
+      let data;
       try {
         response = await fetch(tokenUrl, {
           method: 'POST',
@@ -193,19 +194,19 @@ export class TikTokAPI {
           body: params.toString(),
           signal: controller.signal,
         });
-        clearTimeout(timeoutId);
+
+        console.log('Token refresh response received - status:', response.status);
+        data = await response.json(); // Keep under timeout protection
+        clearTimeout(timeoutId); // Clear AFTER response.json() completes
+        console.log('Token refresh response parsed successfully');
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
-          console.error('Token refresh request timed out');
+          console.error('Token refresh request timed out (fetch or JSON parsing)');
           throw new Error('TikTok token refresh timed out. Please try again.');
         }
         throw fetchError;
       }
-
-      console.log('Token refresh response received - status:', response.status);
-      const data = await response.json();
-      console.log('Token refresh response parsed successfully');
       
       if (!response.ok) {
         console.error('Token refresh error response:', data);

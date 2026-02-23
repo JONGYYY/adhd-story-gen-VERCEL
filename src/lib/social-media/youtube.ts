@@ -100,16 +100,17 @@ export class YouTubeAPI {
           body: params.toString(),
           signal: controller.signal
         });
-        
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
+          clearTimeout(timeoutId);
           const errorText = await response.text();
           console.error('Token refresh failed:', response.status, errorText);
           throw new Error(`Token refresh failed: ${response.status} ${errorText}`);
         }
 
         const tokens = await response.json();
+        clearTimeout(timeoutId); // Clear timeout AFTER response.json() completes
+        
         console.log('Access token refreshed successfully');
         console.log('Token response:', {
           hasAccessToken: !!tokens.access_token,
