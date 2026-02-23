@@ -1110,10 +1110,17 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     const getVideoDurationSeconds = async (input) => {
       const { spawn } = require('child_process');
       return await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          console.warn('[getVideoDurationSeconds] ⏱️ Timeout after 30s, killing ffprobe...');
+          try { p.kill(); } catch {}
+          resolve(0);
+        }, 30000);
+        
         const p = spawn('ffprobe', ['-v', 'quiet', '-show_entries', 'format=duration', '-of', 'csv=p=0', input]);
         let out = '';
         p.stdout.on('data', (d) => (out += d.toString()));
         p.on('close', (code) => {
+          clearTimeout(timeout);
           if (code === 0) {
             const v = parseFloat(out.trim());
             resolve(isFinite(v) ? v : 0);
@@ -1121,51 +1128,81 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
             resolve(0);
           }
         });
-        p.on('error', () => resolve(0));
+        p.on('error', () => {
+          clearTimeout(timeout);
+          resolve(0);
+        });
       });
     };
 
     const runFfmpeg = async (args, label) => {
       const { spawn } = require('child_process');
       return await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.error(`[runFfmpeg] ⏱️ ${label} timeout after 60s, killing process...`);
+          try { ff.kill('SIGKILL'); } catch {}
+          reject(new Error(`${label} timed out after 60 seconds`));
+        }, 60000);
+        
         const ff = spawn('ffmpeg', args);
         let stderr = '';
         ff.stderr.on('data', (d) => { stderr += d.toString(); });
-        ff.on('close', (code) => code === 0 ? resolve() : reject(new Error(`${label} failed ${code}: ${stderr}`)));
-        ff.on('error', reject);
+        ff.on('close', (code) => {
+          clearTimeout(timeout);
+          if (code === 0) {
+            resolve();
+          } else {
+            reject(new Error(`${label} failed ${code}: ${stderr}`));
+          }
+        });
+        ff.on('error', (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
       });
     };
 
     const buildMontage = async (keys, chunkSec = 6) => {
       const total = Math.max(0.1, Number(totalDurSec) || 0);
       const chunks = Math.max(1, Math.ceil(total / chunkSec));
+      console.log(`[buildMontage] Starting montage: ${chunks} chunks for ${total.toFixed(2)}s video`);
       const segPaths = [];
       for (let i = 0; i < chunks; i++) {
-        const remaining = total - (i * chunkSec);
-        const thisDur = Math.max(0.1, Math.min(chunkSec, remaining));
-        const key = pickRandom(keys);
-        const url = keyToUrl(key);
-        const srcDur = await getVideoDurationSeconds(url);
-        const maxStart = Math.max(0, (srcDur || (thisDur + 0.5)) - thisDur);
-        const start = maxStart > 0 ? (Math.random() * maxStart) : 0;
-        const segPath = path.join(tmpDir, `bgseg-${videoId}-${i}.mp4`);
-        await runFfmpeg([
-          '-y',
-          '-ss', `${start}`,
-          '-t', `${thisDur}`,
-          '-i', url,
-          '-an',
-          '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920',
-          '-r', '30',
-          '-c:v', 'libx264',
-          '-preset', 'veryfast',
-          '-crf', '23',
-          '-pix_fmt', 'yuv420p',
-          segPath
-        ], `bg-seg-${i}`);
-        segPaths.push(segPath);
+        try {
+          console.log(`[buildMontage] Processing chunk ${i + 1}/${chunks}...`);
+          const remaining = total - (i * chunkSec);
+          const thisDur = Math.max(0.1, Math.min(chunkSec, remaining));
+          const key = pickRandom(keys);
+          const url = keyToUrl(key);
+          console.log(`[buildMontage] Chunk ${i + 1}: Fetching duration for ${key}...`);
+          const srcDur = await getVideoDurationSeconds(url);
+          console.log(`[buildMontage] Chunk ${i + 1}: Duration ${srcDur}s, extracting ${thisDur}s...`);
+          const maxStart = Math.max(0, (srcDur || (thisDur + 0.5)) - thisDur);
+          const start = maxStart > 0 ? (Math.random() * maxStart) : 0;
+          const segPath = path.join(tmpDir, `bgseg-${videoId}-${i}.mp4`);
+          await runFfmpeg([
+            '-y',
+            '-ss', `${start}`,
+            '-t', `${thisDur}`,
+            '-i', url,
+            '-an',
+            '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920',
+            '-r', '30',
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-crf', '23',
+            '-pix_fmt', 'yuv420p',
+            segPath
+          ], `bg-seg-${i}`);
+          console.log(`[buildMontage] Chunk ${i + 1}/${chunks} completed ✅`);
+          segPaths.push(segPath);
+        } catch (chunkError) {
+          console.error(`[buildMontage] ❌ Chunk ${i + 1}/${chunks} FAILED:`, chunkError.message);
+          throw new Error(`Background montage chunk ${i + 1} failed: ${chunkError.message}`);
+        }
       }
 
+      console.log(`[buildMontage] All ${chunks} chunks completed, concatenating...`);
       const listPath = path.join(tmpDir, `bgconcat-${videoId}.txt`);
       const listBody = segPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n') + '\n';
       await fsp.writeFile(listPath, listBody);
@@ -1185,6 +1222,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
         montagePath
       ], 'bg-concat');
 
+      console.log(`[buildMontage] ✅ Montage complete: ${montagePath}`);
       return montagePath;
     };
 

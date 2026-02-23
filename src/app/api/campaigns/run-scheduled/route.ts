@@ -241,7 +241,8 @@ export async function POST(request: NextRequest) {
         
         // Get next Reddit URL if campaign uses URL list
         if (campaign.useRedditUrls && campaign.redditUrls) {
-          redditUrl = await getNextRedditUrl(campaign.id);
+          const nextUrl = await getNextRedditUrl(campaign.id);
+          redditUrl = nextUrl ?? undefined;
           
           // Check if URL list is exhausted
           if (!redditUrl) {
@@ -326,7 +327,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Auto-post to TikTok if enabled and videos were generated
-        let tiktokPostResults;
+        let tiktokPostResults: Awaited<ReturnType<typeof postBatchToTikTok>> | undefined;
         console.log(`[Campaign Scheduler] ========================================`);
         console.log(`[Campaign Scheduler] TikTok Auto-Post Check`);
         console.log(`[Campaign Scheduler] campaign.autoPostToTikTok = ${campaign.autoPostToTikTok}`);
@@ -353,13 +354,14 @@ export async function POST(request: NextRequest) {
             console.log(`[Campaign Scheduler] ========================================`);
             
             // Log detailed results for debugging
+            const totalResults = tiktokPostResults.results.length;
             tiktokPostResults.results.forEach((result, index) => {
               if (result.success) {
-                console.log(`[Campaign Scheduler] ✅ TikTok video ${index + 1}/${tiktokPostResults.results.length}: SUCCESS`);
+                console.log(`[Campaign Scheduler] ✅ TikTok video ${index + 1}/${totalResults}: SUCCESS`);
                 console.log(`[Campaign Scheduler]    Video ID: ${result.videoId}`);
                 console.log(`[Campaign Scheduler]    Publish ID: ${result.publishId}`);
               } else {
-                console.error(`[Campaign Scheduler] ❌ TikTok video ${index + 1}/${tiktokPostResults.results.length}: FAILED`);
+                console.error(`[Campaign Scheduler] ❌ TikTok video ${index + 1}/${totalResults}: FAILED`);
                 console.error(`[Campaign Scheduler]    Video ID: ${result.videoId}`);
                 console.error(`[Campaign Scheduler]    Error: ${result.error}`);
                 console.error(`[Campaign Scheduler]    Error Type: ${result.errorType}`);
