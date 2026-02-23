@@ -36,6 +36,7 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
   }
 
   const railwayRequest = {
+    videoId: videoId, // Pass our videoId so Railway uses the same ID
     subreddit: story.subreddit,
     isCliffhanger: options.isCliffhanger,
     voice: options.voice,
@@ -61,12 +62,22 @@ async function generateVideoOnRailway(options: VideoOptions, videoId: string, st
 
     console.log('Railway API response status:', response.status, response.statusText);
 
+    // For 202 Accepted, Railway CDN strips the response body
+    // Don't try to read it - just return the videoId we already have
+    // The frontend will poll /video-status to get the actual status
+    if (response.status === 202) {
+      console.log('✅ Railway accepted video generation request (202)');
+      console.log('Using videoId from our request:', videoId);
+      return videoId; // Use the videoId we generated, not from response
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Railway API error response:', errorText);
       throw new Error(`Railway API error: ${response.status} - ${errorText}`);
     }
 
+    // For 200 OK responses, read the body
     const result = await response.json();
     console.log('Railway API response:', JSON.stringify(result, null, 2));
 

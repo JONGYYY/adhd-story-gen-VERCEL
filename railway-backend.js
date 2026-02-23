@@ -2190,9 +2190,10 @@ async function generateVideoHandler(req, res) {
 			// Allow generation to continue for backward compatibility, but warn
 		}
 		
-		const { customStory, voice, background, isCliffhanger, maxDuration } = req.body;
+		const { customStory, voice, background, isCliffhanger, maxDuration, videoId: clientVideoId } = req.body;
 		
-		const videoId = uuidv4();
+		// Use videoId from client if provided, otherwise generate one (for backward compatibility)
+		const videoId = clientVideoId || uuidv4();
 
 		// Set initial processing status so /video-status does not 404 (backward compatibility)
 		videoStatus.set(videoId, { 
