@@ -157,7 +157,9 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Campaign Scheduler] Found ${campaigns.length} campaigns due to run`);
 
+    // Return early if no campaigns (force rebuild to pick up NextResponse.json fix)
     if (campaigns.length === 0) {
+      console.log('[Campaign Scheduler] No campaigns to run, returning success');
       return NextResponse.json({
         success: true,
         campaignsRun: 0,
