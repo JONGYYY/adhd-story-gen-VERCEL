@@ -16,6 +16,8 @@ export const dynamic = 'force-dynamic';
 const RAW_RAILWAY_API_URL = (process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://taleo.media').trim();
 const RAILWAY_API_URL = RAW_RAILWAY_API_URL.replace(/\/$/, '');
 
+console.log('[generate-video] RAILWAY_API_URL:', RAILWAY_API_URL);
+
 async function getDisplayNameFromSession(request: NextRequest): Promise<string | null> {
   const sessionCookie = request.cookies.get('session')?.value;
   if (!sessionCookie) return null;

@@ -2194,6 +2194,9 @@ async function generateVideoHandler(req, res) {
 		
 		// Use videoId from client if provided, otherwise generate one (for backward compatibility)
 		const videoId = clientVideoId || uuidv4();
+		
+		console.log(`[DEBUG] Setting initial status for videoId: ${videoId}`);
+		console.log(`[DEBUG] Map size before set: ${videoStatus.size}`);
 
 		// Set initial processing status so /video-status does not 404 (backward compatibility)
 		videoStatus.set(videoId, { 
@@ -2202,6 +2205,9 @@ async function generateVideoHandler(req, res) {
 			message: 'Video generation started.',
 			title: customStory?.title || 'Untitled Story'
 		});
+		
+		console.log(`[DEBUG] Map size after set: ${videoStatus.size}`);
+		console.log(`[DEBUG] Status set successfully: ${videoStatus.has(videoId)}`);
 		
 		// Save initial metadata to Firestore ONLY if user is authenticated
 		if (userId) {
@@ -2269,31 +2275,35 @@ async function videoStatusHandler(req, res) {
       console.log(`[auth] User ID provided in query parameter (server-side call): ${userId}`);
     }
     
-    console.log(`Video status requested for ID: ${videoId}, userId: ${userId || 'unauthenticated'}`);
-    
-    // First check Firestore for persistent storage
-    if (userId && firestoreDb) {
-      const metadata = await getVideoMetadata(videoId, userId);
-      if (metadata) {
-        console.log(`[firestore] Returning metadata for video ${videoId}`);
-        return res.json({
-          status: metadata.status,
-          progress: metadata.status === 'completed' ? 100 : (metadata.status === 'processing' ? 50 : 0),
-          message: metadata.status === 'completed' ? 'Video ready' : (metadata.status === 'failed' ? metadata.error : 'Processing...'),
-          videoUrl: metadata.videoUrl,
-          title: metadata.title,
-          error: metadata.error,
-        });
-      }
-    }
-    
-    // Fallback to in-memory status (backward compatibility for active processing)
-    const status = videoStatus.get(videoId);
-    if (!status) {
-      return res.status(404).json({ success: false, error: 'Video status not found' });
-    }
+	console.log(`Video status requested for ID: ${videoId}, userId: ${userId || 'unauthenticated'}`);
+	console.log(`[DEBUG] Map size: ${videoStatus.size}, Map has videoId: ${videoStatus.has(videoId)}`);
+	
+	// First check Firestore for persistent storage
+	if (userId && firestoreDb) {
+		const metadata = await getVideoMetadata(videoId, userId);
+		if (metadata) {
+			console.log(`[firestore] Returning metadata for video ${videoId}`);
+			return res.json({
+				status: metadata.status,
+				progress: metadata.status === 'completed' ? 100 : (metadata.status === 'processing' ? 50 : 0),
+				message: metadata.status === 'completed' ? 'Video ready' : (metadata.status === 'failed' ? metadata.error : 'Processing...'),
+				videoUrl: metadata.videoUrl,
+				title: metadata.title,
+				error: metadata.error,
+			});
+		}
+	}
+	
+	// Fallback to in-memory status (backward compatibility for active processing)
+	const status = videoStatus.get(videoId);
+	if (!status) {
+		console.log(`[DEBUG] Status not found in Map for video ${videoId}`);
+		console.log(`[DEBUG] Map keys:`, Array.from(videoStatus.keys()));
+		return res.status(404).json({ success: false, error: 'Video status not found' });
+	}
 
-    res.json(status);
+	console.log(`[DEBUG] Returning status from Map:`, status);
+	res.json(status);
   } catch (error) {
     console.error('Video status error:', error); // Added log
     res.status(500).json({ success: false, error: error.message || 'Failed to get video status' });

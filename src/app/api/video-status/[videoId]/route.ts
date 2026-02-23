@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic';
 const RAW_RAILWAY_API_URL = (process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://taleo.media').trim();
 const RAILWAY_API_URL = RAW_RAILWAY_API_URL.replace(/\/$/, '');
 
+console.log('[video-status] RAILWAY_API_URL:', RAILWAY_API_URL);
+
 function toFrontendStatus(railwayStatus: string): 'generating' | 'ready' | 'failed' {
   if (railwayStatus === 'processing') return 'generating';
   if (railwayStatus === 'completed') return 'ready';
@@ -21,23 +23,34 @@ async function getRailwayVideoStatus(videoId: string) {
     throw new Error('Missing RAILWAY_API_URL environment variable');
   }
 
+  const statusUrl = `${RAILWAY_API_URL}/video-status/${videoId}`;
   console.log(`Checking Railway video status for ID: ${videoId}`);
+  console.log(`[DEBUG] Railway status URL: ${statusUrl}`);
   
-  const response = await fetch(`${RAILWAY_API_URL}/video-status/${videoId}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-      'Pragma': 'no-cache'
-    },
-  });
+  try {
+    const response = await fetch(statusUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+        'Pragma': 'no-cache'
+      },
+    });
 
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error('Video status not found');
+    console.log(`[DEBUG] Railway status response: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`[DEBUG] Railway returned 404 for video ${videoId}`);
+        throw new Error('Video status not found');
+      }
+      const errorText = await response.text();
+      console.error(`[DEBUG] Railway error response: ${errorText}`);
+      throw new Error(`Railway API error: ${response.status} - ${errorText}`);
     }
-    const errorText = await response.text();
-    throw new Error(`Railway API error: ${response.status} - ${errorText}`);
+  } catch (fetchError) {
+    console.error(`[DEBUG] Railway fetch error:`, fetchError);
+    throw fetchError;
   }
 
   const result = await response.json();
@@ -122,10 +135,14 @@ export async function GET(
           },
         });
       } catch (railwayError) {
-        console.error('Railway API error:', railwayError);
+        const errorMsg = railwayError instanceof Error ? railwayError.message : 'Unknown error';
+        console.error('Railway API error:', errorMsg);
+        console.error('[DEBUG] Full Railway error:', railwayError);
         // If Railway also fails, return not found
         return new Response(JSON.stringify({
-          error: 'Video status not found'
+          status: 'not_found',
+          error: 'Video status not found',
+          progress: 0
         }), {
           status: 404,
           headers: {
