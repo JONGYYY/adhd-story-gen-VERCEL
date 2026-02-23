@@ -1844,18 +1844,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     }
   }
 
-  // OPTIONAL: Apply speed multiplier to video and audio
-  // Priority: 1) User-selected speed from UI, 2) VIDEO_SPEED_MULTIPLIER env var, 3) Default 1.3x
-  // Valid range: 0.5 to 2.0 (lower = slower, higher = faster)
-  const envSpeedRaw = parseFloat(process.env.VIDEO_SPEED_MULTIPLIER || '1.3');
-  const envSpeed = (isFinite(envSpeedRaw) && envSpeedRaw >= 0.5 && envSpeedRaw <= 2.0) ? envSpeedRaw : 1.3;
-  
-  // Use requested speed from frontend if provided, otherwise fall back to env var
-  const userSpeed = requestedSpeed !== undefined && isFinite(requestedSpeed) && requestedSpeed >= 0.5 && requestedSpeed <= 2.0
-    ? requestedSpeed
-    : undefined;
-  
-  const speedMultiplier = userSpeed !== undefined ? userSpeed : envSpeed;
+  // Speed multiplier was already calculated earlier (line 1311) for text truncation
+  // Use the previously calculated value
+  const speedMultiplier = calculatedSpeedMultiplier;
   console.log(`[speed] Using speed: ${speedMultiplier}x (source: ${userSpeed !== undefined ? 'user-selected' : 'env-var/default'})`);
   
   const applySpeed = speedMultiplier !== 1.0;
