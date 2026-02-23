@@ -110,7 +110,10 @@ export async function POST(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET || 'dev-secret-change-in-production';
     
     if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // CLEANUP: Clear stuck "currentlyRunning" flags from runs that started >15 minutes ago
