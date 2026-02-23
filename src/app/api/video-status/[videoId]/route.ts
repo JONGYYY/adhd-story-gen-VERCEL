@@ -6,10 +6,13 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Railway API configuration
-const RAW_RAILWAY_API_URL = (process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://taleo.media').trim();
+// Prefer internal Railway networking if available (faster, more reliable)
+const RAILWAY_INTERNAL_URL = process.env.RAILWAY_INTERNAL_URL; // e.g., http://railway-backend.railway.internal:8080
+const RAW_RAILWAY_API_URL = (RAILWAY_INTERNAL_URL || process.env.RAILWAY_API_URL || process.env.NEXT_PUBLIC_RAILWAY_API_URL || 'https://taleo.media').trim();
 const RAILWAY_API_URL = RAW_RAILWAY_API_URL.replace(/\/$/, '');
 
 console.log('[video-status] RAILWAY_API_URL:', RAILWAY_API_URL);
+console.log('[video-status] Using internal networking:', !!RAILWAY_INTERNAL_URL);
 
 function toFrontendStatus(railwayStatus: string): 'generating' | 'ready' | 'failed' {
   if (railwayStatus === 'processing') return 'generating';
@@ -29,6 +32,10 @@ async function getRailwayVideoStatus(videoId: string) {
   
   let result;
   try {
+    // Add 10 second timeout to prevent infinite hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
     const response = await fetch(statusUrl, {
       method: 'GET',
       headers: {
@@ -36,7 +43,10 @@ async function getRailwayVideoStatus(videoId: string) {
         'Cache-Control': 'no-store',
         'Pragma': 'no-cache'
       },
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     console.log(`[DEBUG] Railway status response: ${response.status} ${response.statusText}`);
 
@@ -55,7 +65,14 @@ async function getRailwayVideoStatus(videoId: string) {
     console.log('[DEBUG] JSON parsed successfully, result type:', typeof result);
     console.log('[DEBUG] result keys:', result ? Object.keys(result) : 'null');
   } catch (fetchError) {
+    const isTimeout = fetchError instanceof Error && fetchError.name === 'AbortError';
     console.error(`[DEBUG] Railway fetch error:`, fetchError);
+    console.error(`[DEBUG] Is timeout: ${isTimeout}`);
+    console.error(`[DEBUG] Error name: ${fetchError instanceof Error ? fetchError.name : 'unknown'}`);
+    
+    if (isTimeout) {
+      throw new Error('Railway API request timed out after 10 seconds - service may be unreachable from UI container');
+    }
     throw fetchError;
   }
   
