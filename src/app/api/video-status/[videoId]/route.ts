@@ -71,15 +71,20 @@ async function getRailwayVideoStatus(videoId: string) {
     }
   }
 
-  // Transform to frontend format
-  return {
+  // Transform to frontend format - only include defined values to prevent serialization errors
+  const responseData: Record<string, any> = {
     status,
     progress,
-    error: result.error,
     videoUrl: status === 'ready' ? videoUrl : null,
-    title: result.title || undefined, // Include title for auto-fill
-    duration: result.duration || undefined, // Include duration for TikTok validation
   };
+  
+  // Only add optional fields if they exist (avoid undefined in JSON serialization)
+  if (result.error) responseData.error = result.error;
+  if (result.title) responseData.title = result.title;
+  if (result.duration) responseData.duration = result.duration;
+  if (result.message) responseData.message = result.message;
+  
+  return responseData;
 }
 
 export async function GET(
@@ -108,10 +113,9 @@ export async function GET(
       
       try {
         const railwayStatus = await getRailwayVideoStatus(params.videoId);
-        return new Response(JSON.stringify(railwayStatus), {
+        return NextResponse.json(railwayStatus, {
           status: 200,
           headers: {
-            'Content-Type': 'application/json',
             'Cache-Control': 'no-store',
             'Pragma': 'no-cache'
           },
@@ -119,12 +123,11 @@ export async function GET(
       } catch (railwayError) {
         console.error('Railway API error:', railwayError);
         // If Railway also fails, return not found
-        return new Response(JSON.stringify({
+        return NextResponse.json({
           error: 'Video status not found'
-        }), {
+        }, {
           status: 404,
           headers: {
-            'Content-Type': 'application/json',
             'Cache-Control': 'no-store',
             'Pragma': 'no-cache'
           },
@@ -134,17 +137,26 @@ export async function GET(
       // Return local status if found, merge with Firestore metadata
       console.log('Found local video status:', JSON.stringify(localStatus, null, 2));
       
-      const response = {
-        ...localStatus,
-        // Add Firestore metadata if available
-        title: localStatus.title || firestoreMetadata?.title,
-        duration: localStatus.duration || firestoreMetadata?.duration,
+      // Build response with only defined values
+      const response: Record<string, any> = {
+        status: localStatus.status,
+        progress: localStatus.progress || 0,
       };
       
-      return new Response(JSON.stringify(response), {
+      // Add optional fields only if they exist
+      if (localStatus.videoUrl) response.videoUrl = localStatus.videoUrl;
+      if (localStatus.error) response.error = localStatus.error;
+      if (localStatus.title || firestoreMetadata?.title) {
+        response.title = localStatus.title || firestoreMetadata.title;
+      }
+      if (localStatus.duration || firestoreMetadata?.duration) {
+        response.duration = localStatus.duration || firestoreMetadata.duration;
+      }
+      if (localStatus.message) response.message = localStatus.message;
+      
+      return NextResponse.json(response, {
         status: 200,
         headers: {
-          'Content-Type': 'application/json',
           'Cache-Control': 'no-store',
           'Pragma': 'no-cache'
         },
@@ -152,12 +164,11 @@ export async function GET(
     }
   } catch (error) {
     console.error('Failed to get video status:', error);
-    return new Response(JSON.stringify({
+    return NextResponse.json({
       error: 'Failed to get video status'
-    }), {
+    }, {
       status: 500,
       headers: {
-        'Content-Type': 'application/json',
         'Cache-Control': 'no-store',
         'Pragma': 'no-cache'
       },
