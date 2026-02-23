@@ -161,8 +161,8 @@ export async function POST(request: NextRequest) {
           const minutesAgo = Math.round((Date.now() - lastRunStartedAt) / 60000);
           console.log(`[Campaign Scheduler] Campaign "${data.name}" (${doc.id}): currentlyRunning=${data.currentlyRunning}, lastRunStartedAt=${new Date(lastRunStartedAt).toISOString()}, age=${minutesAgo}min, threshold=5min`);
           
-          // Filter in memory: only clear if stuck for >5 minutes
-          if (lastRunStartedAt && lastRunStartedAt < fiveMinutesAgo) {
+          // Filter in memory: only clear if stuck for >=5 minutes
+          if (lastRunStartedAt && lastRunStartedAt <= fiveMinutesAgo) {
             batch.update(doc.ref, { 
               currentlyRunning: false,
               lastRunStartedAt: null 
