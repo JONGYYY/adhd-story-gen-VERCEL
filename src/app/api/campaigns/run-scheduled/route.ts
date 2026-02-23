@@ -63,7 +63,14 @@ async function waitForVideosToComplete(
       
       try {
         // Include userId in query parameter for server-side calls
-        const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}?userId=${userId}`);
+        // Add timeout to prevent response.json() hang (Railway proxy bug)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}?userId=${userId}`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
         
         if (response.ok) {
           const data = await response.json();
@@ -81,7 +88,12 @@ async function waitForVideosToComplete(
           console.warn(`[Campaign Scheduler] Failed to fetch status for ${videoId}: ${response.status}`);
         }
       } catch (error) {
-        console.error(`[Campaign Scheduler] Error checking video ${videoId}:`, error);
+        const isTimeout = error instanceof Error && error.name === 'AbortError';
+        if (isTimeout) {
+          console.error(`[Campaign Scheduler] ⏱️ Timeout polling video ${videoId} - retrying...`);
+        } else {
+          console.error(`[Campaign Scheduler] Error checking video ${videoId}:`, error);
+        }
       }
     }
     

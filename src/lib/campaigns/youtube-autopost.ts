@@ -188,9 +188,15 @@ async function getVideoMetadata(
 } | null> {
   try {
     // Include userId as query parameter for server-side calls
+    // Add timeout to prevent response.json() hang (Railway proxy bug)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
     const response = await fetch(`${railwayApiUrl}/api/video-status/${videoId}?userId=${userId}`, {
       method: 'GET',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error(`Failed to get video status ${videoId}: ${response.status}`);
@@ -210,7 +216,12 @@ async function getVideoMetadata(
       description: data.description,
     };
   } catch (error) {
-    console.error(`Failed to fetch video status ${videoId}:`, error);
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    if (isTimeout) {
+      console.error(`[YouTube Auto-Post] ⏱️ Timeout fetching video ${videoId} metadata after 10s`);
+    } else {
+      console.error(`Failed to fetch video status ${videoId}:`, error);
+    }
     return null;
   }
 }

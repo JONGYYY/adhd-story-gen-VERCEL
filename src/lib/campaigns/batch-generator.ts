@@ -394,13 +394,19 @@ export async function generateBatchWithPolling(
         pollCount++;
 
         try {
+          // Add timeout to prevent response.json() hang (Railway proxy bug)
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+          
           const statusResponse = await fetch(
             `${railwayApiUrl}/api/video-status/${videoId}`,
             {
               method: 'GET',
               cache: 'no-cache',
+              signal: controller.signal,
             }
           );
+          clearTimeout(timeoutId);
 
           if (statusResponse.ok) {
             const statusData = await statusResponse.json();
@@ -418,6 +424,10 @@ export async function generateBatchWithPolling(
             }
           }
         } catch (pollError) {
+          const isTimeout = pollError instanceof Error && pollError.name === 'AbortError';
+          if (isTimeout) {
+            console.log(`[Batch Generator] ⏱️ Timeout polling video ${i + 1}, attempt ${pollCount}/${MAX_POLLS} - retrying...`);
+          }
           // Continue polling on transient errors
           if (pollCount > 10) {
             throw pollError;
