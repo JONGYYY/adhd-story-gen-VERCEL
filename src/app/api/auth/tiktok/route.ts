@@ -13,26 +13,32 @@ export async function GET(request: Request) {
     // Verify environment variables
     if (!process.env.TIKTOK_CLIENT_KEY) {
       console.error('TIKTOK_CLIENT_KEY is not set');
-      return NextResponse.json(
-        { error: 'TikTok client key is not configured' },
-        { status: 500 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'TikTok client key is not configured' 
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (!process.env.TIKTOK_CLIENT_SECRET) {
       console.error('TIKTOK_CLIENT_SECRET is not set');
-      return NextResponse.json(
-        { error: 'TikTok client secret is not configured' },
-        { status: 500 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'TikTok client secret is not configured' 
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (!process.env.NEXT_PUBLIC_APP_URL) {
       console.error('NEXT_PUBLIC_APP_URL is not set');
-      return NextResponse.json(
-        { error: 'App URL is not configured' },
-        { status: 500 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'App URL is not configured' 
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     console.log('Initializing TikTok API...');
@@ -90,12 +96,12 @@ export async function GET(request: Request) {
     return response;
   } catch (error) {
     console.error('Error initiating TikTok OAuth:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to initiate TikTok authentication',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ 
+      error: 'Failed to initiate TikTok authentication',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 } 

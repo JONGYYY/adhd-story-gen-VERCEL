@@ -11,18 +11,22 @@ export async function GET(request: Request) {
     // Verify environment variables
     if (!process.env.YOUTUBE_CLIENT_ID) {
       console.error('YOUTUBE_CLIENT_ID is not set');
-      return NextResponse.json(
-        { error: 'YouTube client ID is not configured' },
-        { status: 500 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'YouTube client ID is not configured' 
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (!process.env.YOUTUBE_CLIENT_SECRET) {
       console.error('YOUTUBE_CLIENT_SECRET is not set');
-      return NextResponse.json(
-        { error: 'YouTube client secret is not configured' },
-        { status: 500 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'YouTube client secret is not configured' 
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     console.log('Initializing YouTube API...');
@@ -44,12 +48,17 @@ export async function GET(request: Request) {
     }
     
     // Otherwise, return JSON (for API calls)
-    return NextResponse.json({ url: authUrl });
+    return new Response(JSON.stringify({ url: authUrl }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
     console.error('Error initiating YouTube OAuth:', error);
-    return NextResponse.json(
-      { error: 'Failed to initiate YouTube authentication' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ 
+      error: 'Failed to initiate YouTube authentication' 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 } 
