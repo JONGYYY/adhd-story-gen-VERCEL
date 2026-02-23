@@ -34,24 +34,33 @@ export async function GET(request: NextRequest) {
       error: video.error,
     }));
     
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: true,
       videos: formattedVideos,
       total: formattedVideos.length,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
     
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Authentication required' 
+      }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
     console.error('[library] Error fetching videos:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch videos' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: 'Failed to fetch videos' 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }

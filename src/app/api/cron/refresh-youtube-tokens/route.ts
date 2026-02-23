@@ -30,18 +30,20 @@ export async function POST(request: NextRequest) {
     
     if (!CRON_SECRET) {
       console.error('CRON_SECRET not configured');
-      return NextResponse.json(
-        { error: 'Cron secret not configured on server' },
-        { status: 500 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'Cron secret not configured on server' 
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (providedSecret !== CRON_SECRET) {
       console.warn('Unauthorized cron job attempt');
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     console.log('✅ Cron authentication verified');
@@ -61,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     if (youtubeCredsSnapshot.empty) {
       console.log('No YouTube credentials found');
-      return NextResponse.json({
+      return new Response(JSON.stringify({
         success: true,
         message: 'No users with YouTube connected',
         stats: {
@@ -70,6 +72,9 @@ export async function POST(request: NextRequest) {
           tokensRefreshed: 0,
           errors: 0,
         }
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
       });
     }
 
@@ -176,7 +181,7 @@ export async function POST(request: NextRequest) {
     console.log(`Tokens refreshed: ${tokensRefreshed}`);
     console.log(`Errors: ${errors}`);
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: true,
       message: `YouTube token refresh completed`,
       stats: {
@@ -187,16 +192,22 @@ export async function POST(request: NextRequest) {
         durationMs: duration,
       },
       results: refreshResults,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
     console.error('=== YouTube Token Refresh Cron Job Error ===');
     console.error('Error details:', error);
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 

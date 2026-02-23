@@ -29,36 +29,51 @@ export async function GET(
     // Verify authentication
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const decoded = await verifySessionCookie(sessionCookie);
     if (!decoded) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Get campaign
     const campaign = await getCampaign(params.id);
 
     if (!campaign) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      return new Response(JSON.stringify({ error: 'Campaign not found' }), { 
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Verify ownership
     if (campaign.userId !== decoded.uid) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { 
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: true,
       campaign,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Failed to fetch campaign:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch campaign' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to fetch campaign' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -73,24 +88,36 @@ export async function PATCH(
     // Verify authentication
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const decoded = await verifySessionCookie(sessionCookie);
     if (!decoded) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Get existing campaign
     const campaign = await getCampaign(params.id);
 
     if (!campaign) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      return new Response(JSON.stringify({ error: 'Campaign not found' }), { 
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Verify ownership
     if (campaign.userId !== decoded.uid) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { 
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Parse updates
@@ -98,47 +125,59 @@ export async function PATCH(
 
     // Validate arrays if provided
     if (updates.sources && updates.sources.length === 0) {
-      return NextResponse.json(
-        { error: 'At least one story source is required' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'At least one story source is required' 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Only require subreddits if not using Reddit URLs
     if (!updates.useRedditUrls && updates.subreddits && updates.subreddits.length === 0) {
-      return NextResponse.json(
-        { error: 'At least one subreddit is required' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'At least one subreddit is required' 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Require Reddit URLs if using Reddit URL mode
     if (updates.useRedditUrls && updates.redditUrls && updates.redditUrls.length === 0) {
-      return NextResponse.json(
-        { error: 'At least one Reddit URL is required' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'At least one Reddit URL is required' 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (updates.backgrounds && updates.backgrounds.length === 0) {
-      return NextResponse.json(
-        { error: 'At least one background is required' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'At least one background is required' 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (updates.voices && updates.voices.length === 0) {
-      return NextResponse.json(
-        { error: 'At least one voice is required' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'At least one voice is required' 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     if (updates.videosPerBatch !== undefined && (updates.videosPerBatch < 1 || updates.videosPerBatch > 20)) {
-      return NextResponse.json(
-        { error: 'Videos per batch must be between 1 and 20' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ 
+        error: 'Videos per batch must be between 1 and 20' 
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Recalculate next run time if scheduling changed
@@ -178,16 +217,19 @@ export async function PATCH(
     // Get updated campaign
     const updatedCampaign = await getCampaign(params.id);
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: true,
       campaign: updatedCampaign,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Failed to update campaign:', error);
-    return NextResponse.json(
-      { error: 'Failed to update campaign' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to update campaign' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -202,38 +244,53 @@ export async function DELETE(
     // Verify authentication
     const sessionCookie = request.cookies.get('session')?.value;
     if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Not authenticated' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const decoded = await verifySessionCookie(sessionCookie);
     if (!decoded) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Invalid session' }), { 
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Get campaign
     const campaign = await getCampaign(params.id);
 
     if (!campaign) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
+      return new Response(JSON.stringify({ error: 'Campaign not found' }), { 
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Verify ownership
     if (campaign.userId !== decoded.uid) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { 
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Delete campaign
     await deleteCampaign(params.id);
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: true,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     console.error('Failed to delete campaign:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete campaign' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to delete campaign' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
