@@ -42,27 +42,44 @@ async function getRailwayVideoStatus(videoId: string) {
 
   const result = await response.json();
   console.log('Railway video status:', JSON.stringify(result, null, 2));
+  console.log('[Video Status API] RAILWAY_API_URL:', RAILWAY_API_URL);
+  console.log('[Video Status API] result.videoUrl:', result.videoUrl);
+  console.log('[Video Status API] result.title:', result.title);
   
-  const status = toFrontendStatus(result.status);
-  const progress = typeof result.progress === 'number' ? result.progress : (result.status === 'completed' ? 100 : 0);
-  const videoUrl = result.videoUrl
+  let status = toFrontendStatus(result.status);
+  let progress = typeof result.progress === 'number' ? result.progress : (result.status === 'completed' ? 100 : 0);
+  // Accept absolute videoUrl or Railway-relative
+  let videoUrl = result.videoUrl
     ? (result.videoUrl.startsWith('http') ? result.videoUrl : `${RAILWAY_API_URL}${result.videoUrl}`)
     : null;
+  
+  console.log('[Video Status API] Constructed videoUrl:', videoUrl);
 
-  // Build response with NO undefined values (NextResponse.json() can't serialize undefined)
-  const responseData: Record<string, any> = {
+  // Guard: if status is ready but file not yet accessible (only for Railway-hosted paths), keep generating
+  if (status === 'ready' && videoUrl && videoUrl.startsWith(RAILWAY_API_URL)) {
+    try {
+      const head = await fetch(videoUrl, { method: 'HEAD', cache: 'no-store' });
+      if (!head.ok) {
+        console.warn('Video file not yet available, delaying ready state');
+        status = 'generating';
+        progress = Math.max(progress, 95);
+      }
+    } catch (e) {
+      console.warn('HEAD check failed, delaying ready state');
+      status = 'generating';
+      progress = Math.max(progress, 95);
+    }
+  }
+
+  // Transform to frontend format
+  return {
     status,
     progress,
+    error: result.error,
     videoUrl: status === 'ready' ? videoUrl : null,
+    title: result.title || undefined, // Include title for auto-fill
+    duration: result.duration || undefined, // Include duration for TikTok validation
   };
-  
-  // Only add optional fields if they exist
-  if (result.error) responseData.error = String(result.error);
-  if (result.title) responseData.title = String(result.title);
-  if (result.duration) responseData.duration = Number(result.duration);
-  if (result.message) responseData.message = String(result.message);
-  
-  return responseData;
 }
 
 export async function GET(
@@ -91,9 +108,10 @@ export async function GET(
       
       try {
         const railwayStatus = await getRailwayVideoStatus(params.videoId);
-        return NextResponse.json(railwayStatus, {
+        return new Response(JSON.stringify(railwayStatus), {
           status: 200,
           headers: {
+            'Content-Type': 'application/json',
             'Cache-Control': 'no-store',
             'Pragma': 'no-cache'
           },
@@ -101,11 +119,12 @@ export async function GET(
       } catch (railwayError) {
         console.error('Railway API error:', railwayError);
         // If Railway also fails, return not found
-        return NextResponse.json({
+        return new Response(JSON.stringify({
           error: 'Video status not found'
-        }, {
+        }), {
           status: 404,
           headers: {
+            'Content-Type': 'application/json',
             'Cache-Control': 'no-store',
             'Pragma': 'no-cache'
           },
@@ -115,25 +134,17 @@ export async function GET(
       // Return local status if found, merge with Firestore metadata
       console.log('Found local video status:', JSON.stringify(localStatus, null, 2));
       
-      // Build clean response with no undefined values
-      const responseData: Record<string, any> = {
-        status: localStatus.status,
-        progress: localStatus.progress,
-        videoUrl: localStatus.videoUrl,
+      const response = {
+        ...localStatus,
+        // Add Firestore metadata if available
+        title: localStatus.title || firestoreMetadata?.title,
+        duration: localStatus.duration || firestoreMetadata?.duration,
       };
       
-      // Add optional fields only if they exist
-      if (localStatus.error) responseData.error = localStatus.error;
-      if (localStatus.title || firestoreMetadata?.title) {
-        responseData.title = localStatus.title || firestoreMetadata?.title;
-      }
-      if (localStatus.duration || firestoreMetadata?.duration) {
-        responseData.duration = localStatus.duration || firestoreMetadata?.duration;
-      }
-      
-      return NextResponse.json(responseData, {
+      return new Response(JSON.stringify(response), {
         status: 200,
         headers: {
+          'Content-Type': 'application/json',
           'Cache-Control': 'no-store',
           'Pragma': 'no-cache'
         },
@@ -141,11 +152,12 @@ export async function GET(
     }
   } catch (error) {
     console.error('Failed to get video status:', error);
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       error: 'Failed to get video status'
-    }, {
+    }), {
       status: 500,
       headers: {
+        'Content-Type': 'application/json',
         'Cache-Control': 'no-store',
         'Pragma': 'no-cache'
       },

@@ -598,96 +598,6 @@ const VOICE_IDS = {
   rachel: '21m00Tcm4TlvDq8ikWAM'
 };
 
-/**
- * Estimate TTS audio duration from text (in seconds)
- * Based on research-backed TTS metrics:
- * - Average TTS speed: ~140 WPM (words per minute) - conservative estimate
- * - ~2.33 words per second
- * - Average English word: 4.7 chars + 1 space = 5.7 chars/word
- * - Therefore: ~13.3 characters per second
- * - Or: 0.075 seconds per character
- * 
- * This conservative estimate accounts for natural pauses, punctuation, and breathing.
- */
-function estimateTTSDuration(text) {
-  if (!text || text.length === 0) return 0;
-  
-  // Character-based estimation (more accurate for TTS than word counting)
-  // Research shows 13-15 characters per second for TTS
-  // We use 13.3 (conservative) to slightly overestimate and ensure we don't exceed maxDuration
-  const CHARS_PER_SECOND = 13.3;
-  
-  const charCount = text.trim().length;
-  const estimatedSeconds = charCount / CHARS_PER_SECOND;
-  
-  // Add small buffer for pauses at sentence boundaries (periods, commas, etc.)
-  const sentenceCount = (text.match(/[.!?]+/g) || []).length;
-  const pauseBuffer = sentenceCount * 0.3; // 300ms pause per sentence
-  
-  return estimatedSeconds + pauseBuffer;
-}
-
-/**
- * Truncate text to fit within target duration (in seconds)
- * Returns truncated text that will generate audio <= targetDuration
- * Truncates at sentence boundaries when possible for natural endings
- */
-function truncateTextForDuration(text, targetDuration) {
-  if (!text || targetDuration <= 0) return '';
-  
-  const fullDuration = estimateTTSDuration(text);
-  
-  // If text already fits, return as-is
-  if (fullDuration <= targetDuration) {
-    console.log(`[TTS Cost Saver] Text duration ${fullDuration.toFixed(1)}s fits within target ${targetDuration.toFixed(1)}s`);
-    return text;
-  }
-  
-  // Calculate target character count (conservative to ensure we don't exceed)
-  const CHARS_PER_SECOND = 13.3;
-  const targetChars = Math.floor(targetDuration * CHARS_PER_SECOND * 0.95); // 95% safety margin
-  
-  console.log(`[TTS Cost Saver] Original: ${text.length} chars (est. ${fullDuration.toFixed(1)}s)`);
-  console.log(`[TTS Cost Saver] Target: ${targetChars} chars for ${targetDuration.toFixed(1)}s duration`);
-  
-  if (text.length <= targetChars) {
-    return text;
-  }
-  
-  // Try to truncate at sentence boundary first (prefer natural endings)
-  const truncated = text.substring(0, targetChars);
-  const lastPeriod = truncated.lastIndexOf('.');
-  const lastExclamation = truncated.lastIndexOf('!');
-  const lastQuestion = truncated.lastIndexOf('?');
-  const lastSentenceEnd = Math.max(lastPeriod, lastExclamation, lastQuestion);
-  
-  let result;
-  // If we found a sentence boundary in the last 20% of target length, use it
-  if (lastSentenceEnd > targetChars * 0.8) {
-    result = truncated.substring(0, lastSentenceEnd + 1).trim();
-    console.log(`[TTS Cost Saver] ✂️ Truncated at sentence boundary`);
-  } else {
-    // Otherwise, truncate at word boundary
-    const lastSpace = truncated.lastIndexOf(' ');
-    if (lastSpace > targetChars * 0.9) {
-      result = truncated.substring(0, lastSpace).trim() + '...';
-      console.log(`[TTS Cost Saver] ✂️ Truncated at word boundary`);
-    } else {
-      result = truncated.trim() + '...';
-      console.log(`[TTS Cost Saver] ✂️ Hard truncated (no good boundary found)`);
-    }
-  }
-  
-  const savedChars = text.length - result.length;
-  const savedDuration = fullDuration - estimateTTSDuration(result);
-  const costSavingPercent = ((savedChars / text.length) * 100).toFixed(1);
-  
-  console.log(`[TTS Cost Saver] 💰 Final: ${result.length} chars (est. ${estimateTTSDuration(result).toFixed(1)}s)`);
-  console.log(`[TTS Cost Saver] 💰 SAVED: ${savedChars} chars / ${savedDuration.toFixed(1)}s (${costSavingPercent}% cost reduction)`);
-  
-  return result;
-}
-
 async function synthesizeVoiceEleven(text, voiceAlias) {
   if (!ELEVENLABS_API_KEY || !voiceAlias || !VOICE_IDS[voiceAlias]) {
     console.warn('TTS disabled or voice not found. Skipping.');
@@ -1151,10 +1061,6 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const tmpDir = path.join(__dirname, 'tmp');
   await fsp.mkdir(tmpDir, { recursive: true });
 
-  // Cache for S3 background listings (60 second TTL)
-  const s3ListCache = new Map();
-  const S3_CACHE_TTL = 60000; // 60 seconds
-
   // Resolve background from S3 (preferred) with category-specific behavior:
   // - minecraft/subway: pick ONE random video (no 6s chopping)
   // - worker/food: build a montage of ceil(totalDur/6) clips of up to 6 seconds each
@@ -1183,15 +1089,6 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     };
 
     const listMp4Keys = async (prefix) => {
-      // Check cache first
-      const cached = s3ListCache.get(prefix);
-      if (cached && Date.now() - cached.timestamp < S3_CACHE_TTL) {
-        console.log(`[bg-cache] Using cached S3 list for ${prefix} (${cached.keys.length} files)`);
-        return cached.keys;
-      }
-
-      console.log(`[bg-cache] Fetching S3 list for ${prefix}...`);
-      const startTime = Date.now();
       let token = undefined;
       const keys = [];
       for (;;) {
@@ -1203,11 +1100,6 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
         if (!resp.IsTruncated) break;
         token = resp.NextContinuationToken;
       }
-      const elapsed = Date.now() - startTime;
-      console.log(`[bg-cache] Fetched ${keys.length} files in ${elapsed}ms`);
-      
-      // Cache the result
-      s3ListCache.set(prefix, { keys, timestamp: Date.now() });
       return keys;
     };
 
@@ -1348,31 +1240,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   const openingText = title || '';
   // FIXED: Use full story text, don't split at [BREAK] since that functionality was removed
   // Remove any [BREAK] tags if present, but use the entire story
-  let storyText = (story || '').replace(/\[BREAK\]/g, ' ').trim();
-  
-  // COST OPTIMIZATION: For cliffhanger videos, truncate text BEFORE sending to TTS
-  // This saves ElevenLabs API costs (charged per character)
-  // Instead of generating full audio then trimming, we only generate what we need
-  if (isCliffhanger && maxDuration) {
-    // Estimate opening/title duration
-    const estimatedOpeningDuration = estimateTTSDuration(openingText);
-    console.log(`[TTS Cost Saver] Opening text estimated duration: ${estimatedOpeningDuration.toFixed(1)}s`);
-    
-    // Calculate available time for story (reserve 1s buffer for transitions)
-    const availableStoryDuration = Math.max(5, maxDuration - estimatedOpeningDuration - 1);
-    console.log(`[TTS Cost Saver] Max video duration: ${maxDuration}s`);
-    console.log(`[TTS Cost Saver] Available for story: ${availableStoryDuration.toFixed(1)}s`);
-    
-    // Truncate story text to fit within available duration
-    const originalStoryText = storyText;
-    storyText = truncateTextForDuration(storyText, availableStoryDuration);
-    
-    if (storyText.length < originalStoryText.length) {
-      console.log(`[TTS Cost Saver] ✅ Pre-truncated story text to save API costs`);
-      console.log(`[TTS Cost Saver] This prevents generating ${originalStoryText.length - storyText.length} chars of unused audio`);
-    }
-  }
-  
+  const storyText = (story || '').replace(/\[BREAK\]/g, ' ').trim();
   const openingBuf = await synthesizeVoiceEleven(openingText, voiceAlias).catch(() => null);
   const storyBuf = await synthesizeVoiceEleven(storyText, voiceAlias).catch(() => null);
 
@@ -2043,8 +1911,8 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
       const videoMap = applySpeed ? '[v_speed]' : '0:v';
       if (applySpeed) {
         fallbackArgs.push('-filter_complex', fallbackFilter, '-map', videoMap);
-    } else {
-      fallbackArgs.push('-map', '0:v');
+      } else {
+        fallbackArgs.push('-map', '0:v');
       }
     }
 
@@ -2067,9 +1935,7 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
 
 // Simple video generation function
 async function generateVideoSimple(options, videoId, userId) {
-  const genStartTime = Date.now();
-  console.log(`[TIMING] Video generation started for ID: ${videoId}`);
-  console.log(`Generating video for ID: ${videoId} with options:`, options);
+  console.log(`Generating video for ID: ${videoId} with options:`, options); // Added log
   videoStatus.set(videoId, { status: 'processing', progress: 0, message: 'Video generation started.' });
 
   await new Promise((r) => setTimeout(r, 300));
@@ -2080,9 +1946,6 @@ async function generateVideoSimple(options, videoId, userId) {
   videoStatus.set(videoId, { status: 'processing', progress: 75, message: 'Finalizing...' });
 
   try {
-    const ffmpegStartTime = Date.now();
-    console.log(`[TIMING] Starting FFmpeg build for ID: ${videoId}`);
-    
     // FFmpeg fallback path (no Remotion)
     const videoUrl = await buildVideoWithFfmpeg({
       title: options?.customStory?.title || '',
@@ -2096,9 +1959,6 @@ async function generateVideoSimple(options, videoId, userId) {
       maxDuration: options?.maxDuration
     }, videoId);
     
-    const ffmpegElapsed = Date.now() - ffmpegStartTime;
-    console.log(`[TIMING] FFmpeg build completed in ${ffmpegElapsed}ms for ID: ${videoId}`);
-    
     // Get title from videoStatus (preserve it from initial set)
     const currentStatus = videoStatus.get(videoId);
     const storyTitle = currentStatus?.title || options?.customStory?.title || 'Untitled Story';
@@ -2106,9 +1966,6 @@ async function generateVideoSimple(options, videoId, userId) {
     // Upload to R2 if configured
     let finalVideoUrl = videoUrl; // Default to local ephemeral URL
     if (userId && r2Config.enabled) {
-      const r2StartTime = Date.now();
-      console.log(`[TIMING] Starting R2 upload for ID: ${videoId}`);
-      
       videoStatus.set(videoId, { 
         status: 'processing', 
         progress: 90, 
@@ -2119,9 +1976,6 @@ async function generateVideoSimple(options, videoId, userId) {
       const videoPath = path.join(__dirname, 'public', 'videos', `${videoId}.mp4`);
       const r2Url = await uploadVideoToR2(videoPath, videoId, userId);
       
-      const r2Elapsed = Date.now() - r2StartTime;
-      console.log(`[TIMING] R2 upload completed in ${r2Elapsed}ms for ID: ${videoId}`);
-      
       if (r2Url) {
         finalVideoUrl = r2Url;
         console.log(`[r2] Video uploaded successfully: ${r2Url}`);
@@ -2131,7 +1985,6 @@ async function generateVideoSimple(options, videoId, userId) {
     }
     
     // Update in-memory status (backward compatibility)
-    console.log(`[status] Setting completed status for videoId: ${videoId}`);
     videoStatus.set(videoId, { 
       status: 'completed', 
       progress: 100, 
@@ -2139,7 +1992,6 @@ async function generateVideoSimple(options, videoId, userId) {
       videoUrl: finalVideoUrl,
       title: storyTitle
     });
-    console.log(`[status] Map size after set: ${videoStatus.size}, verify:`, videoStatus.has(videoId));
     
     // Update Firestore with completed status and video URL
     if (userId) {
@@ -2150,8 +2002,6 @@ async function generateVideoSimple(options, videoId, userId) {
       });
     }
     
-    const totalElapsed = Date.now() - genStartTime;
-    console.log(`[TIMING] ✅ Total generation time: ${totalElapsed}ms (${(totalElapsed/1000).toFixed(1)}s) for ID: ${videoId}`);
     console.log(`Video generation completed for ID: ${videoId}`);
   } catch (err) {
     console.error('Video build failed (FFmpeg fallback):', err);
@@ -2340,10 +2190,9 @@ async function generateVideoHandler(req, res) {
 			// Allow generation to continue for backward compatibility, but warn
 		}
 		
-	const { customStory, voice, background, isCliffhanger, maxDuration, videoId: clientVideoId } = req.body;
-	
-	// Use videoId from client if provided, otherwise generate one (for backward compatibility)
-	const videoId = clientVideoId || uuidv4();
+		const { customStory, voice, background, isCliffhanger, maxDuration } = req.body;
+		
+		const videoId = uuidv4();
 
 		// Set initial processing status so /video-status does not 404 (backward compatibility)
 		videoStatus.set(videoId, { 
@@ -2370,7 +2219,7 @@ async function generateVideoHandler(req, res) {
 
 		// Start video generation in the background (FFmpeg-only; Remotion disabled for production stability)
 		(async () => {
-			try {
+				try {
 					await generateVideoSimple({ customStory, voice, background, isCliffhanger, maxDuration }, videoId, userId);
 			} catch (e) {
 				console.error('FFmpeg generation failed:', e);
@@ -2438,14 +2287,11 @@ async function videoStatusHandler(req, res) {
     }
     
     // Fallback to in-memory status (backward compatibility for active processing)
-    console.log(`[status] Checking in-memory Map for videoId: ${videoId}, Map size: ${videoStatus.size}`);
     const status = videoStatus.get(videoId);
     if (!status) {
-      console.error(`[status] ❌ Status not found for videoId: ${videoId}`);
       return res.status(404).json({ success: false, error: 'Video status not found' });
     }
 
-    console.log(`[status] ✅ Found status for ${videoId}:`, status.status, status.progress);
     res.json(status);
   } catch (error) {
     console.error('Video status error:', error); // Added log
