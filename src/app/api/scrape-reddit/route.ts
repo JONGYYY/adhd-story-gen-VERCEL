@@ -482,10 +482,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      clearTimeout(timeout);
-
       // If all strategies failed
       if (!response) {
+        clearTimeout(timeout);
         console.error('[reddit-scraper] ❌ ALL 7 STRATEGIES FAILED');
         console.error('[reddit-scraper] Last error:', lastError);
         console.error('[reddit-scraper] URL attempted:', sanitizedUrl);
@@ -535,6 +534,7 @@ export async function POST(request: NextRequest) {
       // This should not happen as we already checked response.ok in strategies above
       // But keeping it for safety
       if (!response.ok) {
+        clearTimeout(timeout);
         console.error('[reddit-scraper] Unexpected error - response not ok:', response.status, response.statusText);
         return NextResponse.json({ 
           error: 'Failed to fetch Reddit post. Please try copying the story manually.'
@@ -543,7 +543,9 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // CRITICAL: Parse JSON BEFORE clearing timeout to protect response.json() from hanging
       const data = await response.json();
+      clearTimeout(timeout);
       console.log('[reddit-scraper] Received JSON response, parsing...');
 
       // Reddit JSON structure: data is an array with [post_data, comments_data]
@@ -599,7 +601,7 @@ export async function POST(request: NextRequest) {
       clearTimeout(timeout);
       
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.error('[reddit-scraper] Request timed out after 15 seconds');
+        console.error('[reddit-scraper] Request timed out after 30 seconds');
         return NextResponse.json({ 
           error: 'Reddit request timed out. Please try again.' 
         }, { 
