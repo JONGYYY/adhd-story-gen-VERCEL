@@ -1835,7 +1835,46 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
     filter += `;[${storyIdx}:a]aformat=sample_fmts=fltp:channel_layouts=stereo,aresample=44100,asetpts=PTS-STARTPTS${atempoFilter}[aout]`;
   }
 
-  // Apply single filter_complex and proper mapping
+  // CRITICAL VALIDATION: Ensure the current label actually exists as an OUTPUT in the filter graph
+  // This must happen BEFORE constructing args to prevent "Output with label 'X' does not exist" error
+  console.log('[ffmpeg] ===== PRE-VALIDATION =====');
+  console.log('[ffmpeg] Current label for output mapping:', current);
+  console.log('[ffmpeg] Filter graph length:', filter.length, 'characters');
+  
+  if (current !== 'bg') {
+    // Improved validation: Check if label exists as a filter OUTPUT (appears after a filter, before semicolon or end)
+    // Pattern: any_filter_name[output_label] where output_label is our current label
+    // This ensures the label is actually produced by a filter, not just referenced as input
+    const outputPattern = new RegExp(`[a-z_]+\\[${current}\\]`, 'g');
+    const outputMatches = (filter.match(outputPattern) || []).length;
+    console.log(`[ffmpeg] Validation: Label [${current}] appears as OUTPUT ${outputMatches} time(s) in filter graph`);
+    
+    if (outputMatches === 0) {
+      console.error(`[ffmpeg] ❌ CRITICAL ERROR: Output label [${current}] does not exist as a filter output!`);
+      console.error(`[ffmpeg] This indicates caption or speed filter was skipped. Finding last valid output label...`);
+      
+      // Fallback: find the last valid OUTPUT label in the filter graph (check in priority order)
+      if (filter.match(/[a-z_]+\[v_speed\]/)) {
+        current = 'v_speed';
+        console.log(`[ffmpeg] ✅ Falling back to label: ${current}`);
+      } else if (filter.match(/[a-z_]+\[v_cap\]/)) {
+        current = 'v_cap';
+        console.log(`[ffmpeg] ✅ Falling back to label: ${current}`);
+      } else if (filter.match(/[a-z_]+\[v_banner\]/)) {
+        current = 'v_banner';
+        console.log(`[ffmpeg] ✅ Falling back to label: ${current}`);
+      } else {
+        current = 'bg';
+        console.log(`[ffmpeg] ✅ Falling back to base label: ${current}`);
+      }
+      
+      console.log(`[ffmpeg] Final validated output label: ${current}`);
+    } else {
+      console.log(`[ffmpeg] ✅ Label validation passed - [${current}] exists as filter output`);
+    }
+  }
+
+  // Now construct args with validated label
   args.push(
     '-filter_complex', filter,
     '-map', `[${current}]`
@@ -1851,44 +1890,9 @@ async function buildVideoWithFfmpeg({ title, story, backgroundCategory, voiceAli
   );
 
   console.log('[ffmpeg] ===== ABOUT TO SPAWN FFMPEG =====');
-  console.log('[ffmpeg] Current label for output mapping:', current);
+  console.log('[ffmpeg] Final output label for mapping:', current);
   console.log('FFMPEG FILTER_COMPLEX =>', filter);
   console.log('FFMPEG ARGS =>', JSON.stringify(args));
-
-  // CRITICAL VALIDATION: Ensure the current label actually exists in the filter graph
-  // This prevents the "Output with label 'X' does not exist" error from ffmpeg
-  if (current !== 'bg') {
-    const labelPattern = new RegExp(`\\[${current}\\](?!:)`, 'g');
-    const matches = (filter.match(labelPattern) || []).length;
-    console.log(`[ffmpeg] Validation: Label [${current}] appears ${matches} time(s) in filter graph`);
-    
-    if (matches === 0) {
-      console.error(`[ffmpeg] ❌ CRITICAL ERROR: Output label [${current}] does not exist in filter graph!`);
-      console.error(`[ffmpeg] This indicates a bug in filter construction. Resetting to last known good label.`);
-      
-      // Fallback: find the last valid label in the filter graph
-      if (filter.includes('[v_speed]')) {
-        current = 'v_speed';
-        console.log(`[ffmpeg] Falling back to label: ${current}`);
-      } else if (filter.includes('[v_cap]')) {
-        current = 'v_cap';
-        console.log(`[ffmpeg] Falling back to label: ${current}`);
-      } else if (filter.includes('[v_banner]')) {
-        current = 'v_banner';
-        console.log(`[ffmpeg] Falling back to label: ${current}`);
-      } else {
-        current = 'bg';
-        console.log(`[ffmpeg] Falling back to base label: ${current}`);
-      }
-      
-      // Update the args array with the corrected label
-      const mapIndex = args.findIndex(arg => arg === '-map');
-      if (mapIndex >= 0 && args[mapIndex + 1]) {
-        args[mapIndex + 1] = `[${current}]`;
-        console.log(`[ffmpeg] Updated -map argument to: [${current}]`);
-      }
-    }
-  }
 
   try {
     console.log('[ffmpeg] Spawning ffmpeg process...');
